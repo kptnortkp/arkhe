@@ -255,11 +255,11 @@ try {
     h["strict-transport-security"] === "max-age=63072000; includeSubDomains" &&
       h["x-content-type-options"] === "nosniff" &&
       h["x-frame-options"] === "DENY" &&
-      h["referrer-policy"] === "no-referrer" &&
+      h["referrer-policy"] === "strict-origin-when-cross-origin" &&
       h["cross-origin-opener-policy"] === "same-origin" &&
       (h["permissions-policy"] ?? "").includes("camera=()") &&
       !("x-powered-by" in h),
-    "AC21 HSTS, nosniff, DENY, no-referrer, COOP, Permissions-Policy present; no X-Powered-By",
+    "AC21 HSTS, nosniff, DENY, strict-origin-when-cross-origin, COOP, Permissions-Policy present; no X-Powered-By",
   );
 
   // AC19 (logged out): /giris, and two requests get different nonces.

@@ -6,7 +6,7 @@ import { users } from "@/db/schema";
 import { findValidLink } from "@/lib/auth/set-password-links";
 import { SetPasswordForm } from "./set-password-form";
 
-export const metadata = { title: "Şifre belirle", referrer: "no-referrer" };
+export const metadata = { title: "Şifre belirle", referrer: "same-origin" };
 
 export default async function InvitePage({ params }: PageProps<"/davet/[token]">) {
   const { token } = await params;

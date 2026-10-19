@@ -8,7 +8,7 @@ import { requireUser } from "@/lib/auth/dal";
 import { STATUS_LABELS } from "@/lib/labels";
 import { formatDayMonth } from "@/lib/time";
 
-export const metadata = { title: "Yoklama", referrer: "no-referrer" };
+export const metadata = { title: "Yoklama", referrer: "same-origin" };
 
 /** Rendering never writes: link previews and prefetches hit this GET. The check-in runs client-side. */
 export default async function QrLandingPage({

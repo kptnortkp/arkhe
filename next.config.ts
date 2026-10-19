@@ -6,8 +6,8 @@ const isDev = process.env.NODE_ENV === "development";
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
-  // Invite links carry a token in the URL; never leak it via Referer.
-  { key: "Referrer-Policy", value: "no-referrer" },
+  // Never send paths (invite tokens) cross-origin; "no-referrer" makes Safari post Origin: null.
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   {
     key: "Permissions-Policy",
