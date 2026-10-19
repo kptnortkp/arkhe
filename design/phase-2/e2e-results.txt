@@ -1,0 +1,119 @@
+
+> arkhe@0.1.0 e2e
+> node --env-file-if-exists=.env e2e/run.mjs
+
+.env not found. Continuing without it.
+
+# phase1-auth.mjs
+PASS wrong password shows a generic error
+PASS email is kept after a failed login
+PASS member lands on home after login
+PASS member doesn't see Üyeler in nav
+PASS member is redirected away from /uyeler
+PASS board can't pick conductor in the UI
+PASS form keeps values after a validation error
+PASS server rejects a board member creating a conductor
+PASS invite link is created
+PASS password mismatch is rejected
+PASS invitee sets a password and is logged in
+PASS invite link is single-use
+PASS logout ends the session
+PASS next=//evil.example is not followed
+PASS member page HTML contains no password hash
+PASS next with an embedded tab stays on our origin
+PASS parallel guesses are still rate limited
+PASS login is rate limited after 5 failures
+
+# phase2-attendance.mjs
+PASS AC26 the seeded flagged member has the Uyarı badge
+PASS AC26 a member with only excused misses is not flagged
+PASS AC1 member sees a new rehearsal in the calendar
+PASS AC2 series preview reads 5 çalışma
+PASS AC2 submit button reads 5 çalışmayı ekle
+PASS AC2 exactly 5 occurrences are created
+PASS AC4 Seriyi bitir deletes later occurrences, including excused ones
+PASS AC15 member sees MAZERETİN İLETİLDİ with a withdraw button
+PASS AC15 manager sees the excuse reason before the rehearsal
+PASS AC3 cancelled rehearsal shows İptal edildi with no actions
+PASS AC3 un-cancelling restores the earlier excuse
+PASS AC16 withdrawing returns the member to unmarked
+PASS AC5 sectional is not the alto member's
+PASS AC5 a bass member sees the sectional as theirs
+PASS AC6 member is redirected away from /calismalar/yeni
+PASS AC6 member is redirected away from /raporlar
+PASS AC6 member is redirected away from /calismalar/c21664b2-ec1f-4619-86b8-ae04f8c5e99f/canli
+PASS AC6 poll route returns 403 for members
+PASS AC6 CSV route returns 403 for members
+PASS AC6 mark route returns 403 for members
+PASS AC7 live screen shows a 4-digit code
+PASS AC7 live screen shows the late cut-off
+PASS AC7 live screen shows a QR code
+PASS AC8 member home shows YOKLAMA AÇIK
+PASS AC8 member checks in with the code and sees YOKLAMAYA KATILDIN
+PASS AC8 manager screen shows the member as Geldi within 10 s
+PASS AC7 Sadece kod view shows the code and no member names
+PASS AC9 a wrong code writes nothing
+PASS AC9 after 5 wrong codes even the correct code is refused
+PASS AC11 QR login flow checks in with no extra tap
+PASS AC11 the URL no longer contains ?c=
+PASS AC11 a plain GET of the QR URL records nothing
+PASS AC12 check-in 20 min after start is recorded as Geç geldi
+PASS AC12 a repeat check-in changes nothing
+PASS AC13 check-in replaces the member's own excuse and clears the reason
+PASS AC13 a manager's Gelmedi mark wins over self check-in
+PASS AC18 manual mark Geldi is saved
+PASS AC18 manual mark Geç is saved
+PASS AC18 manual mark Mazeretli is saved
+PASS AC18 manual mark Gelmedi is saved
+PASS AC18 the mark survives a reload
+PASS AC18 İşareti kaldır clears the mark while open
+PASS AC19 bulk marks every unmarked alto
+PASS AC19 already marked altos stay unchanged
+PASS AC19 Geri al reverts exactly the bulk rows
+PASS AC20 close dialog shows the exact unmarked count
+PASS AC20 closing marks every unmarked expected member Gelmedi
+PASS AC14 QR URL shows Yoklama kapandı after close
+PASS AC14 Geldim is gone after close
+PASS AC21 a closed rehearsal can be corrected
+PASS AC21 the row shows Düzeltildi · <first name>
+PASS AC21 no İşareti kaldır after close
+PASS AC22 a past never-opened rehearsal shows Yoklama alınmadı
+PASS AC22 closing it counts the rest as Gelmedi
+PASS AC23 yesterday's open rehearsal auto-closes
+PASS AC23 its unmarked members become Gelmedi
+PASS AC24 offline banner and Kaydedilmedi are shown
+PASS AC7/AC24 the code keeps changing (also offline)
+PASS AC24 the offline mark saves after reconnecting
+PASS AC25 part tile for soprano
+PASS AC25 part tile for alto
+PASS AC25 part tile for tenor
+PASS AC25 part tile for bass
+PASS AC26 Sadece uyarılılar shows only flagged people
+PASS AC27 switching the term recalculates the table
+PASS AC27 overlapping terms are rejected
+PASS AC27 a new term appears in the selector
+PASS AC28 CSV starts with a UTF-8 BOM
+PASS AC28 CSV has the agreed header with ;
+PASS AC28 a name like =1+1 is exported as '=1+1
+PASS AC17 excuse reasons never reach the CSV
+PASS AC29 member's own percentage matches the report (%78 vs %78)
+PASS AC30 Partisyon is required for a Korist
+PASS AC30 someone who joined today is not expected at past rehearsals
+PASS AC31 board can't issue a link for itself or edit a board account
+PASS AC31 board can't give anyone the board or conductor role
+PASS AC32 no horizontal scroll on / (light)
+PASS AC32 no horizontal scroll on / (dark)
+PASS AC32 no horizontal scroll on /calismalar (light)
+PASS AC32 no horizontal scroll on /calismalar (dark)
+PASS AC32 no horizontal scroll on /raporlar (light)
+PASS AC32 no horizontal scroll on /raporlar (dark)
+PASS AC32 no horizontal scroll on /calismalar/8d9904e8-3c7b-4334-8a80-01399f562ded (light)
+PASS AC32 no horizontal scroll on /calismalar/8d9904e8-3c7b-4334-8a80-01399f562ded (dark)
+PASS AC32 no horizontal scroll on /calismalar/d87c4e7d-8e82-462b-9409-49f54823b590/canli (light)
+PASS AC32 no horizontal scroll on /calismalar/d87c4e7d-8e82-462b-9409-49f54823b590/canli (dark)
+PASS review: at 1024×768 the code panel doesn't overlap the roster
+PASS review: code-only view fits the tablet screen
+PASS review: roster names aren't truncated on a 375 px phone
+PASS review: 32 failed logins on other emails don't block the conductor
+
+108/108 passed

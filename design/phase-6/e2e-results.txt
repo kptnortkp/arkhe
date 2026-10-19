@@ -1,0 +1,653 @@
+# Phase 6 final runs (WP14), 2026-10-19
+
+Summary
+- npm run lint: clean
+- npm run typecheck: clean
+- npm run build: clean, no warnings; every HTML route dynamic (ƒ, 43 routes); static (○) only apple-icon.png, icon.svg, manifest.webmanifest
+- npm run e2e (dev, 127.0.0.1:3100): 513/513 passed, 0 CSP violations, 0 console errors
+  phase1-auth 18, phase2-attendance 91, phase3-repertoire 101, phase4-homework 112, phase5-finance 118,
+  phase6-a-brand 24, phase6-b-security 13, phase6-c-finance 27, phase6-z-guards 9
+- npm run e2e:prod (next build + next start on 127.0.0.1:3101, throwaway data/e2e-prod.db): 26/26 passed,
+  0 CSP violations, 0 console errors. Offline path used: setOffline (the server did not need to be stopped).
+  AC27 failing start on 3102 exited 1. After teardown: nothing listens on 3101/3102, no data/e2e-prod.db*, no temp Chrome profile left.
+
+## npm run build (route table)
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /api/calismalar/[id]/durum
+├ ƒ /api/calismalar/[id]/isaret
+├ ƒ /api/saglik
+├ ○ /apple-icon.png
+├ ƒ /calismalar
+├ ƒ /calismalar/[id]
+├ ƒ /calismalar/[id]/canli
+├ ƒ /calismalar/[id]/duzenle
+├ ƒ /calismalar/yeni
+├ ƒ /davet/[token]
+├ ƒ /finans
+├ ƒ /finans/[id]
+├ ƒ /finans/aidat
+├ ƒ /finans/aidat/csv
+├ ƒ /finans/aidat/donemler
+├ ƒ /finans/ayarlar
+├ ƒ /finans/etkinlikler
+├ ƒ /finans/etkinlikler/[id]
+├ ƒ /finans/hareketler
+├ ƒ /finans/rapor
+├ ƒ /finans/rapor/csv
+├ ƒ /finans/sponsorlar
+├ ƒ /finans/sponsorlar/[id]
+├ ƒ /finans/yeni
+├ ƒ /giris
+├ ○ /icon.svg
+├ ○ /manifest.webmanifest
+├ ƒ /odevler
+├ ƒ /odevler/[id]
+├ ƒ /odevler/[id]/duzenle
+├ ƒ /odevler/matris
+├ ƒ /odevler/yeni
+├ ƒ /profil
+├ ƒ /raporlar
+├ ƒ /raporlar/csv
+├ ƒ /repertuvar
+├ ƒ /repertuvar/[id]
+├ ƒ /repertuvar/[id]/duzenle
+├ ƒ /repertuvar/yeni
+├ ƒ /uyeler
+├ ƒ /uyeler/[id]
+├ ƒ /uyeler/yeni
+├ ƒ /yoklama
+└ ƒ /yoklama/kod/[id]
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+
+## npm run e2e
+
+> arkhe@0.1.0 e2e
+> node --env-file-if-exists=.env e2e/run.mjs
+
+.env not found. Continuing without it.
+
+# phase1-auth.mjs
+PASS wrong password shows a generic error
+PASS email is kept after a failed login
+PASS member lands on home after login
+PASS member doesn't see Üyeler in nav
+PASS member is redirected away from /uyeler
+PASS board can't pick conductor in the UI
+PASS form keeps values after a validation error
+PASS server rejects a board member creating a conductor
+PASS invite link is created
+PASS password mismatch is rejected
+PASS invitee sets a password and is logged in
+PASS invite link is single-use
+PASS logout ends the session
+PASS next=//evil.example is not followed
+PASS member page HTML contains no password hash
+PASS next with an embedded tab stays on our origin
+PASS parallel guesses are still rate limited
+PASS login is rate limited after 5 failures
+
+# phase2-attendance.mjs
+PASS AC26 the seeded flagged member has the Uyarı badge
+PASS AC26 a member with only excused misses is not flagged
+PASS AC1 member sees a new rehearsal in the calendar
+PASS AC2 series preview reads 5 çalışma
+PASS AC2 submit button reads 5 çalışmayı ekle
+PASS AC2 exactly 5 occurrences are created
+PASS AC4 Seriyi bitir deletes later occurrences, including excused ones
+PASS AC15 member sees MAZERETİN İLETİLDİ with a withdraw button
+PASS AC15 manager sees the excuse reason before the rehearsal
+PASS AC3 cancelled rehearsal shows İptal edildi with no actions
+PASS AC3 un-cancelling restores the earlier excuse
+PASS AC16 withdrawing returns the member to unmarked
+PASS AC5 sectional is not the alto member's
+PASS AC5 a bass member sees the sectional as theirs
+PASS AC6 member is redirected away from /calismalar/yeni
+PASS AC6 member is redirected away from /raporlar
+PASS AC6 member is redirected away from /calismalar/b8749351-a76f-40f4-9c76-476246aac210/canli
+PASS AC6 poll route returns 403 for members
+PASS AC6 CSV route returns 403 for members
+PASS AC6 mark route returns 403 for members
+PASS AC7 live screen shows a 4-digit code
+PASS AC7 live screen shows the late cut-off
+PASS AC7 live screen shows a QR code
+PASS AC8 member home shows YOKLAMA AÇIK
+PASS AC8 member checks in with the code and sees YOKLAMAYA KATILDIN
+PASS AC8 manager screen shows the member as Geldi within 10 s
+PASS AC7 Sadece kod view shows the code and no member names
+PASS AC9 a wrong code writes nothing
+PASS AC9 after 5 wrong codes even the correct code is refused
+PASS AC11 QR login flow checks in with no extra tap
+PASS AC11 the URL no longer contains ?c=
+PASS AC11 a plain GET of the QR URL records nothing
+PASS AC12 check-in 20 min after start is recorded as Geç geldi
+PASS AC12 a repeat check-in changes nothing
+PASS AC13 check-in replaces the member's own excuse and clears the reason
+PASS AC13 a manager's Gelmedi mark wins over self check-in
+PASS AC18 manual mark Geldi is saved
+PASS AC18 manual mark Geç is saved
+PASS AC18 manual mark Mazeretli is saved
+PASS AC18 manual mark Gelmedi is saved
+PASS AC18 the mark survives a reload
+PASS AC18 İşareti kaldır clears the mark while open
+PASS AC19 bulk marks every unmarked alto
+PASS AC19 already marked altos stay unchanged
+PASS AC19 Geri al reverts exactly the bulk rows
+PASS AC20 close dialog shows the exact unmarked count
+PASS AC20 closing marks every unmarked expected member Gelmedi
+PASS AC14 QR URL shows Yoklama kapandı after close
+PASS AC14 Geldim is gone after close
+PASS AC21 a closed rehearsal can be corrected
+PASS AC21 the row shows Düzeltildi · <first name>
+PASS AC21 no İşareti kaldır after close
+PASS AC22 a past never-opened rehearsal shows Yoklama alınmadı
+PASS AC22 closing it counts the rest as Gelmedi
+PASS AC23 yesterday's open rehearsal auto-closes
+PASS AC23 its unmarked members become Gelmedi
+PASS AC24 offline banner and Kaydedilmedi are shown
+PASS AC7/AC24 the code keeps changing (also offline)
+PASS AC24 the offline mark saves after reconnecting
+PASS AC25 part tile for soprano
+PASS AC25 part tile for alto
+PASS AC25 part tile for tenor
+PASS AC25 part tile for bass
+PASS AC26 Sadece uyarılılar shows only flagged people
+PASS AC27 switching the term recalculates the table
+PASS AC27 overlapping terms are rejected
+PASS AC27 a new term appears in the selector
+PASS AC28 CSV starts with a UTF-8 BOM
+PASS AC28 CSV has the agreed header with ;
+PASS AC28 a name like =1+1 is exported as '=1+1
+PASS AC17 excuse reasons never reach the CSV
+PASS AC29 member's own percentage matches the report (%70 vs %70)
+PASS AC30 Partisyon is required for a Korist
+PASS AC30 someone who joined today is not expected at past rehearsals
+PASS AC31 board can't issue a link for itself or edit a board account
+PASS AC31 board can't give anyone the board or conductor role
+PASS AC32 no horizontal scroll on / (light)
+PASS AC32 no horizontal scroll on / (dark)
+PASS AC32 no horizontal scroll on /calismalar (light)
+PASS AC32 no horizontal scroll on /calismalar (dark)
+PASS AC32 no horizontal scroll on /raporlar (light)
+PASS AC32 no horizontal scroll on /raporlar (dark)
+PASS AC32 no horizontal scroll on /calismalar/d4d9be20-13f1-4ad6-9d0d-e51aabffde36 (light)
+PASS AC32 no horizontal scroll on /calismalar/d4d9be20-13f1-4ad6-9d0d-e51aabffde36 (dark)
+PASS AC32 no horizontal scroll on /calismalar/a1202e7e-e441-4201-b0cf-c0242097febc/canli (light)
+PASS AC32 no horizontal scroll on /calismalar/a1202e7e-e441-4201-b0cf-c0242097febc/canli (dark)
+PASS review: at 1024×768 the code panel doesn't overlap the roster
+PASS review: at 1024×768 the live code is at least 96px (97.28px)
+PASS review: code-only view fits the tablet screen
+PASS review: roster names aren't truncated on a 375 px phone
+PASS review: 32 failed logins on other emails don't block the conductor
+
+# phase3-repertoire.mjs
+PASS AC1 default view lists the Çalışılıyor pieces
+PASS AC1 chips show their counts (Çalışılıyor3,Program3,Hazır2,Arşiv1,Tümü6)
+PASS AC1 Hazır lists the ready pieces
+PASS AC1 Arşiv lists the archived piece
+PASS AC1 Tümü lists every piece
+PASS AC9 Program view is in programme order
+PASS AC9 programme pieces are numbered 1..n
+PASS AC2 'gulum' finds Aman Gülüm
+PASS AC2 composer search finds Mozart
+PASS AC2 search finds archived pieces from the default view, with a status chip
+PASS AC2 search shows the all-statuses result line
+PASS AC2 no chip is current while searching
+PASS AC2 no match message
+PASS AC2 Aramayı temizle returns to the list
+PASS AC3 row shows language, voicing and duration 3:40
+PASS AC3 row shows composer and arranger
+PASS AC4 Partisyonum opens the alto file
+PASS AC4 Partisyonum opens in a new tab with noopener
+PASS AC5 falls back to the Tutti file
+PASS AC5 no part file gives a disabled 'Partisyon kaydı yok'
+PASS AC7 default filter shows alto + Tutti only
+PASS AC7 default chip is 'Benim partisyonum (Alto)'
+PASS AC7 Tümü shows every link
+PASS AC7 ?partisyon=bas shows bass + Tutti
+PASS AC7 a third active Bas chip appears
+PASS AC8 no iframe before Önizle
+PASS AC8 Drive preview src keeps the resourcekey
+PASS AC8 iframe has title and referrerpolicy, no sandbox
+PASS AC8 Drive fallback line shows under the preview
+PASS AC8 opening a second preview closes the first
+PASS AC8 YouTube preview uses youtube-nocookie
+PASS AC8 Kapat removes the iframe
+PASS AC8 YouTube start time is kept
+PASS AC8 Drive folder preview
+PASS AC10 member sees no Eser ekle
+PASS AC10 member sees no edit or menu controls
+PASS AC10 /repertuvar/yeni redirects members
+PASS AC10 edit page redirects members
+PASS AC19 home lists the learning pieces
+PASS AC19 home Partisyonum works
+PASS AC19 the sample-data pill is gone
+PASS AC20 CSP frame-src is Drive + youtube-nocookie only
+PASS AC5 soprano gets a chooser with Soprano 1 and Soprano 2
+PASS AC6 no Partisyonum without a voice part (list)
+PASS AC6 no Partisyonum on home
+PASS AC6 detail page has no part filter and shows every link
+PASS AC21 no horizontal scroll on / (light)
+PASS AC21 no horizontal scroll on / (dark)
+PASS AC21 no horizontal scroll on /repertuvar (light)
+PASS AC21 no horizontal scroll on /repertuvar (dark)
+PASS AC21 no horizontal scroll on /repertuvar?liste=program (light)
+PASS AC21 no horizontal scroll on /repertuvar?liste=program (dark)
+PASS AC21 no horizontal scroll on /repertuvar?liste=tumu (light)
+PASS AC21 no horizontal scroll on /repertuvar?liste=tumu (dark)
+PASS AC21 no horizontal scroll on /repertuvar/4a1b706b-1083-4328-9c64-93c44b12be71?partisyon=tumu (light)
+PASS AC21 no horizontal scroll on /repertuvar/4a1b706b-1083-4328-9c64-93c44b12be71?partisyon=tumu (dark)
+PASS AC21 no horizontal scroll on /repertuvar/62de893d-f720-4899-b831-bcb0567d2e7c (light)
+PASS AC21 no horizontal scroll on /repertuvar/62de893d-f720-4899-b831-bcb0567d2e7c (dark)
+PASS AC21 chips and part buttons are ≥ 44px (44,44,44,44,44,44,44,44)
+PASS AC11 empty title shows 'Eser adı gerekli.'
+PASS AC11 'abc' duration is rejected
+PASS AC11 create lands on the edit page's links with a toast
+PASS AC11 the new piece shows under its status with 4:05
+PASS AC11 '4.05' is saved as 4:05
+PASS AC13 a non-folder Drive klasörü is rejected
+PASS AC12 open?id= is stored as file/d/…/view
+PASS AC12 youtu.be is stored as watch?v=
+PASS AC13 'http://example.com/a' is rejected
+PASS AC13 'javascript:alert(1)' is rejected
+PASS AC13 'ftp://example.com/a' is rejected
+PASS AC13 'https://drive.google.com@evil.com/x' is rejected
+PASS AC13 a duplicate link is rejected
+PASS AC13 rejected links are not stored
+PASS AC15 an empty label shows the derived label
+PASS review: a 120-character label is saved
+PASS AC14 51 lines are refused
+PASS AC14 preview shows 5 valid rows and the invalid and duplicate rows
+PASS AC14 a duplicate of an existing link is flagged
+PASS AC14 guessed kinds and parts (part,part,part,score,video / soprano,alto,tenor,,)
+PASS AC14 exactly the 5 rows are saved in order with the edit applied
+PASS AC16 first up and last down are disabled
+PASS review: focus stays on the moved row's button after a link move
+PASS AC16 reorder persists after reload
+PASS AC16 delete removes the link after a confirm
+PASS AC17 Programa ekle appends to the end of the programme
+PASS review: focus stays on the moved programme row
+PASS AC17 programme reorder persists after reload
+PASS AC17 archiving a programme piece removes it from the programme
+PASS AC18 archived piece keeps its links
+PASS AC18 Arşivden çıkar puts it back under Hazır
+PASS AC17 Programı temizle empties the programme
+PASS AC9 members don't see the Program chip when it's empty
+PASS AC10 all 13 actions refuse a member
+PASS AC10 refused actions change no rows
+PASS AC18 delete is not on the detail page
+PASS AC18 delete removes the piece and its links
+PASS AC21 no horizontal scroll on /repertuvar/yeni (light)
+PASS AC21 no horizontal scroll on the edit page with bulk preview (light)
+PASS AC21 no horizontal scroll on /repertuvar/yeni (dark)
+PASS AC21 no horizontal scroll on the edit page with bulk preview (dark)
+PASS AC21 /uyeler chips are ≥ 44px
+
+# phase4-homework.mjs
+PASS AC15 D's per-part counts match the seed
+PASS AC15 13/22 teslim
+PASS AC15 manual mark shows 'şef işaretledi'
+PASS AC15 late and overdue states
+PASS AC15 Teslim etmeyenler lists the 9 missing
+PASS AC18 matrix columns are newest-left A, F, B, C, D, E
+PASS AC18 korist's cells (pending,none,pending,pending,missing,done)
+PASS AC22 the conductor sees the Ödevler card only
+PASS AC1 the conductor has no badge
+PASS AC22 a board singer sees both cards
+PASS AC1 yk's badge is 2
+PASS AC1 korist's badge is 4
+PASS AC22 korist's Ödevlerim shows D first with Teslim ettim and +3
+PASS AC1 yeni@ has no badge
+PASS AC1 Ödevler is in the 375 px tab bar with the badge
+PASS AC2 Güncel lists D, C, B, A and not E or F
+PASS AC2 bars read Ölçü 12–34 / Tüm eser
+PASS AC2 E is under Geçmiş
+PASS AC8 E shows Yeni not before opening
+PASS AC3 A green 5 gün (5 gün kaldı)
+PASS AC3 B amber 2 gün (2 gün kaldı)
+PASS AC3 C red 5 saat (5 saat kaldı)
+PASS AC3 D overdue (Gecikti · 2 gün)
+PASS AC3 badges carry an icon and the absolute date
+PASS AC4 mailto prefix, no '+'
+PASS AC4 subject and body (Arkhe ödev · Ave Verum Corpus · Ölçü 12–34 · Alto · Demo Korist)
+PASS AC4 Konuyu kopyala answers with a toast
+PASS AC4 the three steps are shown
+PASS AC5 Partisyonum opens the alto file
+PASS AC5 Esere git links to the piece with the part filter
+PASS AC8 E shows Şefin notu with author and date
+PASS AC8 no Geri al once a note exists
+PASS AC8 the dot is gone after opening
+PASS AC8 the undo action is refused when a note exists
+PASS AC9 F has no Teslim ettim and says it isn't my part
+PASS AC9 submitting F is refused
+PASS AC9 nothing is written for F
+PASS AC10 member sees no manager controls on /odevler
+PASS AC10 member sees no edit or roster on the detail page
+PASS AC10 /odevler/yeni redirects members
+PASS AC10 /odevler/00000000-0000-4000-8000-00000000000a/duzenle redirects members
+PASS AC10 /odevler/matris redirects members
+PASS AC10 another singer's note never reaches korist's HTML
+PASS AC10 every manager action refuses a member
+PASS AC10 refused actions change no rows
+PASS AC12 no email: a hint, no mailto, Teslim ettim still there
+PASS AC12 managers see the Ayarla banner
+PASS AC16 marking shows 'şef işaretledi' and raises the count
+PASS AC16 the singer sees Teslim edildi and who marked it
+PASS AC16 the singer can undo a manual mark
+PASS AC6 Teslim ettim → Teslim edildi · today, after reload (Teslim edildi · 19 Eki)
+PASS AC6 the badge drops to 3
+PASS AC6 Geri al restores green and 4
+PASS AC6 list submit moves B with a toast
+PASS AC6 the toast's Geri al moves B back
+PASS AC7 submitting D shows Geç teslim
+PASS AC7 the roster shows korist late and Alto 4/6
+PASS AC7 the matrix shows korist late on D
+PASS AC11 the late joiner sees D muted with the hint
+PASS AC11 not listed before submitting
+PASS AC11 after submitting he's listed as Sonradan katıldı and both numbers rise
+PASS AC17 korist sees Yeni not on A
+PASS AC17 Şefin notu shows and Geri al is gone
+PASS AC17 a board note is headed Geri bildirim
+PASS AC17 Notu sil removes it and Geri al returns
+PASS AC3 72h−10min is amber 3 gün (3 gün kaldı)
+PASS AC3 72h+10min is green 4 gün (4 gün kaldı)
+PASS AC3 +23h is red 23 saat (23 saat kaldı)
+PASS AC3 +30min is red <1 saat (1 saatten az kaldı)
+PASS AC1 more than 9 open homework reads 9+
+PASS AC13 Ödev ver preselects the piece
+PASS AC14 20–5 is rejected
+PASS AC14 a single bar is rejected
+PASS AC14 no part is rejected
+PASS AC14 no piece is rejected
+PASS AC14 a past date is rejected
+PASS AC14 a double submit creates one row
+PASS AC13 the detail shows bars, parts and the Istanbul due (22 Eki Per 21:00)
+PASS AC13 no Ödev ver on an archived piece
+PASS AC20 kayit@ is rejected
+PASS AC20 the mailto uses the new address
+PASS AC21 the piece page lists its open homework
+PASS AC21 nothing is deleted
+PASS AC19 a stale edit form is refused
+PASS AC19 korist's A is now Gecikti (Gecikti · 1 gün)
+PASS AC19 the delete confirm names the homework and the submission count
+PASS AC19 the homework is gone from the list
+PASS AC19 and from the matrix
+PASS AC23 no horizontal scroll on / (light)
+PASS AC23 no horizontal scroll on / (dark)
+PASS AC23 no horizontal scroll on /odevler (light)
+PASS AC23 no horizontal scroll on /odevler (dark)
+PASS AC23 no horizontal scroll on /odevler?liste=gecmis (light)
+PASS AC23 no horizontal scroll on /odevler?liste=gecmis (dark)
+PASS AC23 no horizontal scroll on /odevler/00000000-0000-4000-8000-00000000000b (light)
+PASS AC23 no horizontal scroll on /odevler/00000000-0000-4000-8000-00000000000b (dark)
+PASS AC23 no horizontal scroll on /odevler/00000000-0000-4000-8000-00000000000e (light)
+PASS AC23 no horizontal scroll on /odevler/00000000-0000-4000-8000-00000000000e (dark)
+PASS AC23 no horizontal scroll on / (light)
+PASS AC23 no horizontal scroll on / (dark)
+PASS AC23 no horizontal scroll on /odevler (light)
+PASS AC23 no horizontal scroll on /odevler (dark)
+PASS AC23 no horizontal scroll on /odevler/00000000-0000-4000-8000-00000000000d (light)
+PASS AC23 no horizontal scroll on /odevler/00000000-0000-4000-8000-00000000000d (dark)
+PASS AC23 no horizontal scroll on /odevler/matris (light)
+PASS AC23 no horizontal scroll on /odevler/matris (dark)
+PASS AC23 no horizontal scroll on /odevler/yeni (light)
+PASS AC23 no horizontal scroll on /odevler/yeni (dark)
+PASS AC23 no horizontal scroll on /odevler/00000000-0000-4000-8000-00000000000d/duzenle (light)
+PASS AC23 no horizontal scroll on /odevler/00000000-0000-4000-8000-00000000000d/duzenle (dark)
+PASS AC23 no horizontal scroll with the note sheet open
+PASS AC23 targets are ≥ 44px
+
+# phase5-finance.mjs
+PASS AC1 Finans is in the desktop sidebar
+PASS AC1 home Kasa card links to /finans on a phone
+PASS AC1 Finans is not in the 375px tab bar
+PASS AC1 /profil has Finans and Raporlar rows
+PASS AC1 the conductor reaches every /finans sub-route
+PASS AC2 balances match the seed (965000/2488725/3453725)
+PASS AC2 balances are formatted ₺1.234,56
+PASS AC2 this month's Gelir/Gider match
+PASS AC2 the last 10 entries are listed
+PASS AC2 the finance sub-nav chips
+PASS AC10 belgesiz lists costume and bank fee, not the venue, across all months
+PASS AC4 accepted amounts echo the parsed value
+PASS AC4 rejected amounts show the right message
+PASS AC4 an empty amount → Tutar gir. (server)
+PASS AC4 the server rejects 12,345 too
+PASS AC5 Aidat is not offered in the generic form
+PASS AC5 Sponsorluk without a sponsor → Sponsor seç.
+PASS AC5 a duplicate sponsor name (case/diacritics) is refused
+PASS AC5 posting category=dues to the generic form saves nothing
+PASS AC5 a bad document URL is refused
+PASS AC5 a date beyond today + 31 → Tarih çok ileride.
+PASS AC3 toast Kaydedildi.
+PASS AC3 Banka drops by exactly ₺1.250,50, Kasa unchanged
+PASS AC3 the detail shows Belgeyi aç with a Drive preview
+PASS AC21 the generic form remembers the last account (Kasa)
+PASS AC21 a new Virman defaults Kasa → Banka
+PASS AC6 same source and target → Kaynak ve hedef hesap aynı olamaz.
+PASS AC6 Virman moves ₺500 Kasa → Banka; Toplam and month totals unchanged
+PASS AC7 no delete control on an entry
+PASS AC7 voiding without a reason is refused
+PASS AC7 a 3-character reason is refused
+PASS AC7 toast Kayıt iptal edildi.
+PASS AC7 the detail shows who and why
+PASS AC7 the voided expense leaves the balance
+PASS AC7 gone from the default list
+PASS AC7 listed under İptal edilenler, struck through
+PASS AC7 the seeded voided catering is listed too
+PASS AC7 voiding twice → Bu kayıt zaten iptal edilmiş.
+PASS AC8 opening the Düzelt form and leaving changes nothing
+PASS AC8 toast Kayıt düzeltildi.
+PASS AC8 the new entry shows Bu kaydın yerine
+PASS AC8 the old entry is voided with Düzeltildi and links forward
+PASS AC8 Banka changes by exactly −₺2,25
+PASS AC8 correcting the voided entry again is refused
+PASS AC9 the edit sheet has no amount, date, account or category inputs
+PASS AC9 toast Kaydedildi.
+PASS AC9 description and document saved, Son düzenleme stamped
+PASS AC9 a stale revision is refused
+PASS AC11 Kış Konseri shows its lines and Kâr ₺4.200,00
+PASS AC11 Gider ekle prefills the event
+PASS AC11 a ₺5.000 expense turns it into Zarar −₺800,00 in red
+PASS AC11 deleting an event with entries is refused
+PASS AC12 Konserden oluştur lists Güz konseri, not the linked Kış Konseri
+PASS AC12 the form is prefilled with the concert's name and Istanbul date
+PASS AC12 one event per concert
+PASS AC13 Ekim 2026: korist Ödenmedi (Ödenmedi)
+PASS AC13 Barış Güneş Muaf
+PASS AC13 Deniz Aslan Muaf with the waiver reason
+PASS AC13 Eylül 2026: korist Gecikti · ₺200,00 kaldı, red
+PASS AC13 Borçlular shows 18 rows for Ekim 2026 (18)
+PASS AC16 toast Aidat oranı güncellendi.
+PASS AC16 paid periods keep the old rate (Ödendi / Gecikti · ₺200,00 kaldı / Ödenmedi)
+PASS AC16 korist's profile shows ₺150 for the open period, never the freeze reason or note
+PASS AC16 a waiver on a period with a payment is refused
+PASS Review: toast Muaf tutuldu.
+PASS Review: saving a waiver doesn't loop (1 refreshes)
+PASS Review: picking another period updates the amount and its echo
+PASS AC14 Toplam ₺500,00 (2 dönem)
+PASS AC14 toast Ödeme alındı
+PASS AC14 Sonraki borçlu is focused
+PASS AC14 two entries (₺200 + ₺300) sharing one payment group derived from clientId and member
+PASS AC14 both periods Ödendi
+PASS AC14 Kasa +₺500,00
+PASS AC14 the detail shows Aynı ödemede
+PASS AC14 entry ids derive from the clientId and member, so a replay maps onto the same rows
+PASS AC15 paying more than remaining is refused
+PASS AC15 nothing saved, Kasa unchanged
+PASS AC17 toast 2 dönem oluşturuldu.
+PASS AC17 Kasım 2026, Aralık 2026 created, due the 15th, ₺350 / ₺175
+PASS AC17 running it again → Bu aylar için dönem zaten var.
+PASS AC17 an overlapping period is refused
+PASS AC17 a period with payments can't be edited
+PASS AC17 deleting it is refused (trash disabled with the reason)
+PASS AC18 every Kapanış equals the next month's Devir
+PASS AC18 the seeded months match financeExpected
+PASS AC18 the last Kapanış equals Toplam
+PASS AC18 Kasa view: Virman −₺1.500,00 in M−1 and Kapanış = Devir + Gelir − Gider + Virman
+PASS AC19 text/csv attachment with a BOM
+PASS AC19 the header is exactly as decided
+PASS AC19 no voided rows; amounts like 3500,00; the transfer only in Virman/Açılış
+PASS AC19 Σ Gelir and Σ Gider equal the report (2085000/681275)
+PASS AC19 openings are present
+PASS AC19 a formula-looking cell is prefixed with '
+PASS AC19 an inverted range is caught inline
+PASS AC19 the dues CSV lists the roster without notes
+PASS AC20 toast Ödeme bilgisi güncellendi.
+PASS AC20 korist sees the new payment info
+PASS AC20 moving the opening after the first entries is refused
+PASS AC20 toast Açılış bakiyesi kaydedildi.
+PASS AC20 a new Kasa opening moves balance-cash by the difference
+PASS AC22 korist's home shows Aidatım with ₺500,00
+PASS AC22 Aidatım is the first content section on /profil
+PASS AC22 per-period statuses and owed amounts
+PASS AC22 Ödemelerim lists only korist's two payments (2)
+PASS AC22 Kopyala → Kopyalandı.
+PASS AC23 /finans and its sub-routes redirect a member away
+PASS AC23 both CSV routes return 403 (403,403)
+PASS AC23 no session → 307
+PASS AC23 every finance action refuses a member (19 tried)
+PASS AC23 refused actions change no rows
+PASS AC23 no other member's money data in korist's HTML ()
+PASS AC24 Ece (paid up) has no card and sees Borcun yok. Teşekkürler!
+PASS AC24 Barış sees Aidattan muafsın.
+PASS AC24 the conductor has no Aidatım section
+PASS AC24 yk (paid up) has the section with Borcun yok
+PASS AC25 no page-level horizontal scroll at 390px, light and dark
+PASS AC25 interactive targets are ≥ 44px
+PASS AC25 the payment sheet fits the phone
+
+# phase6-a-brand.mjs
+PASS AC2 /giris shows the lockup with currentColor (light)
+PASS AC2 the logo SVG has no <text> (light)
+PASS AC2 the mobile header shows the wordmark (light)
+PASS AC3 header wordmark is 90.6×20.0 px (18–20 tall, < 50 % wide) (light)
+PASS AC3 sidebar lockup at 1280 px is 176 px wide (≥ 160) (light)
+PASS AC2 /giris shows the lockup with currentColor (dark)
+PASS AC2 the logo SVG has no <text> (dark)
+PASS AC2 the mobile header shows the wordmark (dark)
+PASS AC3 header wordmark is 90.6×20.0 px (18–20 tall, < 50 % wide) (dark)
+PASS AC3 sidebar lockup at 1280 px is 176 px wide (≥ 160) (dark)
+PASS AC5 six standalone SVGs: 200, image/svg+xml, <title>, no <text>
+PASS AC9 manifest fields
+PASS AC9 maskable icon and the Yoklama / Ödevlerim shortcuts
+PASS AC8 the HTML links the manifest, favicon.ico, icon.svg and apple-icon
+PASS AC8 every icon is 200 with its declared PNG size; apple icon has no alpha 
+PASS AC7 icon.svg switches with prefers-color-scheme
+PASS AC10 manifest, icons, sw.js and offline.html are public 
+PASS AC13 sw.js is served no-store as JavaScript
+PASS AC16 offline.html has the title, heading and Tekrar dene → /
+PASS AC12 /profil shows Telefonuna ekle with the generic text directly above Aidatım (light)
+PASS AC12 /profil shows Telefonuna ekle with the generic text directly above Aidatım (dark)
+PASS AC12 an iPhone gets the Safari Paylaş text
+PASS AC12 a stored prompt shows Ana ekrana ekle (≥ 44 px); accepting shows Eklendi.
+PASS AC12 the card is not rendered in standalone display mode
+
+# phase6-b-security.mjs
+PASS AC19 /giris: script-src has a nonce and strict-dynamic, no unsafe-inline, all 21 <script> carry it
+PASS AC19 /giris: two requests get different nonces
+PASS AC19 /: script-src has a nonce and strict-dynamic, no unsafe-inline, all 24 <script> carry it
+PASS AC19 /: two requests get different nonces
+PASS AC19 /calismalar/<id>/canli: script-src has a nonce and strict-dynamic, no unsafe-inline, all 22 <script> carry it
+PASS AC19 /calismalar/<id>/canli: two requests get different nonces
+PASS AC20 no CSP violations on home, check-in, live screen, Drive preview, odevler, finans, profil (0)
+PASS AC23 a tampered arkhe_flash shows no toast and no error page
+PASS AC26 six spoofed X-Forwarded-For values still lock xff@e2e.test|? after 5 (email:xff@e2e.test=6, xff@e2e.test|?=6)
+PASS AC29 GET /api/saglik → 200 {"ok":true}, no-store, nothing else
+PASS AC39 db:backup writes under data/backups/ (data/backups/2026-10-19T13-29-57-923Z.sql)
+PASS AC39 the restored DB has 53/53 indexes and 7/7 migrations
+PASS AC39 db:check passes on the restored copy
+
+# phase6-c-finance.mjs
+PASS AC30 yk sets their own rate to İndirimli
+PASS AC30 the sheet shows Son değişiklik: Demo Yönetim · 19 Eki 2026
+PASS AC28 a waiver with bidi overrides is saved
+PASS AC28 the stored reason has no U+202E/U+202C ("E2E ters yazı izin")
+PASS AC30 the waiver shows its Son değişiklik line
+PASS AC30 korist sees no Son değişiklik on /finans (redirected) or /profil
+PASS AC30 the dues CSV has no Son değişiklik and no editor name
+PASS AC28 an opening dated 1999-12-31 is refused
+PASS AC31 changing the rate mid-payment freezes ₺300
+PASS AC31 the only payment is voided
+PASS AC31 voiding the only payment deletes the freeze
+PASS AC31 korist now owes the new rate ₺150,00 for Ekim 2026
+PASS AC31 re-paying at the new rate settles the period with ₺150
+PASS AC31 with a payment left, voiding the other keeps the ₺300 freeze (Ekim 2026Son ödeme 29 Eki · ₺300,00Kısmi · ₺200,00 kaldı)
+PASS AC32 both members' two-period payments are stored, each in its own group
+PASS AC32 Demo Korist's Aynı ödemede lists only their own periods
+PASS AC32 Kaan Özdemir's Aynı ödemede lists only their own periods
+PASS AC36 dues rows are titled by the member (Elif Yıldız)
+PASS AC36 axe finds no aria-prohibited-attr ()
+PASS AC36 a period with payments has a disabled trash with the reason
+PASS AC36 the bulk preview names the due month (Kasım 2026 · son ödeme 15 Kas—)
+PASS AC36 the selected account chip shows a check mark
+PASS AC36 the sticky save bar meets the tab bar (gap -0.7 px)
+PASS AC36 the overdue chip uses the absent-foreground token (light)
+PASS AC36 a paying member still sees Nasıl ödenir?
+PASS AC36 the overdue chip uses the absent-foreground token (dark)
+PASS AC36 a fully exempt member doesn't see Nasıl ödenir?
+
+# phase6-z-guards.mjs
+PASS AC25 seed.ts exits non-zero with NODE_ENV=production
+PASS AC25 seed.ts exits non-zero for a non-file DB
+PASS AC25 db:reset's guard refuses production, a remote DB and any file but data/arkhe.db
+PASS AC25 db:reset runs assert-local-db before anything else
+PASS AC25 e2e/lib.mjs refuses a non-file database
+PASS AC25 seedFinance and seedHomework reject under NODE_ENV=production
+PASS AC25 seedFinance and seedHomework reject a non-file client
+PASS AC25 nothing was written to the throwaway DB
+PASS AC25 data/arkhe.db is untouched (rows 24|45|1|6|20, mtime unchanged)
+
+513/513 passed
+
+## npm run e2e:prod
+
+> arkhe@0.1.0 e2e:prod
+> node e2e/prod.mjs
+
+# build
+# database
+PASS README step 4: create-admin prints an invite link on APP_URL
+# env check
+PASS AC27 APP_URL=http://example.org → exit 1, stderr names APP_URL
+# server
+PASS AC26 boot warning when TRUST_PROXY_HEADERS is unset
+PASS AC29 /api/saglik → {"ok":true}, no-store
+PASS README step 4: the invite sets a password and logs the admin in
+PASS AC24 korist@arkhe.local is refused with E-posta ya da şifre hatalı.
+PASS AC21 HSTS, nosniff, DENY, no-referrer, COOP, Permissions-Policy present; no X-Powered-By
+PASS AC19 /giris: every <script> carries the header nonce (16 scripts)
+PASS AC19/21 /giris: script-src has strict-dynamic, no unsafe-inline, no unsafe-eval
+PASS AC19 /giris again: every <script> carries the header nonce (16 scripts)
+PASS AC19/21 /giris again: script-src has strict-dynamic, no unsafe-inline, no unsafe-eval
+PASS AC19 two requests get different nonces
+PASS AC11 /giris is installable ([])
+PASS AC22 __Host-arkhe_session is Secure, HttpOnly, SameSite=Lax, Path=/, no Domain
+PASS AC11 / is installable ([])
+PASS AC19 /: every <script> carries the header nonce (18 scripts)
+PASS AC19/21 /: script-src has strict-dynamic, no unsafe-inline, no unsafe-eval
+PASS AC19 /calismalar/<id>/canli: every <script> carries the header nonce (19 scripts)
+PASS AC19/21 /calismalar/<id>/canli: script-src has strict-dynamic, no unsafe-inline, no unsafe-eval
+PASS AC22 the flash cookie is Secure and carries a key
+PASS AC13 the service worker controls the page
+PASS AC15 36 cached URLs, all allow-listed ()
+PASS AC20 no CSP violations on the walk ()
+# offline
+offline path: setOffline
+PASS AC16 offline /repertuvar shows Bağlantı yok + Tekrar dene, no horizontal scroll (light, setOffline)
+PASS AC16 offline /repertuvar shows Bağlantı yok + Tekrar dene, no horizontal scroll (dark, setOffline)
+PASS AC17 logged out + offline → the offline page, never a portal page (setOffline)
+
+26/26 passed
+
+## Final run after review fixes (2026-10-19, tech lead)
+- npm run lint: clean; npm run typecheck: clean
+- npm run e2e: 521/521 (first full run 520/521: known phase4 AC10 server-action-manifest flake during recompile; phase4 alone 112/112; full rerun clean)
+- npm run e2e:prod: 28/28 (includes next build); teardown clean (no 3101/3102 listeners, no data/e2e-prod.db*)

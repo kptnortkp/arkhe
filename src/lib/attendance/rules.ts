@@ -1,0 +1,13 @@
+export const CODE_STEP_SECONDS = 30;
+export const CODE_SCHEDULE_STEPS = 240; // two hours of codes for the live screen
+export const LATE_AFTER_MINUTES = 15;
+export const OPEN_BEFORE_MINUTES = 120;
+export const CHECKIN_MAX_WRONG = 5;
+export const CHECKIN_WINDOW_MS = 5 * 60_000;
+export const CHECKIN_MAX_WRONG_PER_DAY = 30;
+export const WARN_ABSENT = 2;
+export const WARN_OF_LAST = 4;
+export const WARN_BELOW_PERCENT = 70;
+export const WARN_MIN_COUNTED = 4;
+export const SERIES_MAX_WEEKS = 26;
+export const DEFAULT_DURATION_MINUTES = 150;

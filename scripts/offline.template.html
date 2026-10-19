@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="{{background}}" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="{{backgroundDark}}" media="(prefers-color-scheme: dark)" />
+    <title>Çevrimdışı · Arkhe</title>
+    <link rel="icon" href="/icons/icon-192.png" sizes="192x192" type="image/png" />
+    <style>
+      :root {
+        --bg: {{background}};
+        --fg: {{foreground}};
+        --muted: {{mutedForeground}};
+        --tile: {{stage}};
+        --tile-border: transparent;
+        --mark: {{stageForeground}};
+        --btn: {{primary}};
+        --btn-fg: {{primaryForeground}};
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: {{backgroundDark}};
+          --fg: {{foregroundDark}};
+          --muted: {{mutedForegroundDark}};
+          --tile: {{stageDark}};
+          --tile-border: rgb(255 255 255 / 9%);
+          --btn: {{primaryDark}};
+          --btn-fg: {{primaryForegroundDark}};
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+        background: var(--bg);
+        color: var(--fg);
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        text-align: center;
+      }
+      main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        max-width: 22rem;
+        margin: 0 auto;
+      }
+      .tile {
+        display: grid;
+        place-items: center;
+        width: 72px;
+        height: 72px;
+        border-radius: 18px;
+        border: 1px solid var(--tile-border);
+        background: var(--tile);
+        color: var(--mark);
+        margin-bottom: 24px;
+      }
+      .tile svg {
+        display: block;
+        height: 42px;
+        width: auto;
+      }
+      h1 {
+        margin: 0 0 12px;
+        font-size: 28px;
+        line-height: 1.2;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+      }
+      p {
+        margin: 0 0 32px;
+        font-size: 16px;
+        line-height: 1.5;
+        color: var(--muted);
+      }
+      .btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        max-width: 20rem;
+        min-height: 48px;
+        border-radius: 9999px;
+        background: var(--btn);
+        color: var(--btn-fg);
+        font-size: 16px;
+        font-weight: 500;
+        text-decoration: none;
+      }
+      .btn:focus-visible {
+        outline: 2px solid var(--btn);
+        outline-offset: 3px;
+      }
+      footer {
+        width: 100%;
+        max-width: 22rem;
+        margin: 24px auto 0;
+        font-size: 11px;
+        letter-spacing: 0.2em;
+        color: var(--muted);
+      }
+      .staff {
+        height: 17px;
+        margin-bottom: 12px;
+        background-image: repeating-linear-gradient(
+          to bottom,
+          color-mix(in srgb, var(--fg) 12%, transparent) 0 1px,
+          transparent 1px 4px
+        );
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="tile">
+        <svg viewBox="0 0 80 79" role="img" aria-label="Arkhe" fill="currentColor"><path d="{{monogram}}" /></svg>
+      </div>
+      <h1>Bağlantı yok</h1>
+      <p>
+        İnternete yeniden bağlanınca kaldığın yerden devam edebilirsin. Yoklama, ödev ve aidat
+        bilgileri yalnızca çevrimiçiyken görünür.
+      </p>
+      <a class="btn" href="/">Tekrar dene</a>
+    </main>
+    <footer>
+      <div class="staff" aria-hidden="true"></div>
+      ARKHE · MÜLKİYE ÇOKSESLİ KOROSU
+    </footer>
+  </body>
+</html>

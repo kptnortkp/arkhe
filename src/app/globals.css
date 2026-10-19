@@ -1,0 +1,278 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (@media (prefers-color-scheme: dark));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-heading: var(--font-display);
+  --color-soprano: var(--soprano);
+  --color-alto: var(--alto);
+  --color-tenor: var(--tenor);
+  --color-bass: var(--bass);
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+  --color-present: var(--present);
+  --color-present-ink: var(--present-ink);
+  --color-late: var(--late);
+  --color-late-ink: var(--late-ink);
+  --color-excused: var(--excused);
+  --color-excused-ink: var(--excused-ink);
+  --color-absent: var(--absent);
+  --color-absent-ink: var(--absent-ink);
+  --color-present-foreground: var(--present-foreground);
+  --color-excused-foreground: var(--excused-foreground);
+  --color-absent-foreground: var(--absent-foreground);
+  --color-plum: var(--plum);
+  --color-soprano-ink: var(--soprano-ink);
+  --color-alto-ink: var(--alto-ink);
+  --color-tenor-ink: var(--tenor-ink);
+  --color-bass-ink: var(--bass-ink);
+  --color-stage: var(--stage);
+  --color-brand-teal: var(--brand-teal);
+  --color-brand-butter: var(--brand-butter);
+  --color-stage-foreground: var(--stage-foreground);
+  --color-success: var(--success);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* Arkhe palette: warm score-paper surfaces, concert-hall indigo, stage-light gold. */
+:root {
+  --background: oklch(0.975 0.008 85);
+  --foreground: oklch(0.22 0.03 275);
+  --card: oklch(0.993 0.004 85);
+  --card-foreground: oklch(0.22 0.03 275);
+  --popover: oklch(0.993 0.004 85);
+  --popover-foreground: oklch(0.22 0.03 275);
+  --primary: oklch(0.33 0.09 285);
+  --primary-foreground: oklch(0.98 0.01 85);
+  --secondary: oklch(0.94 0.014 85);
+  --secondary-foreground: oklch(0.28 0.05 275);
+  --muted: oklch(0.945 0.012 85);
+  --muted-foreground: oklch(0.5 0.025 275);
+  --accent: oklch(0.93 0.03 80);
+  --accent-foreground: oklch(0.3 0.06 60);
+  --destructive: oklch(0.56 0.2 25);
+  --border: oklch(0.9 0.014 85);
+  --input: oklch(0.88 0.016 85);
+  --ring: oklch(0.55 0.12 275);
+  --gold: oklch(0.76 0.13 78);
+  --gold-foreground: oklch(0.22 0.03 275);
+  --present: oklch(0.53 0.13 155);
+  --present-ink: oklch(0.5 0.13 155);
+  --late: oklch(0.74 0.14 85);
+  --late-ink: oklch(0.48 0.1 75);
+  --excused: oklch(0.55 0.11 300);
+  --excused-ink: oklch(0.47 0.12 300);
+  --absent: oklch(0.56 0.2 25);
+  --absent-ink: oklch(0.5 0.19 25);
+  /* Text on solid status fills. */
+  --present-foreground: oklch(0.99 0 0);
+  --excused-foreground: oklch(0.99 0 0);
+  --absent-foreground: oklch(0.99 0 0);
+  --plum: oklch(0.3 0.07 344);
+  --staff-line: oklch(0.22 0.03 275 / 6%);
+  --soprano-ink: oklch(0.5 0.16 5);
+  --alto-ink: oklch(0.5 0.11 55);
+  --tenor-ink: oklch(0.47 0.09 195);
+  --bass-ink: oklch(0.45 0.14 250);
+  /* Brand gradient from the choir's Instagram posts; decorative only, never text on ivory. */
+  --brand-teal: oklch(0.76 0.09 211);
+  --brand-mint: oklch(0.78 0.067 189);
+  --brand-lime: oklch(0.84 0.082 127);
+  --brand-butter: oklch(0.91 0.08 97);
+  /* Hero surfaces stay concert-hall navy-violet in both themes. */
+  --stage: oklch(0.28 0.08 285);
+  --stage-foreground: oklch(0.97 0.012 85);
+  --success: oklch(0.58 0.13 155);
+  --soprano: oklch(0.62 0.16 5);
+  --alto: oklch(0.68 0.14 60);
+  --tenor: oklch(0.58 0.1 190);
+  --bass: oklch(0.52 0.14 250);
+  --chart-1: var(--soprano);
+  --chart-2: var(--alto);
+  --chart-3: var(--tenor);
+  --chart-4: var(--bass);
+  --chart-5: var(--gold);
+  --radius: 0.875rem;
+  --sidebar: oklch(0.955 0.012 85);
+  --sidebar-foreground: oklch(0.22 0.03 275);
+  --sidebar-primary: oklch(0.33 0.09 285);
+  --sidebar-primary-foreground: oklch(0.98 0.01 85);
+  --sidebar-accent: oklch(0.92 0.018 85);
+  --sidebar-accent-foreground: oklch(0.22 0.03 275);
+  --sidebar-border: oklch(0.9 0.014 85);
+  --sidebar-ring: oklch(0.55 0.12 275);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: oklch(0.16 0.03 288);
+    --foreground: oklch(0.95 0.01 85);
+    --card: oklch(0.2 0.035 288);
+    --card-foreground: oklch(0.95 0.01 85);
+    --popover: oklch(0.22 0.03 275);
+    --popover-foreground: oklch(0.95 0.01 85);
+    --primary: oklch(0.8 0.12 78);
+    --primary-foreground: oklch(0.2 0.03 275);
+    --secondary: oklch(0.26 0.03 275);
+    --secondary-foreground: oklch(0.92 0.01 85);
+    --muted: oklch(0.25 0.03 275);
+    --muted-foreground: oklch(0.7 0.02 275);
+    --accent: oklch(0.3 0.04 275);
+    --accent-foreground: oklch(0.92 0.05 80);
+    --destructive: oklch(0.68 0.18 25);
+    --border: oklch(1 0 0 / 9%);
+    --input: oklch(1 0 0 / 14%);
+    --ring: oklch(0.8 0.12 78);
+    --gold: oklch(0.8 0.12 78);
+    --gold-foreground: oklch(0.2 0.03 275);
+    --present: oklch(0.7 0.13 155);
+    --present-ink: oklch(0.86 0.09 155);
+    --late: oklch(0.78 0.13 85);
+    --late-ink: oklch(0.87 0.1 85);
+    --excused: oklch(0.72 0.1 300);
+    --excused-ink: oklch(0.85 0.07 300);
+    --absent: oklch(0.68 0.18 25);
+    --absent-ink: oklch(0.8 0.1 25);
+    --present-foreground: var(--background);
+    --excused-foreground: var(--background);
+    --absent-foreground: var(--background);
+    --plum: oklch(0.34 0.07 344);
+    --staff-line: oklch(0.95 0.01 85 / 6%);
+    --soprano-ink: oklch(0.84 0.09 5);
+    --alto-ink: oklch(0.86 0.1 70);
+    --tenor-ink: oklch(0.85 0.08 190);
+    --bass-ink: oklch(0.84 0.08 250);
+    --stage: oklch(0.22 0.065 288);
+    --stage-foreground: oklch(0.97 0.012 85);
+    --success: oklch(0.72 0.14 155);
+    --soprano: oklch(0.72 0.14 5);
+    --alto: oklch(0.78 0.13 65);
+    --tenor: oklch(0.72 0.1 190);
+    --bass: oklch(0.72 0.11 250);
+    --sidebar: oklch(0.19 0.028 275);
+    --sidebar-foreground: oklch(0.95 0.01 85);
+    --sidebar-primary: oklch(0.8 0.12 78);
+    --sidebar-primary-foreground: oklch(0.2 0.03 275);
+    --sidebar-accent: oklch(0.26 0.03 275);
+    --sidebar-accent-foreground: oklch(0.95 0.01 85);
+    --sidebar-border: oklch(1 0 0 / 9%);
+    --sidebar-ring: oklch(0.8 0.12 78);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  html {
+    @apply font-sans;
+    -webkit-tap-highlight-color: transparent;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-heading tracking-tight;
+  }
+}
+/* A single faint five-line stave near the bottom of hero surfaces: 1 px lines on a 4 px pitch, like a logo stroke. */
+.staff-lines {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--staff-line) 0 1px,
+    transparent 1px 4px
+  );
+  background-repeat: no-repeat;
+  background-size: 100% 17px;
+  background-position: 0 calc(100% - 28px);
+}
+
+.on-stage {
+  --staff-line: oklch(0.97 0.012 85 / 8%);
+}
+
+.bg-brand-gradient {
+  background-image: linear-gradient(
+    90deg,
+    var(--brand-teal),
+    var(--brand-mint) 35%,
+    var(--brand-lime) 70%,
+    var(--brand-butter)
+  );
+}
+
+.text-brand-gradient {
+  background-image: linear-gradient(
+    90deg,
+    var(--brand-teal),
+    var(--brand-lime) 60%,
+    var(--brand-butter)
+  );
+  background-clip: text;
+  color: transparent;
+}
+
+/* Darkens photos on stage surfaces so text on top keeps its contrast. */
+.stage-scrim {
+  background-image: linear-gradient(
+    to top,
+    color-mix(in oklch, var(--stage) 94%, transparent) 0%,
+    color-mix(in oklch, var(--stage) 78%, transparent) 55%,
+    color-mix(in oklch, var(--stage) 55%, transparent) 100%
+  );
+}
+
+@keyframes code-countdown {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}

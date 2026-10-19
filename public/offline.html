@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f9f6f1" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0d0b19" media="(prefers-color-scheme: dark)" />
+    <title>Çevrimdışı · Arkhe</title>
+    <link rel="icon" href="/icons/icon-192.png" sizes="192x192" type="image/png" />
+    <style>
+      :root {
+        --bg: #f9f6f1;
+        --fg: #161929;
+        --muted: #5f6272;
+        --tile: #26214e;
+        --tile-border: transparent;
+        --mark: #f9f5ec;
+        --btn: #322c61;
+        --btn-fg: #fbf8f1;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0d0b19;
+          --fg: #f1eee7;
+          --muted: #9a9eab;
+          --tile: #1a1436;
+          --tile-border: rgb(255 255 255 / 9%);
+          --btn: #e8b45e;
+          --btn-fg: #121524;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+        background: var(--bg);
+        color: var(--fg);
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        text-align: center;
+      }
+      main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        max-width: 22rem;
+        margin: 0 auto;
+      }
+      .tile {
+        display: grid;
+        place-items: center;
+        width: 72px;
+        height: 72px;
+        border-radius: 18px;
+        border: 1px solid var(--tile-border);
+        background: var(--tile);
+        color: var(--mark);
+        margin-bottom: 24px;
+      }
+      .tile svg {
+        display: block;
+        height: 42px;
+        width: auto;
+      }
+      h1 {
+        margin: 0 0 12px;
+        font-size: 28px;
+        line-height: 1.2;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+      }
+      p {
+        margin: 0 0 32px;
+        font-size: 16px;
+        line-height: 1.5;
+        color: var(--muted);
+      }
+      .btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        max-width: 20rem;
+        min-height: 48px;
+        border-radius: 9999px;
+        background: var(--btn);
+        color: var(--btn-fg);
+        font-size: 16px;
+        font-weight: 500;
+        text-decoration: none;
+      }
+      .btn:focus-visible {
+        outline: 2px solid var(--btn);
+        outline-offset: 3px;
+      }
+      footer {
+        width: 100%;
+        max-width: 22rem;
+        margin: 24px auto 0;
+        font-size: 11px;
+        letter-spacing: 0.2em;
+        color: var(--muted);
+      }
+      .staff {
+        height: 17px;
+        margin-bottom: 12px;
+        background-image: repeating-linear-gradient(
+          to bottom,
+          color-mix(in srgb, var(--fg) 12%, transparent) 0 1px,
+          transparent 1px 4px
+        );
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="tile">
+        <svg viewBox="0 0 80 79" role="img" aria-label="Arkhe" fill="currentColor"><path d="M47.1 0L50.5 0L20 79L16.6 79ZM42.95 0L46.35 0L15.85 79L12.45 79ZM38.8 0L42.2 0L11.7 79L8.3 79ZM34.65 0L38.05 0L7.55 79L4.15 79ZM0 79L30.5 0L33.9 0L3.4 79ZM50.87 1L79.5 79L75.9 79L49.02 5.77ZM75.16 79L71.56 79L46.8 11.53L48.64 6.76ZM70.82 79L67.22 79L44.57 17.3L46.42 12.52ZM66.48 79L62.88 79L42.35 23.06L44.19 18.29ZM32.05 47.8L50.68 47.8L51.92 51.18L30.74 51.18ZM52.18 51.88L53.42 55.25L29.17 55.25L30.47 51.88ZM53.68 55.95L54.91 59.33L27.6 59.33L28.9 55.95ZM55.17 60.03L56.41 63.4L26.02 63.4L27.33 60.03Z" /></svg>
+      </div>
+      <h1>Bağlantı yok</h1>
+      <p>
+        İnternete yeniden bağlanınca kaldığın yerden devam edebilirsin. Yoklama, ödev ve aidat
+        bilgileri yalnızca çevrimiçiyken görünür.
+      </p>
+      <a class="btn" href="/">Tekrar dene</a>
+    </main>
+    <footer>
+      <div class="staff" aria-hidden="true"></div>
+      ARKHE · MÜLKİYE ÇOKSESLİ KOROSU
+    </footer>
+  </body>
+</html>
