@@ -21,6 +21,8 @@ Demo logins (local only; refused by a production build): `sef@arkhe.local`, `yk@
 | `npm run db:backup`                                  | Plain-SQL dump to `data/backups/<UTC timestamp>.sql`.                                               |
 | `npm run db:check`                                   | Foreign keys, orphans, `migrations=N/N`, `quick_check` (file DBs), no demo accounts (remote DBs).   |
 | `npm run create-admin -- "Ad Soyad" email`           | Creates or promotes a conductor and prints a one-time password link (24 h).                         |
+| `npm run db:decrypt -- <file.sql.gz.enc>`            | Decrypts a monthly backup attachment to `data/backups/<name>.sql` (prompts for the passphrase).     |
+| `npm run db:restore -- <file.sql> <target.db>`       | Restores a plain-SQL dump into a new local SQLite file; refuses to overwrite anything.              |
 
 Environment variables: see `.env.example`.
 
@@ -115,6 +117,64 @@ Same build as the production smoke test (`next build` + `next start`), Turso unc
 - Steps 1–4 and 6–9 above are the same; in step 9, "Promote" becomes Render's "Rollback" to a previous deploy. A Render rollback also reuses that deploy's old environment: after a database switch, change the variables and use **Manual Deploy** instead.
 - If an env variable is wrong, the deploy fails to start; Render → the service → Logs shows `Invalid environment:` and the variables.
 - Recheck Render's free-plan terms before go-live.
+
+---
+
+## Aylık yedek e-postası
+
+On the 1st of every month (Vercel Cron, daily at 05:00 UTC = 08:00–09:00 Istanbul) the portal emails the previous Istanbul month's reports and an encrypted copy of the whole database to the 1–5 addresses the conductor saves on `/yedek`:
+
+- `arkhe-devam-YYYY-MM.csv`, `arkhe-odev-YYYY-MM.csv`, `arkhe-finans-YYYY-MM.csv`, `arkhe-aidat-YYYY-MM.csv`: plain CSVs (names, attendance, homework and dues; no emails or phones).
+- `arkhe-yedek-YYYY-MM-DD-HHmm.sql.gz.enc`: the same dump as `db:backup`, gzipped and encrypted with AES-256-GCM; the key comes from scrypt over `BACKUP_PASSPHRASE`.
+
+The cron runs every day; it sends only while the previous month has no successful send, so a failed 1st retries itself the next morning. A month that is still unsent when the next month starts is abandoned; its CSVs can still be exported from `/raporlar` and `/finans/rapor`. In dev (`npm run dev`) nothing is sent: every email is written to `data/outbox/*.eml`.
+
+### Setup (once, by the deployer)
+
+1. **Gmail.** Create (or reuse) a choir Gmail account. Turn on 2-Step Verification, then Google Account → Security → App passwords → create one named `Arkhe Portal`. Changing the Google password revokes it.
+2. **Passphrase.** Generate one of at least 16 characters: `openssl rand -base64 24`.
+3. **Store the passphrase outside Vercel, in two places** (for example the conductor's password manager and a sealed paper copy with the board president). Without it every backup is useless. If it is lost, the live data is unaffected: set a new one, redeploy and press `Şimdi gönder`. Rotating it doesn't re-encrypt old backups, so keep the old one with its date.
+4. **Cron secret.** `openssl rand -hex 32`. Production refuses anything shorter than 32 characters and the dev value.
+5. **Vercel → Settings → Environment Variables, Production only, typed by hand** (never paste them into chat, a file or a commit), then redeploy:
+   - `SMTP_USER` = the choir Gmail address
+   - `SMTP_PASS` = the App Password (spaces are ignored)
+   - `SMTP_FROM` (optional) = e.g. `"Arkhe Korosu" <koro@gmail.com>`; default `"Arkhe Portal" <SMTP_USER>`
+   - `BACKUP_PASSPHRASE` = the passphrase from step 2
+   - `CRON_SECRET` = the value from step 4 (Vercel sends it as `Authorization: Bearer …`)
+6. **First send.** As the conductor, open `/yedek`, save the recipients and press `Şimdi gönder`. Check that the email arrives (look in spam once and mark it "not spam") and that Kurulum shows four `Tamam`.
+7. **Restore drill on that first email** (below), then delete the local copies.
+
+The portal starts without any of these variables; a missing one only fails the send, shows `Eksik` under Kurulum and logs one boot warning with the variable names.
+
+### Decrypt and restore (laptop)
+
+Save the `.sql.gz.enc` attachment, then:
+
+```bash
+npm run db:decrypt -- ~/Downloads/arkhe-yedek-2026-11-01-0802.sql.gz.enc   # prompts "Backup passphrase:"
+npm run db:restore -- data/backups/arkhe-yedek-2026-11-01-0802.sql data/restore-drill.db
+DATABASE_URL=file:$PWD/data/restore-drill.db npm run db:check                  # migrations=N/N
+rm -f data/restore-drill.db data/restore-drill.db-wal data/restore-drill.db-shm data/backups/arkhe-yedek-*.sql
+```
+
+- Neither script reads `.env` or `.env.development`. The passphrase comes from a `BACKUP_PASSPHRASE` set in your shell, or from the prompt (no echo).
+- A wrong passphrase or a damaged file prints `Wrong passphrase or damaged file.` and writes nothing. The decrypted `.sql` is written with owner-only permissions and holds password hashes and member data: delete it after use.
+- An older backup restored next to newer code shows `migrations missing` in `db:check`; run `DATABASE_URL=file:<target> npx drizzle-kit migrate` on the restored file.
+- **Real incident:** decrypt, then follow "Restore to Turso" above with the `.sql` file.
+
+### Notes
+
+- **Turso's free point-in-time restore reaches back 1 day only.** For anything noticed later, the monthly email is the backup.
+- Vercel Hobby cron fires once a day somewhere between 08:00 and 09:00 Istanbul and runs only on the production deployment. Gmail's daily sending limit (~500) is far above our use.
+- The CSVs are not encrypted. Add only board members' addresses; every recipient change emails the old and the new list.
+
+### Gmail girişi reddedilirse
+
+The run log on `/yedek` shows `Gmail girişi reddedildi. Uygulama şifresini kontrol et.`
+
+1. Sign in to the choir Gmail in a browser, open Security → Recent security activity and confirm the sign-in ("Yes, it was me"). Press `Şimdi gönder` again.
+2. Revoke the App Password, create a new one, update `SMTP_PASS` in Vercel and redeploy.
+3. Only then, a free fallback provider with no code change: set `SMTP_HOST` and `SMTP_PORT` (465 uses TLS, any other port STARTTLS) and that provider's `SMTP_USER`/`SMTP_PASS`. Options: **Brevo's free plan** (`smtp-relay.brevo.com`, port `587`) or a free **Yandex** mailbox with an app password (`smtp.yandex.com`, port `465`). The provider then carries the plain CSVs and the encrypted backup, so the board should agree first. Free plan only, never enter a card; check the provider's current free terms at setup time.
 
 ---
 

@@ -161,3 +161,11 @@ export const DUES_RATE_LABELS: Record<DuesRate, string> = {
   reduced: "İndirimli",
   exempt: "Muaf",
 };
+
+/** Shared by the homework matrix and the monthly homework CSV. */
+export const HOMEWORK_STATE_LABELS: Record<"done" | "late" | "missing" | "pending", string> = {
+  done: "Zamanında",
+  late: "Geç",
+  missing: "Gecikti",
+  pending: "Bekleniyor",
+};

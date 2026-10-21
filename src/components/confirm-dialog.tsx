@@ -1,8 +1,8 @@
 "use client";
 
+import type { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog";
 import {
   AlertDialog,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -17,7 +17,7 @@ export type ConfirmAction = {
   variant?: "destructive" | "outline" | "default";
 };
 
-/** Destructive confirms; Cancel comes first so it gets focus. */
+/** Confirm before an action; Cancel comes first so it gets focus, and the dialog can't close while pending. */
 export function ConfirmDialog({
   open,
   onOpenChange,
@@ -25,6 +25,7 @@ export function ConfirmDialog({
   description,
   actions,
   pending,
+  finalFocus,
   children,
 }: {
   open: boolean;
@@ -33,25 +34,43 @@ export function ConfirmDialog({
   description: string;
   actions: ConfirmAction[];
   pending?: boolean;
+  /** Where focus goes on close when the trigger can't take it (e.g. it is disabled afterwards). */
+  finalFocus?: AlertDialogPrimitive.Popup.Props["finalFocus"];
   /** Extra content between the description and the buttons, e.g. a reason field. */
   children?: React.ReactNode;
 }) {
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="sm:max-w-md">
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!pending) onOpenChange(next);
+      }}
+    >
+      <AlertDialogContent className="sm:max-w-md" finalFocus={finalFocus}>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         {children}
         <AlertDialogFooter>
-          <AlertDialogCancel className="h-11 px-4">Vazgeç</AlertDialogCancel>
-          {actions.map((a) => (
+          {/* A plain button, not Close: Close can't stay focusable while disabled. */}
+          <Button
+            variant="outline"
+            className="h-11 px-4 aria-disabled:opacity-50"
+            disabled={pending}
+            focusableWhenDisabled
+            onClick={() => onOpenChange(false)}
+          >
+            Vazgeç
+          </Button>
+          {actions.map((a, i) => (
             <Button
-              key={a.label}
+              // Index key: the pending label must not remount the focused button.
+              key={i}
               variant={a.variant ?? "destructive"}
-              className="h-11 px-4"
+              className="h-11 px-4 aria-disabled:opacity-50"
               disabled={pending}
+              focusableWhenDisabled
               onClick={a.run}
             >
               {a.label}

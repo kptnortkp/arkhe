@@ -1,6 +1,6 @@
 # Status (tech lead)
 
-Updated: 2026-10-19.
+Updated: 2026-10-21.
 
 ## Done
 - Phase 0–1: scaffold, brand refresh (vector ARKHE logo, Jost, navy-violet), auth, members, profile. Team review done, P1s fixed.
@@ -16,12 +16,15 @@ Updated: 2026-10-19.
 
 - Phase 6 (final): real ARKHE logo drawn from `brand/images.jpeg` (lockup/wordmark/monogram, IoU 0.951), generated icons, installable PWA (manifest, hand-written `sw.js`, Turkish offline page, `Telefonuna ekle` card), security pass (nonce CSP, headers, `__Host-` cookies, flash keys, demo accounts refused in production, fixture guards, fail-fast env, input hygiene, `/api/saglik`), `Son değişiklik` audit line, Phase 5 finance carry-forward, restorable `db:backup`/`db:check`, README deploy checklist (Vercel Hobby + Turso, Render fallback). Migration `0006_phase6_payment_group`. Team review: 0 P1, 12 P2, all fixed. `npm run e2e` **521/521**, `npm run e2e:prod` **28/28**, lint/typecheck/build clean. **ACCEPTED as deploy-ready** (`design/phase-6/review-po.md`). AC 26 (per-email-only login limit without a trusted IP) and AC 3 (sidebar wordmark at 1× DPR) amended there; `Tekrar dene` stays `/`.
 
-## Next steps (in order)
-1. **AC 43: final presentation** of Phases 0–6 (extend the 18-slide deck; Turkish, real logo, stage colours, staff motif).
-2. **Go-live is the user's**, following the preconditions in `design/phase-6/review-po.md`: personal git identity and private repo, re-read Vercel Hobby/Turso terms (Render fallback), board consent for `stage-choir.webp`, README checklist 1–9, restore drill, real-phone checklist, demo refusal check, staged rollout (şef + board first), and updating the Fraunces → Jost font rule in `CLAUDE.md` (D40).
-3. **Post-launch backlog:** the single consolidated list is "Deferred backlog" in `design/phase-6/review-po.md` (it includes everything still open from Phases 2–5 below). Don't start it until the choir has used the portal for about a month.
+- **Live since 2026-10-19** (Vercel Hobby iad1 + Turso free, Stockholm; 37 users). Roadmap of 2026-10-21: Phase 7 data safety, Phase 8 board kanban + budget plan vs actual, Phase 9 audio upload + assistant → conductor → singer review + MIDI.
+- Phase 7: data safety. Monthly email (Vercel Cron daily 05:00 UTC, sends while the previous Istanbul month is uncovered) with four CSVs (devam, ödev, finans, aidat) and an AES-256-GCM encrypted gzipped DB dump (scrypt from `BACKUP_PASSPHRASE`); Gmail SMTP via nodemailer 10.1.7 (MIT-0), file outbox outside production. `/yedek` (Yedekleme: Durum, Kurulum, Alıcılar, Şimdi gönder, Geçmiş), conductor-only recipients (1–5) with change notice, home banners, throttles, `db:decrypt`/`db:restore`, README `Aylık yedek e-postası`. Migration `0007_phase7_backup` (`backup_runs`, `app_settings` rebuild with `created_at`). Team review: 0 P1, 13 P2, all fixed (`design/phase-7/review-fixes.md`). `npm run e2e` **657/657**, `npm run e2e:prod` **44/44**, lint/typecheck clean. **ACCEPTED** (`design/phase-7/review-po.md`); AC 7, 8, 19 amended there. **Not yet live:** the user does the go-live steps in `review-po.md` §4 (commit, `db:migrate` on Turso, Gmail App Password, passphrase in two places, Vercel env vars Production-only, push, recipients on `/yedek`, first September email, restore drill = AC 39); record the date here when done.
 
-## Open review items from Phases 2–3 (post-launch backlog; consolidated in phase-6/review-po.md)
+## Next steps (in order)
+1. **Phase 7 go-live is the user's:** `design/phase-7/review-po.md` §4 steps 1–11. Record the date steps 9–10 (first real email + restore drill, AC 39) passed.
+2. **Phase 8** (board kanban + budget plan vs actual): spec may start now; don't deploy its migration before Phase 7 is live.
+3. **Post-launch backlog:** the single consolidated list is now §5 of `design/phase-7/review-po.md` (it replaces the Phase 6 list and includes everything still open from Phases 2–6). Items 1–5 make a good first small release.
+
+## Open review items from Phases 2–3 (post-launch backlog; consolidated in phase-7/review-po.md §5)
 - UI: a late poll can briefly undo a fresh mark; ticked sectional parts are lost after a form error; no wake-lock indicator (cut by PO).
 - Backend P3: undoing a bulk mark after close, and editing the type after close, can leave people uncounted.
 - DBA: piece_files CHECKs (folded into Phase 3 schema work).

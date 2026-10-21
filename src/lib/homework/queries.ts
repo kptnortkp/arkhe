@@ -413,3 +413,71 @@ export async function pieceOptions(currentId?: string) {
     .filter((p) => p.status !== "archive" || p.id === currentId)
     .sort((a, b) => collator.compare(a.title, b.title));
 }
+
+export type DueRow = {
+  assignmentId: string;
+  pieceTitle: string;
+  barFrom: number | null;
+  barTo: number | null;
+  dueAt: Date;
+  name: string;
+  part: VoicePart | null;
+  state: "done" | "late" | "missing" | "pending";
+  submittedAt: Date | null;
+  expected: boolean;
+};
+
+/**
+ * Unguarded (no session): the backup run authorizes first. Every expected singer, plus anyone in
+ * the assignment's parts who submitted, for homework due in [from, to). Never reads feedback.
+ */
+export async function homeworkDueBetween(from: Date, to: Date, at: Date) {
+  const list = await db
+    .select(baseColumns)
+    .from(assignments)
+    .innerJoin(pieces, eq(pieces.id, assignments.pieceId))
+    .where(and(gte(assignments.dueAt, from), lt(assignments.dueAt, to)))
+    .orderBy(asc(assignments.dueAt));
+  const ids = list.map((a) => a.id);
+  const [parts, roster, subs] = await Promise.all([
+    partsOf(ids),
+    loadRoster(),
+    ids.length
+      ? db
+          .select({
+            a: submissions.assignmentId,
+            u: submissions.userId,
+            at: submissions.submittedAt,
+          })
+          .from(submissions)
+          .where(and(inArray(submissions.assignmentId, ids), isNotNull(submissions.submittedAt)))
+      : Promise.resolve([]),
+  ]);
+  const submittedAt = new Map(subs.map((s) => [`${s.a}:${s.u}`, s.at!]));
+  const rows: DueRow[] = [];
+  for (const a of list) {
+    const withParts = { ...a, parts: parts.get(a.id) ?? [] };
+    const people: DueRow[] = [];
+    for (const u of roster) {
+      const sub = submittedAt.get(`${a.id}:${u.id}`) ?? null;
+      const expected = isExpected(u, withParts);
+      const inParts = u.voicePart !== null && withParts.parts.includes(u.voicePart);
+      if (!expected && !(sub && inParts)) continue;
+      people.push({
+        assignmentId: a.id,
+        pieceTitle: a.pieceTitle,
+        barFrom: a.barFrom,
+        barTo: a.barTo,
+        dueAt: a.dueAt,
+        name: u.name,
+        part: u.voicePart,
+        state: sub ? (sub > a.dueAt ? "late" : "done") : a.dueAt <= at ? "missing" : "pending",
+        submittedAt: sub,
+        expected,
+      });
+    }
+    people.sort((x, y) => collator.compare(x.name, y.name));
+    rows.push(...people);
+  }
+  return { assignmentCount: list.length, rows };
+}

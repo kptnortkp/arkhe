@@ -1,4 +1,5 @@
 // Pure checks of the production environment; no server-only import so scripts can reuse it.
+import { missingBackupVars } from "./backup/config";
 type Env = Record<string, string | undefined>;
 
 const LOOPBACK = new Set(["127.0.0.1", "localhost", "[::1]"]);
@@ -51,7 +52,14 @@ export function envProblems(env: Env): string[] {
 }
 
 export function bootWarnings(env: Env): string[] {
-  return env.TRUST_PROXY_HEADERS === "1"
-    ? []
-    : ["TRUST_PROXY_HEADERS is not set; per-IP login limits are off."];
+  const warnings =
+    env.TRUST_PROXY_HEADERS === "1"
+      ? []
+      : ["TRUST_PROXY_HEADERS is not set; per-IP login limits are off."];
+  // Names only, never values; a missing backup setting never stops the server.
+  const backup = missingBackupVars(env);
+  if (backup.length) {
+    warnings.push(`Monthly backup email is not fully configured: ${backup.join(", ")}`);
+  }
+  return warnings;
 }

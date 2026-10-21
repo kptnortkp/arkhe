@@ -2,7 +2,8 @@
 // only a production build does (CSP without eval, secure cookies, service worker, offline page,
 // installability, demo refusal, env check). Usage: npm run e2e:prod
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -162,6 +163,204 @@ async function isOfflinePage(page, url) {
   return (await page.title()) === "Çevrimdışı · Arkhe";
 }
 
+// Phase 7: the backup flow on production builds with alternative env sets, each on BAD_PORT.
+const OUTBOX = path.join(ROOT, "data/outbox");
+const outboxFiles = () => {
+  mkdirSync(OUTBOX, { recursive: true });
+  return readdirSync(OUTBOX).filter((f) => f.endsWith(".eml")).length;
+};
+const AC22_TEXT =
+  'E-posta hesabı ayarlanmamış (SMTP_USER, SMTP_PASS). README: "Aylık yedek e-postası".';
+const AC23_TEXT =
+  'Yedek şifresi ayarlanmamış ya da geçersiz (BACKUP_PASSPHRASE). README: "Aylık yedek e-postası".';
+const NO_SMTP = { SMTP_USER: "", SMTP_PASS: "", SMTP_FROM: "", SMTP_HOST: "", SMTP_PORT: "" };
+
+async function withServer(extra, fn) {
+  const url = `http://127.0.0.1:${BAD_PORT}`;
+  const child = startServer(BAD_PORT, { APP_URL: url, ...NO_SMTP, ...extra });
+  try {
+    for (let i = 0; ; i++) {
+      if (child.exitCode !== null) throw new Error(`next start exited:\n${child.output.stderr}`);
+      try {
+        if ((await fetch(`${url}/api/saglik`)).ok) break;
+      } catch {}
+      if (i > 120) throw new Error("phase 7 server did not become healthy");
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    await fn(url, child);
+  } finally {
+    await stopServer(child);
+  }
+}
+
+async function adminOn(url) {
+  const page = await newPage(browser, { phone: true });
+  await page.goto(`${url}/giris`);
+  await page.fill("input[name=email]", ADMIN_EMAIL);
+  await page.fill("input[name=password]", ADMIN_PASSWORD);
+  await page.click("main button[type=submit]");
+  await page.waitForURL(`${url}/`);
+  return page;
+}
+
+async function seen(page, message) {
+  try {
+    await page.getByText(message, { exact: true }).first().waitFor({ timeout: 30_000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function saveRecipients(page, url, values) {
+  await page.goto(`${url}/yedek`);
+  const form = page.locator("[data-testid=backup-recipients-form]");
+  const inputs = form.locator("input[name=recipients]");
+  while ((await inputs.count()) > 1) {
+    await form.getByRole("button", { name: /^\d+\. alıcıyı kaldır$/ }).last().click();
+  }
+  for (let i = 0; i < values.length; i++) {
+    if (i > 0) await form.getByRole("button", { name: "Adres ekle" }).click();
+    await inputs.nth(i).fill(values[i]);
+  }
+  await form.getByRole("button", { name: "Kaydet" }).click();
+}
+
+/** Şimdi gönder through the UI; returns the first Geçmiş row's text. */
+async function sendNow(page, url) {
+  await page.goto(`${url}/yedek`);
+  await page.getByRole("button", { name: "Şimdi gönder" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Gönder", exact: true }).click();
+  const toastOk = await seen(page, "Gönderilemedi. Ayrıntı aşağıda, Geçmiş'te.");
+  await page.goto(`${url}/yedek`);
+  const row = page.locator("[data-testid=backup-run]").first();
+  return {
+    toastOk,
+    status: await row.getAttribute("data-status").catch(() => null),
+    text: ((await row.textContent().catch(() => "")) ?? "").replace(/\s+/g, " "),
+  };
+}
+
+const setupOk = async (page, id) =>
+  page.locator(`[data-testid=backup-setup-${id}]`).getAttribute("data-ok");
+
+async function phase7() {
+  console.log("# phase 7 backup");
+  const before = outboxFiles();
+  const passphrase = randomBytes(18).toString("base64");
+  const cronSecret = randomBytes(32).toString("hex");
+  const secrets = [passphrase, cronSecret, "dev-only-backup-passphrase", "dev-only-cron-secret"];
+
+  // B: a 31-character CRON_SECRET (too short for production), a valid passphrase, no SMTP.
+  const shortSecret = "s".repeat(31);
+  await withServer({ CRON_SECRET: shortSecret, BACKUP_PASSPHRASE: passphrase }, async (url, child) => {
+    const res = await fetch(`${url}/api/cron/aylik-yedek`, {
+      headers: { Authorization: `Bearer ${shortSecret}` },
+    });
+    check(
+      res.status === 503 && (await res.text()) === "{}",
+      `Phase7 AC2 a 31-character CRON_SECRET → 503 {} even with the matching bearer (${res.status})`,
+    );
+    check(
+      (child.output.stdout + child.output.stderr).includes(
+        "Monthly backup email is not fully configured: SMTP_USER, SMTP_PASS, CRON_SECRET",
+      ),
+      "Phase7 P9 the boot warning names the missing variables, never values",
+    );
+    const page = await adminOn(url);
+    await saveRecipients(page, url, ["p7prod-a@e2e.test"]);
+    check(
+      await seen(page, "Alıcılar kaydedildi."),
+      "Phase7 AC14 prod: the first save works without SMTP",
+    );
+    await saveRecipients(page, url, ["p7prod-a@e2e.test", "p7prod-b@e2e.test"]);
+    const saved = await seen(page, "Alıcılar kaydedildi.");
+    const warned = await seen(
+      page,
+      "Bilgi e-postası gönderilemedi. Eski ve yeni alıcılara sen haber ver.",
+    );
+    const value = (
+      await db.execute("select value from app_settings where key = 'backup_recipients'")
+    ).rows[0]?.value;
+    check(
+      saved && warned && value === "p7prod-a@e2e.test,p7prod-b@e2e.test",
+      `Phase7 AC14 prod: a change without SMTP keeps the new value and warns (${value})`,
+    );
+    await page.goto(`${url}/yedek`);
+    check(
+      (await setupOk(page, "smtp")) === "false" &&
+        (await setupOk(page, "passphrase")) === "true" &&
+        (await setupOk(page, "cron")) === "false",
+      "Phase7 AC22 Kurulum: E-posta hesabı and Zamanlayıcı anahtarı Eksik, Yedek şifresi Tamam",
+    );
+    const sent = await sendNow(page, url);
+    check(
+      sent.toastOk && sent.status === "failed" && sent.text.includes(AC22_TEXT),
+      `Phase7 AC22 a manual send without SMTP logs the SMTP message (${sent.text})`,
+    );
+    const home = await page.goto(`${url}/`);
+    check(home.status() === 200, "Phase7 AC22 / still loads");
+    await page.context().close();
+  });
+
+  // C: both dev values.
+  await withServer(
+    { CRON_SECRET: "dev-only-cron-secret", BACKUP_PASSPHRASE: "dev-only-backup-passphrase" },
+    async (url) => {
+      const res = await fetch(`${url}/api/cron/aylik-yedek`, {
+        headers: { Authorization: "Bearer dev-only-cron-secret" },
+      });
+      check(res.status === 503, `Phase7 AC25 the dev CRON_SECRET → 503 (${res.status})`);
+      const page = await adminOn(url);
+      await page.goto(`${url}/yedek`);
+      check(
+        (await setupOk(page, "passphrase")) === "false" &&
+          (await setupOk(page, "cron")) === "false" &&
+          ((await page.locator("[data-testid=backup-setup-passphrase]").textContent()) ?? "").includes(
+            "Çok kısa ya da deneme şifresi; yenisini gir.",
+          ),
+        "Phase7 AC25 Kurulum marks the dev passphrase and secret Eksik, with the reason",
+      );
+      const sent = await sendNow(page, url);
+      check(
+        sent.status === "failed" && sent.text.includes(AC23_TEXT),
+        `Phase7 AC25 a manual send with the dev passphrase fails with the AC23 message`,
+      );
+      await page.context().close();
+    },
+  );
+
+  // D: a valid CRON_SECRET, no passphrase.
+  await withServer({ CRON_SECRET: cronSecret, BACKUP_PASSPHRASE: "" }, async (url) => {
+    const page = await adminOn(url);
+    const sent = await sendNow(page, url);
+    check(
+      sent.status === "failed" && sent.text.includes(AC23_TEXT),
+      "Phase7 AC23 a manual send without BACKUP_PASSPHRASE fails with its message",
+    );
+    const res = await fetch(`${url}/api/cron/aylik-yedek?bugun=2020-01-01`, {
+      headers: { Authorization: `Bearer ${cronSecret}` },
+    });
+    const body = await res.json().catch(() => null);
+    const old = (await db.execute("select count(*) as n from backup_runs where report_month = '2019-12'"))
+      .rows[0].n;
+    check(
+      res.status === 500 && body?.status === "failed" && Number(old) === 0,
+      `Phase7 AC30 production ignores ?bugun= (no 2019-12 run; ${res.status} ${JSON.stringify(body)})`,
+    );
+    await page.goto(`${url}/yedek`);
+    check((await setupOk(page, "cron")) === "true", "Phase7 AC2 a 64-hex CRON_SECRET counts as set");
+    await page.context().close();
+  });
+
+  const errors = (await db.execute("select error from backup_runs where error is not null")).rows;
+  check(
+    errors.length >= 3 && errors.every((r) => secrets.every((v) => !String(r.error).includes(v))),
+    `Phase7 AC24 no failed row holds a secret value (${errors.length} rows)`,
+  );
+  check(outboxFiles() === before, "Phase7 P8 production never writes to the file outbox");
+}
+
 let server;
 let profileDir;
 let persistent;
@@ -169,7 +368,12 @@ let browser;
 try {
   // 1. Build (writes .next/, never .next/dev, so the dev server keeps running).
   console.log("# build");
-  run(NEXT, ["build"], { NODE_ENV: "production" });
+  const buildOut = run(NEXT, ["build"], { NODE_ENV: "production" });
+  console.log(buildOut.split("\n").filter((l) => /yedek/.test(l)).join("\n"));
+  check(
+    /ƒ \/yedek\b/.test(buildOut) && /ƒ \/api\/cron\/aylik-yedek\b/.test(buildOut),
+    "Phase7 AC37 the build table shows /yedek and /api/cron/aylik-yedek as dynamic (ƒ)",
+  );
 
   // 2. Throwaway DB: migrate, check, seed, rename the board user, create an admin invite.
   console.log("# database");
@@ -377,6 +581,8 @@ try {
     cspViolations.length === 0,
     `AC20 no CSP violations on the walk (${cspViolations.slice(0, 3)})`,
   );
+
+  await phase7();
 
   // AC16–17: offline. Last, because the fallback path stops the server.
   console.log("# offline");

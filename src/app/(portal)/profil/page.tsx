@@ -1,4 +1,4 @@
-import { ChartColumn, ChevronRight, LogOut, Wallet } from "lucide-react";
+import { ChartColumn, ChevronRight, DatabaseBackup, LogOut, Wallet } from "lucide-react";
 import Link from "next/link";
 import { logout } from "@/app/actions/auth";
 import { UserAvatar } from "@/components/shell/user-menu";
@@ -53,6 +53,7 @@ export default async function ProfilePage() {
             [
               ["/finans", "Finans", "Kasa, aidat, raporlar", Wallet],
               ["/raporlar", "Raporlar", "Devam ve uyarılar", ChartColumn],
+              ["/yedek", "Yedekleme", "Aylık rapor ve yedek e-postası", DatabaseBackup],
             ] as const
           ).map(([href, label, hint, Icon]) => (
             <Link

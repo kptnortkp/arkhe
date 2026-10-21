@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import stageChoir from "../../../public/brand/stage-choir.webp";
 import { CheckInPanel } from "@/components/attendance/check-in-panel";
+import { BackupBanner } from "@/components/backup/backup-banner";
 import { AttendanceStrip, TypeChip } from "@/components/attendance/status-chip";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +23,7 @@ import {
 import { rosterOf } from "@/lib/attendance/roster";
 import { attendanceStats } from "@/lib/attendance/stats";
 import { requireUser } from "@/lib/auth/dal";
+import { backupBannerState } from "@/lib/backup/queries";
 import { firstName } from "@/lib/format";
 import { VOICE_PART_LABELS, VOICE_PART_STYLES } from "@/lib/labels";
 import { isManager } from "@/lib/permissions";
@@ -46,6 +48,8 @@ function greeting() {
 
 export default async function HomePage() {
   const user = await requireUser();
+  // Started now so its queries overlap the ones below instead of running after them.
+  const bannerState = backupBannerState(user);
   await autoCloseStale();
   const manager = isManager(user.role);
   const todayStart = istanbulToUtc(istanbulDateOf(now()));
@@ -93,6 +97,8 @@ export default async function HomePage() {
         <p className="text-sm text-muted-foreground">{greeting()}</p>
         <h1 className="text-4xl font-medium md:text-5xl">{firstName(user.name)}</h1>
       </section>
+
+      <BackupBanner state={await bannerState} />
 
       <section
         className="on-stage relative overflow-hidden rounded-3xl bg-stage p-6 text-stage-foreground ring-1 ring-white/5 md:p-8"

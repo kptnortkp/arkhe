@@ -28,7 +28,9 @@ export const CHECK_IN_METHODS = ["qr", "code", "manual", "self", "auto"] as cons
 export const PIECE_STATUSES = ["learning", "concert", "archive"] as const;
 export const LINK_KINDS = ["score", "part", "recording", "video", "other"] as const;
 export const SUBMISSION_METHODS = ["self", "manual"] as const;
-export const SETTING_KEYS = ["recording_email", "dues_payment_info"] as const;
+export const SETTING_KEYS = ["recording_email", "dues_payment_info", "backup_recipients"] as const;
+export const BACKUP_TRIGGERS = ["cron", "manual"] as const;
+export const BACKUP_STATUSES = ["running", "sent", "failed"] as const;
 export const TOKEN_PURPOSES = ["invite", "reset"] as const;
 
 export type Role = (typeof ROLES)[number];
@@ -40,6 +42,8 @@ export type PieceStatus = (typeof PIECE_STATUSES)[number];
 export type LinkKind = (typeof LINK_KINDS)[number];
 export type SubmissionMethod = (typeof SUBMISSION_METHODS)[number];
 export type SettingKey = (typeof SETTING_KEYS)[number];
+export type BackupTrigger = (typeof BACKUP_TRIGGERS)[number];
+export type BackupStatus = (typeof BACKUP_STATUSES)[number];
 
 /** `'a', 'b'` for CHECK constraints; only ever fed our own constants. */
 const inList = (values: readonly string[]) => sql.raw(values.map((v) => `'${v}'`).join(", "));
@@ -421,6 +425,8 @@ export const appSettings = sqliteTable(
   {
     key: text("key", { enum: SETTING_KEYS }).primaryKey(),
     value: text("value").notNull(),
+    // First save of this key; upserts never touch it.
+    createdAt: createdAt(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(now),
     updatedBy: text("updated_by").references(() => users.id, { onDelete: "set null" }),
   },
@@ -431,6 +437,60 @@ export const appSettings = sqliteTable(
     check(
       "app_settings_recording_email",
       sql`key <> 'recording_email' or (value = lower(trim(value)) and length(value) <= 254 and value like '%_@_%._%')`,
+    ),
+    // Canonical "a@x.org,b@y.org": 1-5 addresses, one @ each, nothing that could split a header.
+    // char(59) is ';': drizzle-kit cuts CHECK text at a literal semicolon.
+    check(
+      "app_settings_backup_recipients",
+      sql`key <> 'backup_recipients' or (value = lower(value) and value not glob ('*[ <>"' || char(9, 10, 13, 59) || ']*') and length(value) <= 1274 and value like '%_@_%._%' and value not like ',%' and value not like '%,' and instr(value, ',,') = 0 and length(value) - length(replace(value, ',', '')) <= 4 and length(value) - length(replace(value, '@', '')) = length(value) - length(replace(value, ',', '')) + 1)`,
+    ),
+  ],
+);
+
+// One row per send attempt. A month is covered when any row for it is `sent`.
+export const backupRuns = sqliteTable(
+  "backup_runs",
+  {
+    id: id(),
+    reportMonth: text("report_month").notNull(), // 'YYYY-MM', Istanbul calendar month
+    trigger: text("trigger", { enum: BACKUP_TRIGGERS }).notNull(),
+    actorId: text("actor_id").references(() => users.id, { onDelete: "set null" }),
+    status: text("status", { enum: BACKUP_STATUSES }).notNull().default("running"),
+    startedAt: integer("started_at", { mode: "timestamp" }).notNull().default(now),
+    finishedAt: integer("finished_at", { mode: "timestamp" }),
+    sizeBytes: integer("size_bytes"),
+    recipientCount: integer("recipient_count").notNull(),
+    error: text("error"),
+  },
+  (t) => [
+    // At most one in-flight run per month: the claim's backstop.
+    uniqueIndex("backup_runs_running_idx")
+      .on(t.reportMonth)
+      .where(sql`status = 'running'`),
+    index("backup_runs_month_status_idx").on(t.reportMonth, t.status),
+    index("backup_runs_started_idx").on(t.startedAt),
+    check(
+      "backup_runs_month_check",
+      sql`report_month glob '[0-9][0-9][0-9][0-9]-[0-1][0-9]' and substr(report_month, 6, 2) between '01' and '12'`,
+    ),
+    check("backup_runs_trigger_check", sql`trigger in (${inList(BACKUP_TRIGGERS)})`),
+    check("backup_runs_status_check", sql`status in (${inList(BACKUP_STATUSES)})`),
+    check("backup_runs_cron_actor", sql`trigger = 'manual' or actor_id is null`),
+    check(
+      "backup_runs_finished",
+      sql`(status = 'running') = (finished_at is null) and (finished_at is null or finished_at >= started_at)`,
+    ),
+    check(
+      "backup_runs_error",
+      sql`(status = 'failed') = (error is not null) and (error is null or length(trim(error)) between 1 and 500)`,
+    ),
+    check(
+      "backup_runs_size",
+      sql`size_bytes is null or (typeof(size_bytes) = 'integer' and size_bytes between 0 and 1000000000)`,
+    ),
+    check(
+      "backup_runs_recipients",
+      sql`typeof(recipient_count) = 'integer' and recipient_count between 1 and 5`,
     ),
   ],
 );

@@ -79,6 +79,8 @@ export type FormState = {
   error?: string;
   fieldErrors?: Record<string, string[] | undefined>;
   success?: string;
+  // A side effect failed after the main write succeeded; shown next to the success toast.
+  warning?: string;
   // Bulk saves report errors per pasted row, keyed by the row's index.
   rowErrors?: Record<number, string>;
   // Echoed back because React resets the form after an action.

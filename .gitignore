@@ -33,6 +33,8 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
+# Public dev-only values that production refuses.
+!.env.development
 
 # vercel
 .vercel
@@ -41,8 +43,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local database
+# local database, backups and the dev mail outbox
 /data/
+/data/outbox/
 .idea/
 
 # project subagents are versioned (overrides a global .claude/ ignore)

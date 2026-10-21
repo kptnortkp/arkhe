@@ -107,6 +107,9 @@ export async function cleanup() {
   // First: finance rows reference users with restrict, and the ledger is re-anchored to now.
   await seedFinance(db, new Date());
   await db.execute("delete from login_attempts");
+  // The dev DB never holds real backup state: every phase-7 test starts unconfigured.
+  await db.execute("delete from backup_runs");
+  await db.execute("delete from app_settings where key = 'backup_recipients'");
   await db.execute("delete from rehearsals where title like 'E2E%'");
   await db.execute("delete from terms where name like 'E2E%'");
   const e2eHomework =

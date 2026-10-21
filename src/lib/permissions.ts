@@ -4,6 +4,11 @@ export function isManager(role: Role) {
   return role === "conductor" || role === "board";
 }
 
+/** Recipients and manual sends decide where every member's data goes: conductor only. */
+export function canManageBackup(role: Role) {
+  return role === "conductor";
+}
+
 /** Reset links bypass the current password, so only the conductor may issue them for managers. */
 export function canIssueLink(
   actor: { id: string; role: Role },

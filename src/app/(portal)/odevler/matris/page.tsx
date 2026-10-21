@@ -6,17 +6,25 @@ import { VOICE_PARTS } from "@/db/schema";
 import { requireManager } from "@/lib/auth/dal";
 import { barsLabel } from "@/lib/homework/mail";
 import { homeworkMatrix, type MatrixCell } from "@/lib/homework/queries";
-import { VOICE_PART_LABELS } from "@/lib/labels";
+import { HOMEWORK_STATE_LABELS, VOICE_PART_LABELS } from "@/lib/labels";
 import { formatShortDate, now } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Teslim matrisi" };
 
 const CELL: Record<MatrixCell, { label: string; className: string; icon?: typeof Check }> = {
-  done: { label: "Zamanında", className: "bg-present/14 text-present-ink", icon: Check },
-  late: { label: "Geç", className: "bg-late/18 text-late-ink", icon: Clock },
-  missing: { label: "Gecikti", className: "bg-absent/12 text-absent-ink", icon: X },
-  pending: { label: "Bekleniyor", className: "text-muted-foreground" },
+  done: {
+    label: HOMEWORK_STATE_LABELS.done,
+    className: "bg-present/14 text-present-ink",
+    icon: Check,
+  },
+  late: { label: HOMEWORK_STATE_LABELS.late, className: "bg-late/18 text-late-ink", icon: Clock },
+  missing: {
+    label: HOMEWORK_STATE_LABELS.missing,
+    className: "bg-absent/12 text-absent-ink",
+    icon: X,
+  },
+  pending: { label: HOMEWORK_STATE_LABELS.pending, className: "text-muted-foreground" },
   none: { label: "Bu partisyon için değil", className: "bg-muted/40" },
 };
 

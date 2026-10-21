@@ -90,6 +90,15 @@ const auditDate = formatter({ day: "numeric", month: "short", year: "numeric" })
 export function formatAuditDate(at: Date) {
   return auditDate.format(at);
 }
+/** "19 Eki 2026 14:05" in Istanbul: audit lines, run log and backup emails. */
+export function formatAuditDateTime(at: Date) {
+  return `${auditDate.format(at)} ${istanbulTimeOf(at)}`;
+}
+const monthYear = formatter({ month: "long", year: "numeric" });
+/** "Ekim 2026" for an instant in Istanbul. */
+export function formatMonthYear(at: Date) {
+  return monthYear.format(at);
+}
 export const formatShortDateTime = formatter({
   day: "numeric",
   month: "short",

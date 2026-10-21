@@ -43,3 +43,13 @@ export function parseDuration(text: string) {
   const sec = Number(m[1]) * 60 + Number(m[2]);
   return sec > 0 ? sec : null;
 }
+
+const megabytes = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 1 });
+
+/** "184 KB" below 1 MB (at least 1 KB), else "1,2 MB". */
+export function formatBytes(bytes: number) {
+  const mb = 1024 * 1024;
+  const kb = Math.max(1, Math.round(bytes / 1024));
+  if (kb < 1024) return `${kb} KB`;
+  return `${megabytes.format(bytes / mb)} MB`;
+}

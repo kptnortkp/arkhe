@@ -36,10 +36,19 @@ export function Field({ label, name, errors, hint, className, ...props }: FieldP
   );
 }
 
-export function FormMessage({ error, success }: { error?: string; success?: string }) {
+export function FormMessage({
+  error,
+  success,
+  id,
+}: {
+  error?: string;
+  success?: string;
+  id?: string;
+}) {
   if (!error && !success) return null;
   return (
     <p
+      id={id}
       role={error ? "alert" : "status"}
       className={cn(
         "rounded-xl px-3.5 py-2.5 text-sm",
