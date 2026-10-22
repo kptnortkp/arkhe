@@ -7,25 +7,14 @@ import { Button } from "@/components/ui/button";
 import {
   getDeferredPrompt,
   getInstallStatus,
+  isIos,
+  isStandalone,
   setInstallStatus,
   subscribeInstall,
+  watchStandalone,
 } from "@/lib/pwa-store";
 
 type CardState = "hidden" | "prompt" | "ios" | "other" | "installed";
-
-const STANDALONE = "(display-mode: standalone)";
-
-function isStandalone() {
-  return (
-    window.matchMedia(STANDALONE).matches ||
-    (navigator as Navigator & { standalone?: boolean }).standalone === true
-  );
-}
-
-function isIos() {
-  const ua = navigator.userAgent;
-  return /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
-}
 
 function getState(): CardState {
   if (isStandalone()) return "hidden";
@@ -37,11 +26,10 @@ function getState(): CardState {
 }
 
 function subscribe(onChange: () => void) {
-  const media = window.matchMedia(STANDALONE);
-  media.addEventListener("change", onChange);
+  const unwatch = watchStandalone(onChange);
   const unsubscribe = subscribeInstall(onChange);
   return () => {
-    media.removeEventListener("change", onChange);
+    unwatch();
     unsubscribe();
   };
 }

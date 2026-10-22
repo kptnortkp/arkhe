@@ -25,6 +25,7 @@ import { FieldError, guarded } from "@/lib/finance/guard";
 import { priorActuals } from "@/lib/finance/queries";
 import { CHECK_FAILED, FORBIDDEN, NOT_FOUND } from "@/lib/finance/schemas";
 import { setFlash } from "@/lib/flash";
+import { budgetEvent } from "@/lib/push/triggers";
 import { parsePlanAmount } from "@/lib/money";
 import { cleanLine, cleanText } from "@/lib/text";
 import { istanbulDateOf, now } from "@/lib/time";
@@ -125,6 +126,11 @@ function budgetGuarded(
   });
 }
 
+async function budgetName(id: string) {
+  const [row] = await db.select({ name: budgets.name }).from(budgets).where(eq(budgets.id, id));
+  return row?.name ?? "";
+}
+
 /** Oluştur: a Taslak; the id is the form's per-mount uuid, so a double submit makes one budget. */
 export async function createBudget(_prev: FormState, formData: FormData): Promise<FormState> {
   const actor = await assertManager();
@@ -134,6 +140,7 @@ export async function createBudget(_prev: FormState, formData: FormData): Promis
   const parsed = metaSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return fieldErrorsOf(parsed.error, formData);
   const d = parsed.data;
+  let fresh = false;
   const state = await budgetGuarded(formData, d.start, id.data, async () => {
     const ok = await writeTx(async (tx) => {
       const [replay] = await tx
@@ -151,11 +158,13 @@ export async function createBudget(_prev: FormState, formData: FormData): Promis
         createdBy: actor.id,
         createdAt: nowSql,
       });
+      fresh = true;
       return true;
     });
     return ok ? { success: "ok" } : { error: PLAN_STALE };
   });
   if (!state.success) return state;
+  if (fresh) await budgetEvent("budget_new", { id: id.data, name: d.name }, actor);
   revalidateBudget();
   await setFlash("taslak-olusturuldu");
   redirect(`/finans/butce/${id.data}/duzenle`);
@@ -247,6 +256,7 @@ export async function savePlan(
   }
   const next = parsed.plan;
 
+  let revised = false;
   const state = await guarded(formData, async () => {
     const error = await writeTx(async (tx): Promise<string | null> => {
       const [cur] = await tx
@@ -301,6 +311,7 @@ export async function savePlan(
           });
       }
       if (reason !== null) {
+        revised = true;
         const [rev] = await tx
           .insert(budgetRevisions)
           .values({ budgetId: id, reason, actorId: actor.id, createdAt: nowSql })
@@ -319,6 +330,7 @@ export async function savePlan(
     return error ? { error, values: formValues(formData) } : { success: "ok" };
   });
   if (!state.success) return state;
+  if (revised) await budgetEvent("budget_revised", { id, name: await budgetName(id) }, actor);
   revalidateBudget();
   await setFlash("plan-kaydedildi");
   redirect(`/finans/butce/${id}`);
@@ -331,6 +343,7 @@ export async function approveBudget(id: string, rawRevision: number): Promise<Fo
   if (!idSchema.safeParse(id).success) return { error: NOT_FOUND };
   const revision = z.coerce.number().int().min(0).safeParse(rawRevision);
   if (!revision.success) return { error: PLAN_STALE };
+  let approved = false;
   const error = await writeTx(async (tx): Promise<string | null> => {
     const [cur] = await tx
       .select({ approvedAt: budgets.approvedAt, approvedBy: budgets.approvedBy })
@@ -356,9 +369,11 @@ export async function approveBudget(id: string, rawRevision: number): Promise<Fo
         and(eq(budgets.id, id), isNull(budgets.approvedAt), eq(budgets.revision, revision.data)),
       )
       .returning({ id: budgets.id });
+    if (hit.length) approved = true;
     return hit.length ? null : PLAN_STALE;
   });
   if (error) return { error };
+  if (approved) await budgetEvent("budget_approved", { id, name: await budgetName(id) }, actor);
   revalidateBudget();
   return { success: "Bütçe onaylandı." };
 }

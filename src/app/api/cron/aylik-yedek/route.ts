@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { connection } from "next/server";
 import { cronSecret } from "@/lib/backup/config";
 import { runMonthlyBackup, type RunResult } from "@/lib/backup/run";
+import { runPushStep } from "@/lib/push/cron";
 import { isRealDay } from "@/lib/finance/schemas";
 import { runStorageSweep } from "@/lib/storage/sweep";
 import { istanbulDateOf } from "@/lib/time";
@@ -35,7 +36,8 @@ function testToday(url: URL) {
 
 /**
  * Vercel Cron, daily 05:00 UTC. Sends the previous Istanbul month once it isn't covered, then runs
- * the storage sweep as an independent step: it never changes the reply or the backup (D18, D53).
+ * the push dispatcher and the storage sweep as independent steps: neither changes the reply or the
+ * backup (D18, D53, D69).
  */
 export async function GET(request: Request) {
   await connection();
@@ -56,6 +58,11 @@ export async function GET(request: Request) {
       code: (e as { code?: unknown })?.code,
     });
   }
+  // Notifications before the sweep: the time-sensitive step first (D69).
+  await runPushStep(new URL(request.url), started + 40_000, {
+    backupFailed: status === "failed",
+    today,
+  });
   // Sequential, after the backup: a parallel sweep write could make the backup's claim skip.
   await runStorageSweep({ today, reason: "cron", deadline: started + 55_000 });
   return reply(code, status);

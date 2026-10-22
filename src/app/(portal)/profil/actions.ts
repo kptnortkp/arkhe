@@ -1,13 +1,13 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { pushSubscriptions, sessions, users } from "@/db/schema";
 import { requireUser } from "@/lib/auth/dal";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
-import { createSession, deleteUserSessions } from "@/lib/auth/session";
+import { createSession, currentSessionId } from "@/lib/auth/session";
 import {
   fieldErrorsOf,
   nameSchema,
@@ -47,9 +47,16 @@ export async function changePassword(_prev: FormState, formData: FormData): Prom
     .update(users)
     .set({ passwordHash: await hashPassword(parsed.data.password) })
     .where(eq(users.id, user.id));
-  // Sign out every other device, keep this one.
-  await deleteUserSessions(user.id);
-  await createSession(user.id);
+  // Sign out every other device, keep this one, and keep this browser's push subscription with it.
+  const oldId = await currentSessionId();
+  const newId = await createSession(user.id);
+  if (oldId) {
+    await db
+      .update(pushSubscriptions)
+      .set({ sessionId: newId })
+      .where(eq(pushSubscriptions.sessionId, oldId));
+  }
+  await db.delete(sessions).where(and(eq(sessions.userId, user.id), ne(sessions.id, newId)));
   return {
     success: "Şifren değişti. Diğer cihazlardaki oturumların kapatıldı.",
   };

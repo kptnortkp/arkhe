@@ -218,13 +218,14 @@ export default async function phase6Brand(browser) {
     const order = await page.evaluate(() => {
       const c = document.querySelector("[data-testid=install-card]");
       const next = c.nextElementSibling;
-      return next?.id ?? "";
+      return [next?.id, next?.nextElementSibling?.id].join(" ");
     });
     check(
       (await card.getByRole("heading", { name: "Telefonuna ekle" }).isVisible()) &&
         (await card.getByText(GENERIC).isVisible()) &&
-        order === "aidat",
-      `AC12 /profil shows Telefonuna ekle with the generic text directly above Aidatım (${scheme})`,
+        // Phase 10 puts Bildirimler between the install card and Aidatım.
+        order === "bildirimler aidat",
+      `AC12 /profil shows Telefonuna ekle with the generic text, then Bildirimler, then Aidatım (${scheme})`,
     );
     await page.context().close();
   }

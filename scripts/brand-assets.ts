@@ -85,16 +85,20 @@ type IconSpec = {
   frac: number;
   counts: BandCounts;
   cut: number;
-  tile: "round" | "full";
+  tile: "round" | "full" | "none";
 };
 
 function iconSvg({ size, frac, counts, cut, tile }: IconSpec): string {
   const bg =
-    tile === "round"
-      ? `<rect width="${size}" height="${size}" rx="${round(size * 0.22)}" fill="${brandColors.stage}"/>`
-      : `<rect width="${size}" height="${size}" fill="${brandColors.stage}"/>`;
+    tile === "none"
+      ? ""
+      : tile === "round"
+        ? `<rect width="${size}" height="${size}" rx="${round(size * 0.22)}" fill="${brandColors.stage}"/>`
+        : `<rect width="${size}" height="${size}" fill="${brandColors.stage}"/>`;
+  // Notification badges are alpha masks: white on transparent.
+  const fill = tile === "none" ? "#fff" : brandColors.stageForeground;
   const d = toPath(placeMark(counts, size, frac, cut));
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${bg}<path fill="${brandColors.stageForeground}" d="${d}"/></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${bg}<path fill="${fill}" d="${d}"/></svg>`;
 }
 
 const png = (spec: IconSpec) => sharp(Buffer.from(iconSvg(spec))).png({ compressionLevel: 9 });
@@ -158,6 +162,7 @@ async function main() {
   const any512: IconSpec = { size: 512, frac: 0.58, counts: A_FULL, cut: 0.4, tile: "round" };
   const any192: IconSpec = { size: 192, frac: 0.58, counts: A_FULL, cut: 0.7, tile: "round" };
   const maskable: IconSpec = { size: 512, frac: 0.52, counts: A_FULL, cut: 0.4, tile: "full" };
+  const badge: IconSpec = { size: 96, frac: 0.8, counts: A_TWO, cut: onePixel(96, 0.8), tile: "none" };
   const apple: IconSpec = { size: 180, frac: 0.56, counts: A_FULL, cut: 0.7, tile: "full" };
   const fav32: IconSpec = {
     size: 32,
@@ -172,6 +177,7 @@ async function main() {
   await png(any512).toFile("public/icons/icon-512.png");
   await png(any192).toFile("public/icons/icon-192.png");
   await png(maskable).toFile("public/icons/icon-maskable-512.png");
+  await png(badge).toFile("public/icons/badge-96.png");
   await png(apple)
     .flatten({ background: brandColors.stage })
     .removeAlpha()

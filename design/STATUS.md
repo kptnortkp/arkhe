@@ -1,6 +1,6 @@
 # Status (tech lead)
 
-Updated: 2026-10-22 (Phases 8b and 9 accepted).
+Updated: 2026-10-22 (Phases 8b, 9 and 10 accepted).
 
 ## Done
 - Phase 0–1: scaffold, brand refresh (vector ARKHE logo, Jost, navy-violet), auth, members, profile. Team review done, P1s fixed.
@@ -31,6 +31,8 @@ Updated: 2026-10-22 (Phases 8b and 9 accepted).
 - Phase 8b: historical CSV import (`/ice-aktar`, template pack + AI prompts in `docs/ice-aktarma/`, all-or-nothing batches, undo of the latest batch). Migration `0009_phase8b_import`. **ACCEPTED** by the tech lead (`design/phase-8b/review-po.md`).
 - Phase 9: in-browser recording and upload, assistant → conductor → singer review, storage quota and retention, MIDI player. Migrations `0010_phase9_media`, `0011_phase9_review`. Local libsql lock leak fixed (`src/db/local-client.mjs`). `npm run e2e` **1437/1437** (twice), `npm run e2e:prod` **63/63**. **ACCEPTED** by the tech lead (`design/phase-9/review-po.md`).
   - **Not yet live:** Phases 7–9 ship in one push when the user says so; `db:migrate` must show 12/12 and a private Blob store must be connected first.
+
+- Phase 10 (Web Push notifications): spec written 2026-10-22 (`design/phase-10/po-spec.md`, 55 ACs; `po-decisions.md` D64–D90). User chose timing option A (morning digest from the existing daily cron, no external scheduler). Built and **ACCEPTED** by the tech lead the same day at the user's request (`design/phase-10/review-po.md`): migrations 0012–0013, `npm run e2e` 1572/1573 with the one failure fixed, `e2e:prod` 79/79. Ships with 7–9; Turso must show 14/14.
 
 ## Next steps (in order)
 1. **Go-live of Phases 7 + 8 + 8b (the user's):** `design/phase-7/review-po.md` §4, with the changes in `design/phase-8/review-po.md` §4.

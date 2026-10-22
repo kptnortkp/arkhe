@@ -1438,3 +1438,166 @@ export const storageSweeps = sqliteTable(
     ),
   ],
 );
+
+// Phase 10: Web Push. Group keys and kinds live in src/lib/push/groups.ts.
+export const PUSH_PREF_KEYS = [
+  "calisma",
+  "devamsizlik",
+  "odev",
+  "dinleme",
+  "repertuvar",
+  "yonetim",
+  "aidat",
+  "butce",
+  "sistem",
+  "gece",
+] as const;
+export const NOTIFICATION_STATUSES = [
+  "pending",
+  "held",
+  "sent",
+  "failed",
+  "dropped",
+  "merged",
+] as const;
+export type PushPrefKey = (typeof PUSH_PREF_KEYS)[number];
+export type NotificationStatus = (typeof NOTIFICATION_STATUSES)[number];
+
+// One row per browser endpoint; tied to the login session so logging out (or deactivation) removes it.
+export const pushSubscriptions = sqliteTable(
+  "push_subscriptions",
+  {
+    id: id(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => sessions.id, { onDelete: "cascade" }),
+    // A capability URL: never logged, never sent to a page.
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    label: text("label").notNull(),
+    createdAt: createdAt(),
+    lastSuccessAt: integer("last_success_at", { mode: "timestamp" }),
+    failCount: integer("fail_count").notNull().default(0),
+    firstFailAt: integer("first_fail_at", { mode: "timestamp" }),
+  },
+  (t) => [
+    uniqueIndex("push_subscriptions_endpoint_idx").on(t.endpoint),
+    index("push_subscriptions_user_idx").on(t.userId),
+    index("push_subscriptions_session_idx").on(t.sessionId),
+    check(
+      "push_subscriptions_endpoint_check",
+      sql`substr(endpoint, 1, 8) = 'https://' and length(endpoint) <= 1024`,
+    ),
+    check("push_subscriptions_keys_check", sql`length(p256dh) = 87 and length(auth) = 22`),
+    check("push_subscriptions_label_length", sql`length(label) between 1 and 40`),
+    check(
+      "push_subscriptions_fail_check",
+      sql`typeof(fail_count) = 'integer' and fail_count >= 0 and (fail_count = 0) = (first_fail_at is null)`,
+    ),
+  ],
+);
+
+// No row = the default for that switch.
+export const notificationPrefs = sqliteTable(
+  "notification_prefs",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    key: text("key", { enum: PUSH_PREF_KEYS }).notNull(),
+    enabled: integer("enabled", { mode: "boolean" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(now),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.key] }),
+    check("notification_prefs_key_check", sql`key in (${inList(PUSH_PREF_KEYS)})`),
+  ],
+);
+
+// One row per (recipient, event); written by the action, sent by after() or the dispatcher.
+export const notifications = sqliteTable(
+  "notifications",
+  {
+    id: id(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    // Null only for the test and the combined morning notification.
+    groupKey: text("group_key", { enum: PUSH_PREF_KEYS }),
+    dedupeKey: text("dedupe_key").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    url: text("url").notNull(),
+    tag: text("tag").notNull(),
+    // The text this item adds to the combined morning notification.
+    line: text("line"),
+    urgent: integer("urgent", { mode: "boolean" }).notNull().default(false),
+    status: text("status", { enum: NOTIFICATION_STATUSES }).notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    // JSON array of subscription ids already delivered, so a retry skips them.
+    deliveredTo: text("delivered_to").notNull().default("[]"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+    sentAt: integer("sent_at", { mode: "timestamp" }),
+    // A sender holds the row until then, so after() and a dispatcher run never send it twice.
+    leaseUntil: integer("lease_until", { mode: "timestamp" }),
+    mergedInto: text("merged_into"),
+  },
+  (t) => [
+    uniqueIndex("notifications_user_dedupe_idx").on(t.userId, t.dedupeKey),
+    index("notifications_due_idx")
+      .on(t.status, t.createdAt)
+      .where(sql`status in ('pending', 'held')`),
+    index("notifications_created_idx").on(t.createdAt),
+    index("notifications_user_kind_idx").on(t.userId, t.kind, t.createdAt),
+    check("notifications_status_check", sql`status in (${inList(NOTIFICATION_STATUSES)})`),
+    check(
+      "notifications_group_check",
+      sql`group_key is null or group_key in (${inList(PUSH_PREF_KEYS)})`,
+    ),
+    check("notifications_url_check", sql`substr(url, 1, 1) = '/' and substr(url, 2, 1) <> '/'`),
+    check(
+      "notifications_lengths",
+      sql`length(title) between 1 and 40 and length(body) between 1 and 400 and length(tag) between 1 and 64 and length(dedupe_key) <= 200`,
+    ),
+    check("notifications_attempts", sql`typeof(attempts) = 'integer' and attempts >= 0`),
+  ],
+);
+
+// Choir-wide push state: the dues switch (D80) and the dispatcher's markers. Outside app_settings on purpose.
+export const notificationState = sqliteTable(
+  "notification_state",
+  {
+    key: text("key").primaryKey(),
+    value: text("value").notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(now),
+    updatedBy: text("updated_by").references(() => users.id, { onDelete: "set null" }),
+  },
+  () => [
+    check("notification_state_key_length", sql`length(key) between 1 and 64`),
+    check("notification_state_value_length", sql`length(value) <= 200`),
+  ],
+);
+
+// "Kaldır" tombstones: a removed device's daily re-sync must not bring it back (0013).
+export const pushRemoved = sqliteTable(
+  "push_removed",
+  {
+    // SHA-256 of the endpoint; the capability URL itself isn't kept after removal.
+    endpointHash: text("endpoint_hash").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    removedAt: integer("removed_at", { mode: "timestamp" }).notNull().default(now),
+  },
+  (t) => [
+    index("push_removed_user_idx").on(t.userId),
+    index("push_removed_at_idx").on(t.removedAt),
+    check("push_removed_hash_check", sql`length(endpoint_hash) = 64`),
+  ],
+);

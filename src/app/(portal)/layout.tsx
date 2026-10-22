@@ -4,6 +4,7 @@ import { BottomNav, SidebarNav } from "@/components/shell/app-nav";
 import { SidebarUserActions, UserAvatar } from "@/components/shell/user-menu";
 import { VoicePartBadge } from "@/components/voice-part-badge";
 import { FlashToast } from "@/components/flash-toast";
+import { PushSync } from "@/components/notifications/push-sync";
 import { requireUser } from "@/lib/auth/dal";
 import { boardBadgeCount } from "@/lib/board/queries";
 import { readFlash } from "@/lib/flash";
@@ -78,6 +79,7 @@ export default async function PortalLayout({ children }: LayoutProps<"/">) {
 
       <BottomNav canManage={canManage} badges={badges} />
       {flash && <FlashToast key={flash} message={flash} />}
+      <PushSync userId={user.id} />
     </div>
   );
 }

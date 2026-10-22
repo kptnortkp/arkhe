@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNull, lt } from "drizzle-orm";
 import { db } from "@/db";
 import { attendance, rehearsals, type RehearsalType, type VoicePart } from "@/db/schema";
 import { REHEARSAL_TYPE_LABELS, VOICE_PART_LABELS } from "@/lib/labels";
@@ -102,6 +102,22 @@ export async function listRehearsals({
     )
     .limit(limit)
     .offset(offset);
+  return withParts(rows);
+}
+
+/** Occurrences of a series starting after `after` that attendance hasn't touched (what endSeries deletes). */
+export async function listSeriesAfter(seriesId: string, after: Date) {
+  const rows = await db
+    .select(publicColumns)
+    .from(rehearsals)
+    .where(
+      and(
+        eq(rehearsals.seriesId, seriesId),
+        gt(rehearsals.startsAt, after),
+        isNull(rehearsals.openedAt),
+      ),
+    )
+    .orderBy(asc(rehearsals.startsAt));
   return withParts(rows);
 }
 

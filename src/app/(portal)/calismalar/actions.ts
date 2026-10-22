@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -8,7 +8,7 @@ import { db } from "@/db";
 import { attendance, rehearsalParts, rehearsalSecrets, rehearsals, terms } from "@/db/schema";
 import { closeRehearsal } from "@/lib/attendance/close";
 import { newSecretRow, verifyCode } from "@/lib/attendance/code";
-import { getRehearsal, phaseOf } from "@/lib/attendance/rehearsals";
+import { getRehearsal, listSeriesAfter, phaseOf } from "@/lib/attendance/rehearsals";
 import { isExpected, loadRosterUsers, rosterOf } from "@/lib/attendance/roster";
 import {
   CHECKIN_MAX_WRONG,
@@ -25,6 +25,13 @@ import {
 import { assertManager, assertUser } from "@/lib/auth/dal";
 import { consumeAttempt, forgetAttempt } from "@/lib/auth/rate-limit";
 import { addDays, istanbulToUtc } from "@/lib/time";
+import {
+  attendanceOpened,
+  rehearsalCancelled,
+  rehearsalChanged,
+  rehearsalsCreated,
+  seriesEnded,
+} from "@/lib/push/triggers";
 import { fieldErrorsOf, formValues, optionalText, type FormState } from "@/lib/validation";
 
 const FORBIDDEN = "Bu işlem için yetkin yok.";
@@ -86,6 +93,10 @@ export async function createRehearsal(_prev: FormState, formData: FormData): Pro
         );
     }
   });
+  await rehearsalsCreated(
+    rows.map((r) => ({ ...r, parts: d.type === "sectional" ? d.parts : [] })),
+    actor.id,
+  );
   revalidateRehearsal();
   redirect(rows.length === 1 ? `/calismalar/${rows[0].id}` : "/calismalar");
 }
@@ -132,6 +143,19 @@ export async function updateRehearsal(
         .values(d.parts.map((voicePart) => ({ rehearsalId: id, voicePart })));
     }
   });
+  await rehearsalChanged(
+    current,
+    {
+      ...current,
+      type: d.type,
+      title: d.title,
+      location: d.location,
+      startsAt,
+      endsAt: istanbulToUtc(d.date, d.end),
+      parts: d.type === "sectional" ? d.parts : [],
+    },
+    actor.id,
+  );
   revalidateRehearsal(id);
   redirect(`/calismalar/${id}`);
 }
@@ -142,14 +166,22 @@ export async function setCancelled(id: string, cancelled: boolean): Promise<Form
   const r = idSchema.safeParse(id).success ? await getRehearsal(id) : null;
   if (!r) return { error: NOT_FOUND };
   if (r.openedAt) return { error: "Yoklaması alınmış bir çalışma iptal edilemez." };
-  await db
+  const hit = await db
     .update(rehearsals)
     .set(
       cancelled
         ? { cancelledAt: new Date(), cancelledBy: actor.id }
         : { cancelledAt: null, cancelledBy: null },
     )
-    .where(and(eq(rehearsals.id, id), isNull(rehearsals.openedAt)));
+    .where(
+      and(
+        eq(rehearsals.id, id),
+        isNull(rehearsals.openedAt),
+        cancelled ? isNull(rehearsals.cancelledAt) : isNotNull(rehearsals.cancelledAt),
+      ),
+    )
+    .returning({ id: rehearsals.id });
+  if (hit.length) await rehearsalCancelled(r, cancelled, actor.id);
   revalidateRehearsal(id);
   return { success: cancelled ? "Çalışma iptal edildi." : "İptal geri alındı." };
 }
@@ -160,6 +192,7 @@ export async function endSeries(id: string): Promise<FormState> {
   const r = idSchema.safeParse(id).success ? await getRehearsal(id) : null;
   if (!r?.seriesId) return { error: NOT_FOUND };
   const after = new Date(Math.max(Date.now(), r.startsAt.getTime()));
+  const doomed = await listSeriesAfter(r.seriesId, after);
   const deleted = await db
     .delete(rehearsals)
     .where(
@@ -170,6 +203,13 @@ export async function endSeries(id: string): Promise<FormState> {
       ),
     )
     .returning({ id: rehearsals.id });
+  const gone = new Set(deleted.map((x) => x.id));
+  await seriesEnded(
+    r,
+    // Occurrences already cancelled were announced then; they don't count again.
+    doomed.filter((x) => gone.has(x.id) && !x.cancelledAt),
+    actor.id,
+  );
   revalidateRehearsal(id);
   return { success: `Seri bitirildi, sonraki ${deleted.length} çalışma silindi.` };
 }
@@ -189,6 +229,7 @@ export async function openAttendance(id: string): Promise<FormState> {
           : "Bu çalışmanın yoklaması başlatılamaz.",
     };
   }
+  let didOpen = false;
   await db.transaction(async (tx) => {
     const opened = await tx
       .update(rehearsals)
@@ -199,6 +240,7 @@ export async function openAttendance(id: string): Promise<FormState> {
       .returning({ id: rehearsals.id });
     // Someone else opened it a moment ago: keep their secret, or their screen shows wrong codes.
     if (opened.length === 0) return;
+    didOpen = true;
     const row = newSecretRow(id);
     await tx
       .insert(rehearsalSecrets)
@@ -208,6 +250,7 @@ export async function openAttendance(id: string): Promise<FormState> {
         set: { secret: row.secret, rotatedAt: row.rotatedAt },
       });
   });
+  if (didOpen) await attendanceOpened(r, actor.id);
   revalidateRehearsal(id);
   redirect(`/calismalar/${id}/canli`);
 }

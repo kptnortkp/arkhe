@@ -7,6 +7,7 @@ import { VoicePartBadge } from "@/components/voice-part-badge";
 import { requireUser } from "@/lib/auth/dal";
 import { MyDuesSection } from "@/components/finance/my-dues";
 import { InstallCard } from "@/components/install-card";
+import { NotificationsSection } from "@/components/notifications/notifications-section";
 import { ROLE_LABELS } from "@/lib/labels";
 import { isManager } from "@/lib/permissions";
 import { PasswordForm, ProfileForm } from "./profile-forms";
@@ -29,6 +30,8 @@ export default async function ProfilePage() {
       </div>
 
       <InstallCard />
+
+      <NotificationsSection userId={user.id} />
 
       <MyDuesSection />
 

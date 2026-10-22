@@ -6,6 +6,7 @@ import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { wavBytes } from "../scripts/media-fixture.mjs";
+import { pushWorkerChecks } from "./prod-push.mjs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -673,6 +674,7 @@ try {
     await page.evaluate(() => Boolean(navigator.serviceWorker.controller)),
     "AC13 the service worker controls the page",
   );
+  await pushWorkerChecks({ context: persistent, page, cdp, base: BASE, check });
 
   // AC15 walk + AC20 page list, then the cache audit.
   const { rows: memberRows } = await db.execute(

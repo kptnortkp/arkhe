@@ -40,3 +40,23 @@ export function setInstallStatus(next: InstallStatus) {
   status = next;
   emit();
 }
+
+const STANDALONE = "(display-mode: standalone)";
+
+export function isStandalone() {
+  return (
+    window.matchMedia(STANDALONE).matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true
+  );
+}
+
+export function isIos() {
+  const ua = navigator.userAgent;
+  return /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+}
+
+export function watchStandalone(onChange: () => void) {
+  const media = window.matchMedia(STANDALONE);
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}

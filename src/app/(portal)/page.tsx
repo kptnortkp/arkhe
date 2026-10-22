@@ -13,6 +13,7 @@ import { ManagerHomeworkCard, MyHomeworkCard } from "@/components/homework/home-
 import { PieceRow } from "@/components/repertoire/piece-row";
 import { ReviewHomeCard } from "@/components/review/home-card";
 import { StorageBanner } from "@/components/storage/storage-banner";
+import { PushNudge } from "@/components/notifications/push-nudge";
 import { VOICE_PARTS } from "@/db/schema";
 import { autoCloseStale } from "@/lib/attendance/close";
 import { resolvePeriod } from "@/lib/attendance/period";
@@ -31,6 +32,7 @@ import { firstName } from "@/lib/format";
 import { VOICE_PART_LABELS, VOICE_PART_STYLES } from "@/lib/labels";
 import { isManager } from "@/lib/permissions";
 import { loadViewer } from "@/lib/homework/queries";
+import { getVapidPublicKey } from "@/lib/push/settings";
 import { learningPieces, withMyPart } from "@/lib/repertoire";
 import { midiForExactPart } from "@/lib/repertoire-midi";
 import { formatLongDate, formatTime, istanbulDateOf, istanbulToUtc, now } from "@/lib/time";
@@ -90,6 +92,7 @@ export default async function HomePage() {
   }).filter((t) => t.total > 0);
 
   const viewer = (await loadViewer(user.id))!;
+  const pushKey = await getVapidPublicKey();
   const at = now();
   const learning = await learningPieces();
   const pieces = await withMyPart(learning.slice(0, 5), user.voicePart);
@@ -195,6 +198,7 @@ export default async function HomePage() {
         )}
       </section>
 
+      {pushKey && <PushNudge publicKey={pushKey} userId={user.id} />}
       {manager && <BoardHomeCard />}
       <ReviewHomeCard user={user} />
       <MyHomeworkCard viewer={viewer} at={at} />

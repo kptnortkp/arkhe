@@ -203,6 +203,22 @@ Kayıtlar yalnızca ödev geri bildirimi için tutulur ve 90 gün sonra silinir.
 
 ---
 
+## Bildirimler (Web Push)
+
+Free on every push service (FCM, Apple, Mozilla) with VAPID keys; no SaaS, no Firebase SDK.
+
+- **Keys, once:** on a trusted machine run `npx web-push generate-vapid-keys`. In Vercel set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT=mailto:<koro adresi>` for **Production only**, then redeploy. Keep a copy of the keys next to the backup passphrase.
+- **Never rotate the keys** unless they leak: a new key pair silently ends every subscription, and every singer has to turn notifications on again.
+- Without the three variables the portal still starts (one boot warning); `Profilim › Bildirimler` shows `Bildirimler henüz açılmadı.` and nothing is sent.
+- **iPhone:** iOS 16.4 or newer, and only from the Arkhe icon on the home screen (`Ana ekrana ekle`). Safari tabs never get notifications.
+- **The KILL switch in `public/sw.js` also ends every subscription** (it unregisters the worker); use it only for a broken worker.
+- **Allowlist:** the server only sends to known push services (`src/lib/push/endpoint.ts`, `HOSTS` and `SUFFIXES`). If a new browser's subscribe is refused with `Bu bildirim adresi kabul edilmedi.`, check its endpoint host with the browser vendor and add the exact host there; never add a wildcard for a whole cloud.
+- **Timing:** at-once notifications go right after the action. Between 22:00 and 08:00 (Istanbul) they wait for the morning for people with `Gece sessiz` on (urgent board tickets never wait). The morning notification comes from the daily cron (08:00–09:00), together with the dispatcher's retries.
+- **Optional external trigger:** `GET /api/cron/bildirimler` with `Authorization: Bearer <CRON_SECRET>` runs only the dispatcher (retries, held items after 08:00, morning lines once a day). It's not in `vercel.json`; a free cron-job.org job calling it hourly would need no code change.
+- **Dev/e2e:** nothing leaves the machine: every send is a JSON file in `data/push-outbox/`, with fixed dev keys.
+
+---
+
 ## Post-deploy manual checklist (real phones)
 
 Do these once on the deployed site, on one iPhone (Safari) and one Android phone (Chrome), in light and dark mode. Tick each.

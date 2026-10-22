@@ -12,7 +12,8 @@ const SESSION_DAYS = 90;
 export async function createSession(userId: string) {
   const token = generateToken();
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
-  await db.insert(sessions).values({ id: hashToken(token), userId, expiresAt });
+  const id = hashToken(token);
+  await db.insert(sessions).values({ id, userId, expiresAt });
 
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
@@ -21,6 +22,7 @@ export async function createSession(userId: string) {
     path: "/",
     expires: expiresAt,
   });
+  return id;
 }
 
 export async function deleteCurrentSession() {
@@ -38,6 +40,12 @@ export async function deleteCurrentSession() {
       sameSite: "lax",
     });
   }
+}
+
+/** The hashed id of this request's session row, or null; ties a push subscription to the login. */
+export async function currentSessionId() {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  return token ? hashToken(token) : null;
 }
 
 export async function deleteUserSessions(userId: string) {

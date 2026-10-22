@@ -1010,7 +1010,8 @@ export default async function phase5(browser, shots) {
   );
   await goto(korist, "/profil");
   const firstSection = await korist
-    .locator("main section:not([data-testid=install-card])")
+    // Phase 10 D83: Bildirimler sits under Telefonuna ekle, before the content sections.
+    .locator("main section:not([data-testid=install-card]):not(#bildirimler)")
     .first()
     .getAttribute("id");
   const myRows = await korist.locator("[data-testid=my-dues-row]").allTextContents();

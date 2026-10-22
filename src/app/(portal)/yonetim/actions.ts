@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db";
 import { writeTx, type Tx } from "@/db/write-tx";
+import { ticketChanged, type TicketEvent } from "@/lib/push/triggers";
 import { boardTicketEvents, boardTicketReads, boardTickets, users } from "@/db/schema";
 import { consumeAttempt, forgetAttempt } from "@/lib/auth/rate-limit";
 import { assertManager } from "@/lib/auth/dal";
@@ -84,6 +85,7 @@ export async function createTicket(_prev: FormState, formData: FormData): Promis
   if (limit.blocked) return { error: RATE_LIMITED, values: formValues(formData) };
 
   let number = 0;
+  let fresh = false;
   // A double submit or a refused assignee isn't a new attempt.
   let free = false;
   const state = await guarded(formData, async () => {
@@ -120,6 +122,7 @@ export async function createTicket(_prev: FormState, formData: FormData): Promis
       });
       await tx.insert(ev).values({ ticketId: id.data, kind: "created", actorId: actor.id });
       await markSeen(tx, id.data, actor.id);
+      fresh = true;
       return n;
     });
     if (result === null) return { error: TICKET_STALE };
@@ -128,6 +131,22 @@ export async function createTicket(_prev: FormState, formData: FormData): Promis
   });
   if (free || state.fieldErrors) await forgetAttempt(limit.attemptId);
   if (!state.success) return state;
+  if (fresh) {
+    await ticketChanged({
+      ticket: {
+        id: id.data,
+        number,
+        title: d.title,
+        createdBy: actor.id,
+        assigneeId: d.assigneeId,
+        dueOn: d.dueOn,
+      },
+      actor,
+      created: true,
+      urgent: d.urgency === "urgent",
+      assignedTo: d.assigneeId,
+    });
+  }
   revalidateBoard();
   await setFlash("is-acildi", number);
   redirect(`/yonetim/${number}`);
@@ -152,6 +171,7 @@ export async function updateTicket(
   }
   const d = parsed.data;
 
+  let push: TicketEvent | null = null;
   const state = await guarded(formData, async () => {
     const error = await writeTx(async (tx): Promise<string | null> => {
       const [cur] = await tx.select().from(t).where(eq(t.number, num.data));
@@ -211,11 +231,18 @@ export async function updateTicket(
       }
       if (entries.length) await tx.insert(ev).values(entries);
       await markSeen(tx, cur.id, actor.id);
+      push = {
+        ticket: { ...cur, title: d.title, assigneeId: d.assigneeId, dueOn: d.dueOn },
+        actor,
+        urgent: d.urgency === "urgent" && cur.urgency !== "urgent",
+        assignedTo: d.assigneeId !== cur.assigneeId ? d.assigneeId : null,
+      };
       return null;
     });
     return error ? { error, values: formValues(formData) } : { success: "ok" };
   });
   if (!state.success) return state;
+  if (push) await ticketChanged(push);
   revalidateBoard();
   await setFlash("kaydedildi");
   redirect(`/yonetim/${num.data}`);
@@ -232,6 +259,7 @@ export async function moveTicket(input: {
   const parsed = moveSchema.safeParse(input);
   if (!parsed.success) return { error: TICKET_STALE };
   const { number, from, to } = parsed.data;
+  let moved: TicketEvent["ticket"] | null = null;
   const error = await writeTx(async (tx): Promise<string | null> => {
     const hit = await tx
       .update(t)
@@ -243,7 +271,14 @@ export async function moveTicket(input: {
         updatedBy: actor.id,
       })
       .where(and(eq(t.number, number), eq(t.status, from)))
-      .returning({ id: t.id });
+      .returning({
+        id: t.id,
+        number: t.number,
+        title: t.title,
+        createdBy: t.createdBy,
+        assigneeId: t.assigneeId,
+        dueOn: t.dueOn,
+      });
     if (!hit.length) {
       const [exists] = await tx.select({ id: t.id }).from(t).where(eq(t.number, number));
       return exists ? TICKET_STALE : TICKET_NOT_FOUND;
@@ -256,9 +291,11 @@ export async function moveTicket(input: {
       toValue: to,
     });
     await markSeen(tx, hit[0].id, actor.id);
+    moved = hit[0];
     return null;
   });
   if (error) return { error };
+  if (moved) await ticketChanged({ ticket: moved, actor, movedTo: to });
   revalidateBoard();
   return { success: movedMessage(number, to) };
 }
@@ -310,9 +347,20 @@ export async function addComment(
 
   // A comment on a just-deleted ticket or a double submit isn't a new attempt.
   let free = false;
+  let commented: TicketEvent["ticket"] | null = null;
   const state = await guarded(formData, async () => {
     const error = await writeTx(async (tx): Promise<string | null> => {
-      const [ticket] = await tx.select({ id: t.id }).from(t).where(eq(t.number, num.data));
+      const [ticket] = await tx
+        .select({
+          id: t.id,
+          number: t.number,
+          title: t.title,
+          createdBy: t.createdBy,
+          assigneeId: t.assigneeId,
+          dueOn: t.dueOn,
+        })
+        .from(t)
+        .where(eq(t.number, num.data));
       if (!ticket) {
         free = true;
         return TICKET_NOT_FOUND;
@@ -335,6 +383,8 @@ export async function addComment(
           .where(eq(ev.clientKey, key.data));
         if (replay?.actorId !== actor.id || replay.ticketId !== ticket.id) return TICKET_STALE;
         free = true;
+      } else {
+        commented = ticket;
       }
       await markSeen(tx, ticket.id, actor.id);
       return null;
@@ -342,6 +392,7 @@ export async function addComment(
     return error ? { error, values: formValues(formData) } : { success: "Yorum eklendi." };
   });
   if (free || state.fieldErrors) await forgetAttempt(limit.attemptId);
+  if (state.success && commented) await ticketChanged({ ticket: commented, actor, comment: true });
   if (state.success) revalidateBoard();
   return state;
 }

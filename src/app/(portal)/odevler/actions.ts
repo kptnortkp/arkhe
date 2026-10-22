@@ -18,6 +18,7 @@ import { isEligible } from "@/lib/homework/eligibility";
 import { RECORDING_EMAIL_RE } from "@/lib/homework/mail";
 import { loadViewer } from "@/lib/homework/queries";
 import { withdrawTake } from "@/lib/homework/withdraw";
+import { feedbackSent, homeworkCreated } from "@/lib/push/triggers";
 import { canWriteFeedback } from "@/lib/review/access";
 import { errorTag } from "@/lib/review/log";
 import { drainKeys } from "@/lib/storage/ledger";
@@ -127,6 +128,7 @@ export async function createAssignment(_prev: FormState, formData: FormData): Pr
   if (pieceError) return { values: formValues(formData), fieldErrors: { pieceId: [pieceError] } };
 
   const at = now();
+  let fresh = false;
   const inserted = await db.transaction(async (tx) => {
     const rows = await tx
       .insert(assignments)
@@ -153,9 +155,11 @@ export async function createAssignment(_prev: FormState, formData: FormData): Pr
     await tx
       .insert(assignmentParts)
       .values(d.parts.map((voicePart) => ({ assignmentId: id.data, voicePart })));
+    fresh = true;
     return true;
   });
   if (!inserted) return { error: STALE };
+  if (fresh) await homeworkCreated(id.data, actor.id);
   revalidateHomework();
   return { success: "Ödev verildi.", values: { id: id.data } };
 }
@@ -421,6 +425,7 @@ export async function saveFeedback(
     });
   }
   if (outcome === "stale") return { error: MSG.staleForComment, values: formValues(formData) };
+  if (outcome === "sent") await feedbackSent(assignmentId, userId);
   revalidateHomework();
   if (outcome === "deleted") return { success: MSG.commentDeleted };
   return { success: outcome === "sent" ? MSG.commentSent : MSG.commentUpdated };

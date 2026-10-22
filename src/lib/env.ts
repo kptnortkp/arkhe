@@ -1,5 +1,6 @@
 // Pure checks of the production environment; no server-only import so scripts can reuse it.
 import { missingBackupVars } from "./backup/config";
+import { pushWarning } from "./push/config";
 type Env = Record<string, string | undefined>;
 
 const LOOPBACK = new Set(["127.0.0.1", "localhost", "[::1]"]);
@@ -67,5 +68,7 @@ export function bootWarnings(env: Env): string[] {
       "File storage is not configured: connect a private Blob store (BLOB_STORE_ID or BLOB_READ_WRITE_TOKEN).",
     );
   }
+  const push = pushWarning(env);
+  if (push) warnings.push(push);
   return warnings;
 }

@@ -1,16 +1,22 @@
 import Link from "next/link";
 import { FinanceNav } from "@/components/finance/finance-nav";
 import { OpeningForm, PaymentInfoForm } from "@/components/finance/settings-forms";
+import { DuesPushSwitch } from "@/components/notifications/dues-push-switch";
 import { requireManager } from "@/lib/auth/dal";
 import { getPaymentInfo, openingState, todayIstanbul } from "@/lib/finance/queries";
 import { amountInput } from "@/lib/money";
+import { getDuesPushEnabled } from "@/lib/push/settings";
 import { dayInstant, formatDayMonth } from "@/lib/time";
 
 export const metadata = { title: "Finans ayarları" };
 
 export default async function FinanceSettingsPage() {
   await requireManager();
-  const [opening, info] = await Promise.all([openingState(), getPaymentInfo()]);
+  const [opening, info, duesPush] = await Promise.all([
+    openingState(),
+    getPaymentInfo(),
+    getDuesPushEnabled(),
+  ]);
   const date = opening.date ?? todayIstanbul();
   return (
     <div className="space-y-6">
@@ -51,6 +57,15 @@ export default async function FinanceSettingsPage() {
           Ödeme bilgisi
         </h2>
         <PaymentInfoForm info={info ?? ""} />
+      </section>
+      <section
+        className="max-w-xl space-y-3 rounded-2xl border bg-card p-4"
+        aria-labelledby="bildirim"
+      >
+        <h2 id="bildirim" className="text-xl font-medium">
+          Bildirim
+        </h2>
+        <DuesPushSwitch on={duesPush} />
       </section>
     </div>
   );

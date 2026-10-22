@@ -243,7 +243,10 @@ async function home(browser) {
   const card = yk.locator("[data-testid=home-board]");
   const position = await yk.evaluate(() => {
     const hero = document.querySelector("section[aria-label='Sıradaki çalışma']");
-    return hero?.nextElementSibling?.getAttribute("data-testid");
+    // The Phase 10 notification nudge may sit between them.
+    let next = hero?.nextElementSibling;
+    if (next?.getAttribute("data-testid") === "push-nudge") next = next.nextElementSibling;
+    return next?.getAttribute("data-testid");
   });
   check(position === "home-board", `AC3 the home card sits directly below the hero (${position})`);
   const summary = yk.locator("[data-testid=home-board-summary]");

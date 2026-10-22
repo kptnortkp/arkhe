@@ -21,6 +21,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   devIndicators: false,
+  // Dev logs every server action's arguments, push endpoints included.
+  logging: { serverFunctions: false },
   // A 1 MB import file plus multipart overhead; every action still validates its own input.
   experimental: { serverActions: { bodySizeLimit: "1100kb" } },
   async headers() {
