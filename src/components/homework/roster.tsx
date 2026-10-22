@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, Clock, MessageSquareText, Minus, X } from "lucide-react";
+import { AudioLines, Check, ChevronRight, Clock, MessageSquareText, Minus, X } from "lucide-react";
+import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { saveFeedback, setSubmissionFor } from "@/app/(portal)/odevler/actions";
@@ -30,6 +31,8 @@ export type RosterRow = {
   joinedLater: boolean;
   left: boolean;
   feedback: string | null;
+  /** The current portal take, metadata only. */
+  take: { id: string; durationMs: number | null; audioDeleted: boolean } | null;
 };
 
 export type RosterGroup = {
@@ -72,6 +75,7 @@ function NoteForm({
 
   return (
     <form action={action} className="space-y-3">
+      <input type="hidden" name="recordingId" value={row.take?.id ?? ""} />
       <div className="space-y-2">
         <Label htmlFor="feedback">Not</Label>
         <Textarea
@@ -120,10 +124,27 @@ function NoteForm({
   );
 }
 
-export function Roster({ assignmentId, groups }: { assignmentId: string; groups: RosterGroup[] }) {
+const clock = (ms: number) => {
+  const sec = Math.round(ms / 1000);
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+};
+const takeText = (t: NonNullable<RosterRow["take"]>) =>
+  t.audioDeleted ? "Kayıt silindi" : `Kayıt · ${t.durationMs === null ? "—" : clock(t.durationMs)}`;
+
+export function Roster({
+  assignmentId,
+  groups,
+  canComment,
+}: {
+  assignmentId: string;
+  groups: RosterGroup[];
+  /** Only the conductor writes the comment (D3); the board's sheet has the manual mark only. */
+  canComment: boolean;
+}) {
   const [selected, setSelected] = useState<RosterRow | null>(null);
   const [pending, run] = useRunAction();
   const submitted = selected && (selected.state === "done" || selected.state === "late");
+  const locked = Boolean(submitted && selected?.take && !selected.take.audioDeleted);
 
   return (
     <>
@@ -144,18 +165,45 @@ export function Roster({ assignmentId, groups }: { assignmentId: string; groups:
               <ul className="divide-y overflow-hidden rounded-2xl border bg-card">
                 {g.rows.map((r) => {
                   const { className, icon: Icon } = STATE_LOOK[r.state];
+                  const submittedRow = r.state === "done" || r.state === "late";
+                  const review = `/odevler/${assignmentId}/dinle/${r.userId}`;
+                  // A row with a take moves the chip under the name so the name keeps the full width.
+                  const chip = (
+                    <span
+                      className={cn(
+                        "inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap",
+                        className,
+                      )}
+                    >
+                      <Icon className="size-3.5" aria-hidden />
+                      {r.stateLabel}
+                    </span>
+                  );
                   return (
-                    <li key={r.userId}>
+                    <li key={r.userId} className="flex items-stretch">
                       <button
                         type="button"
                         data-testid="roster-row"
                         data-state={r.state}
-                        aria-label={`${r.name}: ${r.stateLabel}. Not yaz`}
                         onClick={() => setSelected(r)}
-                        className="flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset"
+                        className="flex min-h-14 min-w-0 flex-1 items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset"
                       >
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate font-medium">{r.name}</span>
+                          <span className="block truncate font-medium" data-testid="roster-name">
+                            {r.name}
+                          </span>
+                          {r.take && (
+                            <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                              {chip}
+                              <span
+                                data-testid="roster-recording"
+                                className="flex items-center gap-1 text-xs text-muted-foreground tabular-nums"
+                              >
+                                <AudioLines className="size-3.5 shrink-0" aria-hidden />
+                                {takeText(r.take)}
+                              </span>
+                            </span>
+                          )}
                           {(r.manual || r.joinedLater || r.left) && (
                             <span className="block text-xs text-muted-foreground">
                               {[
@@ -168,14 +216,9 @@ export function Roster({ assignmentId, groups }: { assignmentId: string; groups:
                             </span>
                           )}
                         </span>
-                        <span
-                          className={cn(
-                            "inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap",
-                            className,
-                          )}
-                        >
-                          <Icon className="size-3.5" aria-hidden />
-                          {r.stateLabel}
+                        {!r.take && chip}
+                        <span className="sr-only">
+                          {canComment ? ", yorum yaz" : ", teslimi işaretle"}
                         </span>
                         <MessageSquareText
                           className={cn(
@@ -185,6 +228,17 @@ export function Roster({ assignmentId, groups }: { assignmentId: string; groups:
                           aria-hidden
                         />
                       </button>
+                      {r.take && canComment && submittedRow && (
+                        <Link
+                          href={review}
+                          prefetch={false}
+                          aria-label={`${r.name}: kaydı dinle`}
+                          data-testid="roster-listen"
+                          className="flex min-h-14 w-11 shrink-0 items-center justify-center text-muted-foreground hover:bg-muted/60 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset"
+                        >
+                          <ChevronRight className="size-5" aria-hidden />
+                        </Link>
+                      )}
                     </li>
                   );
                 })}
@@ -210,7 +264,8 @@ export function Roster({ assignmentId, groups }: { assignmentId: string; groups:
               <Button
                 variant="outline"
                 className="h-11 w-full rounded-xl"
-                disabled={pending}
+                disabled={pending || locked}
+                aria-describedby={locked ? "unmark-locked" : undefined}
                 onClick={() =>
                   run(
                     () => setSubmissionFor(assignmentId, selected.userId, !submitted),
@@ -220,12 +275,40 @@ export function Roster({ assignmentId, groups }: { assignmentId: string; groups:
               >
                 {submitted ? "Teslimi kaldır" : "Teslim edildi olarak işaretle"}
               </Button>
-              <NoteForm
-                key={selected.userId}
-                assignmentId={assignmentId}
-                row={selected}
-                onDone={() => setSelected(null)}
-              />
+              {locked && (
+                <p id="unmark-locked" className="-mt-2 text-xs text-muted-foreground">
+                  {canComment
+                    ? "Portalda kaydı olduğu için teslim kaldırılamaz; önce kaydı sil."
+                    : "Portalda kaydı olduğu için teslim kaldırılamaz. Gerekirse şefe haber ver."}
+                </p>
+              )}
+              {canComment ? (
+                <>
+                  {submitted && (
+                    <Link
+                      href={`/odevler/${assignmentId}/dinle/${selected.userId}`}
+                      className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-primary hover:underline"
+                    >
+                      {locked ? "Kayda git" : "Dinle ve yorum yaz"}
+                      <ChevronRight className="size-4" aria-hidden />
+                    </Link>
+                  )}
+                  <NoteForm
+                    key={selected.userId}
+                    assignmentId={assignmentId}
+                    row={selected}
+                    onDone={() => setSelected(null)}
+                  />
+                </>
+              ) : (
+                selected.feedback && (
+                  <div className="space-y-1.5 rounded-xl bg-muted p-3 text-sm" data-testid="feedback-readonly">
+                    <p className="text-xs font-medium text-muted-foreground">Geri bildirim</p>
+                    <p className="whitespace-pre-line">{selected.feedback}</p>
+                    <p className="text-xs text-muted-foreground">Bu notu yalnızca şef değiştirebilir.</p>
+                  </div>
+                )
+              )}
             </>
           )}
         </SheetContent>

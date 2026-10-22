@@ -1,0 +1,1494 @@
+
+> arkhe@0.1.0 e2e
+> node --env-file-if-exists=.env.development --env-file-if-exists=.env e2e/run.mjs
+
+.env not found. Continuing without it.
+0 file(s) out of date, 0 orphan file(s)
+
+# phase1-auth.mjs
+PASS wrong password shows a generic error
+PASS email is kept after a failed login
+PASS member lands on home after login
+PASS member doesn't see Üyeler in nav
+PASS member is redirected away from /uyeler
+PASS board can't pick conductor in the UI
+PASS form keeps values after a validation error
+PASS server rejects a board member creating a conductor
+PASS invite link is created
+PASS password mismatch is rejected
+PASS invitee sets a password and is logged in
+PASS invite link is single-use
+PASS logout ends the session
+PASS next=//evil.example is not followed
+PASS member page HTML contains no password hash
+PASS next with an embedded tab stays on our origin
+PASS parallel guesses are still rate limited
+PASS login is rate limited after 30 failures for one email
+
+# phase2-attendance.mjs
+PASS AC26 the seeded flagged member has the Uyarı badge
+PASS AC26 a member with only excused misses is not flagged
+PASS AC1 member sees a new rehearsal in the calendar
+PASS AC2 series preview reads 5 çalışma
+PASS AC2 submit button reads 5 çalışmayı ekle
+PASS AC2 exactly 5 occurrences are created
+PASS AC4 Seriyi bitir deletes later occurrences, including excused ones
+PASS AC15 member sees MAZERETİN İLETİLDİ with a withdraw button
+PASS AC15 manager sees the excuse reason before the rehearsal
+PASS AC3 cancelled rehearsal shows İptal edildi with no actions
+PASS AC3 un-cancelling restores the earlier excuse
+PASS AC16 withdrawing returns the member to unmarked
+PASS AC5 sectional is not the alto member's
+PASS AC5 a bass member sees the sectional as theirs
+PASS AC6 member is redirected away from /calismalar/yeni
+PASS AC6 member is redirected away from /raporlar
+PASS AC6 member is redirected away from /calismalar/00966c95-a0ba-4372-9c05-1c6c4e66a496/canli
+PASS AC6 poll route returns 403 for members
+PASS AC6 CSV route returns 403 for members
+PASS AC6 mark route returns 403 for members
+PASS AC7 live screen shows a 4-digit code
+PASS AC7 live screen shows the late cut-off
+PASS AC7 live screen shows a QR code
+PASS AC8 member home shows YOKLAMA AÇIK
+PASS AC8 member checks in with the code and sees YOKLAMAYA KATILDIN
+PASS AC8 manager screen shows the member as Geldi within 10 s
+PASS AC7 Sadece kod view shows the code and no member names
+PASS AC9 a wrong code writes nothing
+PASS AC9 after 5 wrong codes even the correct code is refused
+PASS AC11 QR login flow checks in with no extra tap
+PASS AC11 the URL no longer contains ?c=
+PASS AC11 a plain GET of the QR URL records nothing
+PASS AC12 check-in 20 min after start is recorded as Geç geldi
+PASS AC12 a repeat check-in changes nothing
+PASS AC13 check-in replaces the member's own excuse and clears the reason
+PASS AC13 a manager's Gelmedi mark wins over self check-in
+PASS AC18 manual mark Geldi is saved
+PASS AC18 manual mark Geç is saved
+PASS AC18 manual mark Mazeretli is saved
+PASS AC18 manual mark Gelmedi is saved
+PASS AC18 the mark survives a reload
+PASS AC18 İşareti kaldır clears the mark while open
+PASS AC19 bulk marks every unmarked alto
+PASS AC19 already marked altos stay unchanged
+PASS AC19 Geri al reverts exactly the bulk rows
+PASS AC20 close dialog shows the exact unmarked count
+PASS AC20 closing marks every unmarked expected member Gelmedi
+PASS AC14 QR URL shows Yoklama kapandı after close
+PASS AC14 Geldim is gone after close
+PASS AC21 a closed rehearsal can be corrected
+PASS AC21 the row shows Düzeltildi · <first name>
+PASS AC21 no İşareti kaldır after close
+PASS AC22 a past never-opened rehearsal shows Yoklama alınmadı
+PASS AC22 closing it counts the rest as Gelmedi
+PASS AC23 yesterday's open rehearsal auto-closes
+PASS AC23 its unmarked members become Gelmedi
+PASS AC24 offline banner and Kaydedilmedi are shown
+PASS AC7/AC24 the code keeps changing (also offline)
+PASS AC24 the offline mark saves after reconnecting
+PASS AC25 part tile for soprano
+PASS AC25 part tile for alto
+PASS AC25 part tile for tenor
+PASS AC25 part tile for bass
+PASS AC26 Sadece uyarılılar shows only flagged people
+PASS AC27 switching the term recalculates the table
+PASS AC27 overlapping terms are rejected
+PASS AC27 a new term appears in the selector
+PASS AC28 CSV starts with a UTF-8 BOM
+PASS AC28 CSV has the agreed header with ;
+PASS AC28 a name like =1+1 is exported as '=1+1
+PASS AC17 excuse reasons never reach the CSV
+PASS AC29 member's own percentage matches the report (%70 vs %70)
+PASS AC30 Partisyon is required for a Korist
+PASS AC30 someone who joined today is not expected at past rehearsals
+PASS AC31 board can't issue a link for itself or edit a board account
+PASS AC31 board can't give anyone the board or conductor role
+PASS AC32 no horizontal scroll on / (light)
+PASS AC32 no horizontal scroll on / (dark)
+PASS AC32 no horizontal scroll on /calismalar (light)
+PASS AC32 no horizontal scroll on /calismalar (dark)
+PASS AC32 no horizontal scroll on /raporlar (light)
+PASS AC32 no horizontal scroll on /raporlar (dark)
+PASS AC32 no horizontal scroll on /calismalar/1d0d8223-9e1b-46d4-83e8-b0b0fcedc8a6 (light)
+PASS AC32 no horizontal scroll on /calismalar/1d0d8223-9e1b-46d4-83e8-b0b0fcedc8a6 (dark)
+PASS AC32 no horizontal scroll on /calismalar/175b5225-4f6b-48fc-bc9f-996ccc4fb938/canli (light)
+PASS AC32 no horizontal scroll on /calismalar/175b5225-4f6b-48fc-bc9f-996ccc4fb938/canli (dark)
+PASS review: at 1024×768 the code panel doesn't overlap the roster
+PASS review: at 1024×768 the live code is at least 96px (97.28px)
+PASS review: code-only view fits the tablet screen
+PASS review: roster names aren't truncated on a 375 px phone
+PASS review: 32 failed logins on other emails don't block the conductor
+
+# phase3-repertoire.mjs
+PASS AC1 default view lists the Çalışılıyor pieces
+PASS AC1 chips show their counts (Çalışılıyor3,Program3,Hazır2,Arşiv1,Tümü6)
+PASS AC1 Hazır lists the ready pieces
+PASS AC1 Arşiv lists the archived piece
+PASS AC1 Tümü lists every piece
+PASS AC9 Program view is in programme order
+PASS AC9 programme pieces are numbered 1..n
+PASS AC2 'gulum' finds Aman Gülüm
+PASS AC2 composer search finds Mozart
+PASS AC2 search finds archived pieces from the default view, with a status chip
+PASS AC2 search shows the all-statuses result line
+PASS AC2 no chip is current while searching
+PASS AC2 no match message
+PASS AC2 Aramayı temizle returns to the list
+PASS AC3 row shows language, voicing and duration 3:40
+PASS AC3 row shows composer and arranger
+PASS AC4 Partisyonum opens the alto file
+PASS AC4 Partisyonum opens in a new tab with noopener
+PASS AC5 falls back to the Tutti file
+PASS AC5 no part file gives a disabled 'Partisyon kaydı yok'
+PASS AC7 default filter shows alto + Tutti only
+PASS AC7 default chip is 'Benim partisyonum (Alto)'
+PASS AC7 Tümü shows every link
+PASS AC7 ?partisyon=bas shows bass + Tutti
+PASS AC7 a third active Bas chip appears
+PASS AC8 no iframe before Önizle
+PASS AC8 Drive preview src keeps the resourcekey
+PASS AC8 iframe has title and referrerpolicy, no sandbox
+PASS AC8 Drive fallback line shows under the preview
+PASS AC8 opening a second preview closes the first
+PASS AC8 YouTube preview uses youtube-nocookie
+PASS AC8 Kapat removes the iframe
+PASS AC8 YouTube start time is kept
+PASS AC8 Drive folder preview
+PASS AC10 member sees no Eser ekle
+PASS AC10 member sees no edit or menu controls
+PASS AC10 /repertuvar/yeni redirects members
+PASS AC10 edit page redirects members
+PASS AC19 home lists the learning pieces
+PASS AC19 home Partisyonum works
+PASS AC19 the sample-data pill is gone
+PASS AC20 CSP frame-src is Drive + youtube-nocookie only
+PASS AC5 soprano gets a chooser with Soprano 1 and Soprano 2
+PASS AC6 no Partisyonum without a voice part (list)
+PASS AC6 no Partisyonum on home
+PASS AC6 detail page has no part filter and shows every link
+PASS AC21 no horizontal scroll on / (light)
+PASS AC21 no horizontal scroll on / (dark)
+PASS AC21 no horizontal scroll on /repertuvar (light)
+PASS AC21 no horizontal scroll on /repertuvar (dark)
+PASS AC21 no horizontal scroll on /repertuvar?liste=program (light)
+PASS AC21 no horizontal scroll on /repertuvar?liste=program (dark)
+PASS AC21 no horizontal scroll on /repertuvar?liste=tumu (light)
+PASS AC21 no horizontal scroll on /repertuvar?liste=tumu (dark)
+PASS AC21 no horizontal scroll on /repertuvar/4a1b706b-1083-4328-9c64-93c44b12be71?partisyon=tumu (light)
+PASS AC21 no horizontal scroll on /repertuvar/4a1b706b-1083-4328-9c64-93c44b12be71?partisyon=tumu (dark)
+PASS AC21 no horizontal scroll on /repertuvar/62de893d-f720-4899-b831-bcb0567d2e7c (light)
+PASS AC21 no horizontal scroll on /repertuvar/62de893d-f720-4899-b831-bcb0567d2e7c (dark)
+PASS AC21 chips and part buttons are ≥ 44px (44,44,44,44,44,44,44,44)
+PASS AC11 empty title shows 'Eser adı gerekli.'
+PASS AC11 'abc' duration is rejected
+PASS AC11 create lands on the edit page's links with a toast
+PASS AC11 the new piece shows under its status with 4:05
+PASS AC11 '4.05' is saved as 4:05
+PASS AC13 a non-folder Drive klasörü is rejected
+PASS AC12 open?id= is stored as file/d/…/view
+PASS AC12 youtu.be is stored as watch?v=
+PASS AC13 'http://example.com/a' is rejected
+PASS AC13 'javascript:alert(1)' is rejected
+PASS AC13 'ftp://example.com/a' is rejected
+PASS AC13 'https://drive.google.com@evil.com/x' is rejected
+PASS AC13 a duplicate link is rejected
+PASS AC13 rejected links are not stored
+PASS AC15 an empty label shows the derived label
+PASS review: a 120-character label is saved
+PASS AC14 51 lines are refused
+PASS AC14 preview shows 5 valid rows and the invalid and duplicate rows
+PASS AC14 a duplicate of an existing link is flagged
+PASS AC14 guessed kinds and parts (part,part,part,score,video / soprano,alto,tenor,,)
+PASS AC14 exactly the 5 rows are saved in order with the edit applied
+PASS AC16 first up and last down are disabled
+PASS review: focus stays on the moved row's button after a link move
+PASS AC16 reorder persists after reload
+PASS AC16 delete removes the link after a confirm
+PASS AC17 Programa ekle appends to the end of the programme
+PASS review: focus stays on the moved programme row
+PASS AC17 programme reorder persists after reload
+PASS AC17 archiving a programme piece removes it from the programme
+PASS AC18 archived piece keeps its links
+PASS AC18 Arşivden çıkar puts it back under Hazır
+PASS AC17 Programı temizle empties the programme
+PASS AC9 members don't see the Program chip when it's empty
+PASS AC10 all 13 actions refuse a member
+PASS AC10 refused actions change no rows
+PASS AC18 delete is not on the detail page
+PASS AC18 delete removes the piece and its links
+PASS AC21 no horizontal scroll on /repertuvar/yeni (light)
+PASS AC21 no horizontal scroll on the edit page with bulk preview (light)
+PASS AC21 no horizontal scroll on /repertuvar/yeni (dark)
+PASS AC21 no horizontal scroll on the edit page with bulk preview (dark)
+PASS AC21 /uyeler chips are ≥ 44px
+
+# phase4-homework.mjs
+PASS AC15 D's per-part counts match the seed
+PASS AC15 13/22 teslim
+PASS AC15 manual mark shows 'şef işaretledi'
+PASS AC15 late and overdue states
+PASS AC15 Teslim etmeyenler lists the 9 missing
+PASS AC18 matrix columns are newest-left A, F, B, C, D, E
+PASS AC18 korist's cells (pending,none,pending,pending,missing,done)
+PASS AC22 the conductor sees the Ödevler card only
+PASS AC1 the conductor has no badge
+PASS AC22 a board singer sees both cards
+PASS AC1 yk's badge is 2
+PASS AC1 korist's badge is 4
+PASS AC22 korist's Ödevlerim shows D first with Kaydını yap and +3
+PASS AC1 yeni@ has no badge
+PASS AC1 Ödevler is in the 375 px tab bar with the badge
+PASS AC2 Güncel lists D, C, B, A and not E or F
+PASS AC2 bars read Ölçü 12–34 / Tüm eser
+PASS AC2 E is under Geçmiş
+PASS AC8 E shows Yeni yorum before opening
+PASS AC3 A green 5 gün (5 gün kaldı)
+PASS AC3 B amber 2 gün (2 gün kaldı)
+PASS AC3 C red 5 saat (5 saat kaldı)
+PASS AC3 D overdue (Gecikti · 2 gün)
+PASS AC3 badges carry an icon and the absolute date
+PASS AC4 mailto prefix, no '+'
+PASS AC4 subject and body (Arkhe ödev · Ave Verum Corpus · Ölçü 12–34 · Alto · Demo Korist)
+PASS AC4 Konuyu kopyala answers with a toast
+PASS AC4 the two steps are shown (Phase 9 D61: step 3 is gone)
+PASS AC5 Partisyonum opens the alto file
+PASS AC5 Esere git links to the piece with the part filter
+PASS AC8 E shows Şefin yorumu with author and date
+PASS AC8 no Geri al once a note exists
+PASS AC8 the dot is gone after opening
+PASS AC8 the undo action is refused when a note exists
+PASS AC9 F has no Teslim ettim and says it isn't my part
+PASS AC9 submitting F is refused
+PASS AC9 nothing is written for F
+PASS AC10 member sees no manager controls on /odevler
+PASS AC10 member sees no edit or roster on the detail page
+PASS AC10 /odevler/yeni redirects members
+PASS AC10 /odevler/00000000-0000-4000-8000-00000000000a/duzenle redirects members
+PASS AC10 /odevler/matris redirects members
+PASS AC10 another singer's note never reaches korist's HTML
+PASS AC10 every manager action refuses a member
+PASS AC10 refused actions change no rows
+PASS AC12 no email: a hint, no mailto, Teslim ettim still there
+PASS AC12 managers see the Ayarla banner
+PASS AC16 marking shows 'şef işaretledi' and raises the count
+PASS AC16 the singer sees Teslim edildi and who marked it
+PASS AC16 the singer can undo a manual mark
+PASS AC6 Teslim ettim → Teslim edildi · today, after reload (Teslim edildi · 22 Eki)
+PASS AC6 the badge drops to 3
+PASS AC6 Geri al restores green and 4
+PASS AC6 the list row links Kaydını yap to B's recorder
+PASS AC7 submitting D shows Geç teslim
+PASS AC7 the roster shows korist late and Alto 4/6
+PASS AC7 the matrix shows korist late on D
+PASS AC11 the late joiner sees D muted with the hint
+PASS AC11 not listed before submitting
+PASS AC11 after submitting he's listed as Sonradan katıldı and both numbers rise
+PASS AC17 korist sees Yeni yorum on A
+PASS AC17 Şefin yorumu shows and Geri al is gone
+PASS AC17 a board note is headed Geri bildirim
+PASS AC17 Notu sil removes it and Geri al returns
+PASS AC3 72h−10min is amber 3 gün (3 gün kaldı)
+PASS AC3 72h+10min is green 4 gün (4 gün kaldı)
+PASS AC3 +23h is red 23 saat (23 saat kaldı)
+PASS AC3 +30min is red <1 saat (1 saatten az kaldı)
+PASS AC1 more than 9 open homework reads 9+
+PASS AC13 Ödev ver preselects the piece
+PASS AC14 20–5 is rejected
+PASS AC14 a single bar is rejected
+PASS AC14 no part is rejected
+PASS AC14 no piece is rejected
+PASS AC14 a past date is rejected
+PASS AC14 a double submit creates one row
+PASS AC13 the detail shows bars, parts and the Istanbul due (25 Eki Paz 21:00)
+PASS AC13 no Ödev ver on an archived piece
+PASS AC20 kayit@ is rejected
+PASS AC20 the mailto uses the new address
+PASS AC21 the piece page lists its open homework
+PASS AC21 nothing is deleted
+PASS AC19 a stale edit form is refused
+PASS AC19 korist's A is now Gecikti (Gecikti)
+PASS AC19 the delete confirm names the homework and the submission count
+PASS AC19 the homework is gone from the list
+PASS AC19 and from the matrix
+PASS AC23 no horizontal scroll on / (light)
+PASS AC23 no horizontal scroll on / (dark)
+PASS AC23 no horizontal scroll on /odevler (light)
+PASS AC23 no horizontal scroll on /odevler (dark)
+PASS AC23 no horizontal scroll on /odevler?liste=gecmis (light)
+PASS AC23 no horizontal scroll on /odevler?liste=gecmis (dark)
+PASS AC23 no horizontal scroll on /odevler/00000000-0000-4000-8000-00000000000b (light)
+PASS AC23 no horizontal scroll on /odevler/00000000-0000-4000-8000-00000000000b (dark)
+PASS AC23 no horizontal scroll on /odevler/00000000-0000-4000-8000-00000000000e (light)
+PASS AC23 no horizontal scroll on /odevler/00000000-0000-4000-8000-00000000000e (dark)
+PASS AC23 no horizontal scroll on / (light)
+PASS AC23 no horizontal scroll on / (dark)
+PASS AC23 no horizontal scroll on /odevler (light)
+PASS AC23 no horizontal scroll on /odevler (dark)
+PASS AC23 no horizontal scroll on /odevler/00000000-0000-4000-8000-00000000000d (light)
+PASS AC23 no horizontal scroll on /odevler/00000000-0000-4000-8000-00000000000d (dark)
+PASS AC23 no horizontal scroll on /odevler/matris (light)
+PASS AC23 no horizontal scroll on /odevler/matris (dark)
+PASS AC23 no horizontal scroll on /odevler/yeni (light)
+PASS AC23 no horizontal scroll on /odevler/yeni (dark)
+PASS AC23 no horizontal scroll on /odevler/00000000-0000-4000-8000-00000000000d/duzenle (light)
+PASS AC23 no horizontal scroll on /odevler/00000000-0000-4000-8000-00000000000d/duzenle (dark)
+PASS AC23 no horizontal scroll with the note sheet open
+PASS AC23 targets are ≥ 44px
+
+# phase5-finance.mjs
+PASS AC1 Finans is in the desktop sidebar
+PASS AC1 home Kasa card links to /finans on a phone
+PASS AC1 Finans is not in the 375px tab bar
+PASS AC1 /profil has Finans and Raporlar rows
+PASS AC1 the conductor reaches every /finans sub-route
+PASS AC2 balances match the seed (965000/2488725/3453725)
+PASS AC2 balances are formatted ₺1.234,56
+PASS AC2 this month's Gelir/Gider match
+PASS AC2 the last 10 entries are listed
+PASS AC2 the finance sub-nav chips
+PASS AC10 belgesiz lists costume and bank fee, not the venue, across all months
+PASS AC4 accepted amounts echo the parsed value
+PASS AC4 rejected amounts show the right message
+PASS AC4 an empty amount → Tutar gir. (server)
+PASS AC4 the server rejects 12,345 too
+PASS AC5 Aidat is not offered in the generic form
+PASS AC5 Sponsorluk without a sponsor → Sponsor seç.
+PASS AC5 a duplicate sponsor name (case/diacritics) is refused
+PASS AC5 posting category=dues to the generic form saves nothing
+PASS AC5 a bad document URL is refused
+PASS AC5 a date beyond today + 31 → Tarih çok ileride.
+PASS AC3 toast Kaydedildi.
+PASS AC3 Banka drops by exactly ₺1.250,50, Kasa unchanged
+PASS AC3 the detail shows Belgeyi aç with a Drive preview
+PASS AC21 the generic form remembers the last account (Kasa)
+PASS AC21 a new Virman defaults Kasa → Banka
+PASS AC6 same source and target → Kaynak ve hedef hesap aynı olamaz.
+PASS AC6 Virman moves ₺500 Kasa → Banka; Toplam and month totals unchanged
+PASS AC7 no delete control on an entry
+PASS AC7 voiding without a reason is refused
+PASS AC7 a 3-character reason is refused
+PASS AC7 toast Kayıt iptal edildi.
+PASS AC7 the detail shows who and why
+PASS AC7 the voided expense leaves the balance
+PASS AC7 gone from the default list
+PASS AC7 listed under İptal edilenler, struck through
+PASS AC7 the seeded voided catering is listed too
+PASS AC7 voiding twice → Bu kayıt zaten iptal edilmiş.
+PASS AC8 opening the Düzelt form and leaving changes nothing
+PASS AC8 toast Kayıt düzeltildi.
+PASS AC8 the new entry shows Bu kaydın yerine
+PASS AC8 the old entry is voided with Düzeltildi and links forward
+PASS AC8 Banka changes by exactly −₺2,25
+PASS AC8 correcting the voided entry again is refused
+PASS AC9 the edit sheet has no amount, date, account or category inputs
+PASS AC9 toast Kaydedildi.
+PASS AC9 description and document saved, Son düzenleme stamped
+PASS AC9 a stale revision is refused
+PASS AC11 Kış Konseri shows its lines and Kâr ₺4.200,00
+PASS AC11 Gider ekle prefills the event
+PASS AC11 a ₺5.000 expense turns it into Zarar −₺800,00 in red
+PASS AC11 deleting an event with entries is refused
+PASS AC12 Konserden oluştur lists Güz konseri, not the linked Kış Konseri
+PASS AC12 the form is prefilled with the concert's name and Istanbul date
+PASS AC12 one event per concert
+PASS AC13 Ekim 2026: korist Ödenmedi (Ödenmedi)
+PASS AC13 Barış Güneş Muaf
+PASS AC13 Deniz Aslan Muaf with the waiver reason
+PASS AC13 Eylül 2026: korist Gecikti · ₺200,00 kaldı, red
+PASS AC13 Borçlular shows 18 rows for Ekim 2026 (18)
+PASS AC16 toast Aidat oranı güncellendi.
+PASS AC16 paid periods keep the old rate (Ödendi / Gecikti · ₺200,00 kaldı / Ödenmedi)
+PASS AC16 korist's profile shows ₺150 for the open period, never the freeze reason or note
+PASS AC16 a waiver on a period with a payment is refused
+PASS Review: toast Muaf tutuldu.
+PASS Review: saving a waiver doesn't loop (1 refreshes)
+PASS Review: picking another period updates the amount and its echo
+PASS AC14 Toplam ₺500,00 (2 dönem)
+PASS AC14 toast Ödeme alındı
+PASS AC14 Sonraki borçlu is focused
+PASS AC14 two entries (₺200 + ₺300) sharing one payment group derived from clientId and member
+PASS AC14 both periods Ödendi
+PASS AC14 Kasa +₺500,00
+PASS AC14 the detail shows Aynı ödemede
+PASS AC14 entry ids derive from the clientId and member, so a replay maps onto the same rows
+PASS AC15 paying more than remaining is refused
+PASS AC15 nothing saved, Kasa unchanged
+PASS AC17 toast 2 dönem oluşturuldu.
+PASS AC17 Kasım 2026, Aralık 2026 created, due the 15th, ₺350 / ₺175
+PASS AC17 running it again → Bu aylar için dönem zaten var.
+PASS AC17 an overlapping period is refused
+PASS AC17 a period with payments can't be edited
+PASS AC17 deleting it is refused (trash disabled with the reason)
+PASS AC18 every Kapanış equals the next month's Devir
+PASS AC18 the seeded months match financeExpected
+PASS AC18 the last Kapanış equals Toplam
+PASS AC18 Kasa view: Virman −₺1.500,00 in M−1 and Kapanış = Devir + Gelir − Gider + Virman
+PASS AC19 text/csv attachment with a BOM
+PASS AC19 the header is exactly as decided
+PASS AC19 no voided rows; amounts like 3500,00; the transfer only in Virman/Açılış
+PASS AC19 Σ Gelir and Σ Gider equal the report (2085000/681275)
+PASS AC19 openings are present
+PASS AC19 a formula-looking cell is prefixed with '
+PASS AC19 an inverted range is caught inline
+PASS AC19 the dues CSV lists the roster without notes
+PASS AC20 toast Ödeme bilgisi güncellendi.
+PASS AC20 korist sees the new payment info
+PASS AC20 moving the opening after the first entries is refused
+PASS AC20 toast Açılış bakiyesi kaydedildi.
+PASS AC20 a new Kasa opening moves balance-cash by the difference
+PASS AC22 korist's home shows Aidatım with ₺500,00
+PASS AC22 Aidatım is the first content section on /profil
+PASS AC22 per-period statuses and owed amounts
+PASS AC22 Ödemelerim lists only korist's two payments (2)
+PASS AC22 Kopyala → Kopyalandı.
+PASS AC23 /finans and its sub-routes redirect a member away
+PASS AC23 both CSV routes return 403 (403,403)
+PASS AC23 no session → 307
+PASS AC23 every finance action refuses a member (19 tried)
+PASS AC23 refused actions change no rows
+PASS AC23 no other member's money data in korist's HTML ()
+PASS AC24 Ece (paid up) has no card and sees Borcun yok. Teşekkürler!
+PASS AC24 Barış sees Aidattan muafsın.
+PASS AC24 the conductor has no Aidatım section
+PASS AC24 yk (paid up) has the section with Borcun yok
+PASS AC25 no page-level horizontal scroll at 390px, light and dark
+PASS AC25 interactive targets are ≥ 44px
+PASS AC25 the payment sheet fits the phone
+
+# phase6-a-brand.mjs
+PASS AC2 /giris shows the lockup with currentColor (light)
+PASS AC2 the logo SVG has no <text> (light)
+PASS AC2 the mobile header shows the wordmark (light)
+PASS AC3 header wordmark is 90.6×20.0 px (18–20 tall, < 50 % wide) (light)
+PASS P3 the header logo link is a 44 px target (light)
+PASS AC3 sidebar lockup at 1280 px, 2× is 176 px wide (≥ 160) (light)
+PASS AC3 sidebar shows the wordmark, not the lockup, at 1× (light)
+PASS AC2 /giris shows the lockup with currentColor (dark)
+PASS AC2 the logo SVG has no <text> (dark)
+PASS AC2 the mobile header shows the wordmark (dark)
+PASS AC3 header wordmark is 90.6×20.0 px (18–20 tall, < 50 % wide) (dark)
+PASS P3 the header logo link is a 44 px target (dark)
+PASS AC3 sidebar lockup at 1280 px, 2× is 176 px wide (≥ 160) (dark)
+PASS AC3 sidebar shows the wordmark, not the lockup, at 1× (dark)
+PASS AC5 six standalone SVGs: 200, image/svg+xml, <title>, no <text>
+PASS AC9 manifest fields
+PASS AC9 maskable icon and the Yoklama / Ödevlerim shortcuts
+PASS AC8 the HTML links the manifest, favicon.ico, icon.svg and apple-icon
+PASS AC8 every icon is 200 with its declared PNG size; apple icon has no alpha 
+PASS AC7 icon.svg switches with prefers-color-scheme
+PASS AC10 manifest, icons, sw.js and offline.html are public 
+PASS AC13 sw.js is served no-store as JavaScript
+PASS AC16 offline.html has the title, heading and Tekrar dene → /
+PASS AC12 /profil shows Telefonuna ekle with the generic text directly above Aidatım (light)
+PASS AC12 /profil shows Telefonuna ekle with the generic text directly above Aidatım (dark)
+PASS AC12 an iPhone gets the Safari Paylaş text
+PASS AC12 a stored prompt shows Ana ekrana ekle (≥ 44 px); accepting shows Eklendi.
+PASS AC12 the card is not rendered under display-mode: standalone
+PASS AC12 the card is not rendered under navigator.standalone (iOS)
+
+# phase6-b-security.mjs
+PASS AC19 /giris: script-src has a nonce and strict-dynamic, no unsafe-inline, all 21 <script> carry it
+PASS AC19 /giris: two requests get different nonces
+PASS AC19 /: script-src has a nonce and strict-dynamic, no unsafe-inline, all 24 <script> carry it
+PASS AC19 /: two requests get different nonces
+PASS AC19 /calismalar/<id>/canli: script-src has a nonce and strict-dynamic, no unsafe-inline, all 22 <script> carry it
+PASS AC19 /calismalar/<id>/canli: two requests get different nonces
+PASS AC20 no CSP violations on home, check-in, live screen, Drive preview, odevler, finans, profil (0)
+PASS AC23 a tampered arkhe_flash shows no toast and no error page
+PASS AC26 spoofed X-Forwarded-For values only count in the per-email bucket (email:xff@e2e.test=6)
+PASS AC29 GET /api/saglik → 200 {"ok":true}, no-store, nothing else
+PASS AC39 db:backup writes under data/backups/ (data/backups/2026-10-21T23-27-31-867Z.sql)
+PASS AC39 the restored DB has 104/104 indexes and 12/12 migrations
+PASS AC39 db:check passes on the restored copy
+
+# phase6-c-finance.mjs
+PASS AC30 yk sets their own rate to İndirimli
+PASS AC30 the sheet shows Son değişiklik: Demo Yönetim · 22 Eki 2026
+PASS AC28 a waiver with bidi overrides is saved
+PASS AC28 the stored reason has no U+202E/U+202C ("E2E ters yazı izin")
+PASS AC30 the waiver shows its Son değişiklik line
+PASS AC30 korist sees no Son değişiklik on /finans (redirected) or /profil
+PASS AC30 the dues CSV has no Son değişiklik and no editor name
+PASS AC28 an opening dated 1999-12-31 is refused
+PASS AC31 changing the rate mid-payment freezes ₺300
+PASS AC31 the only payment is voided
+PASS AC31 voiding the only payment deletes the freeze
+PASS AC31 korist now owes the new rate ₺150,00 for Ekim 2026
+PASS AC31 re-paying at the new rate settles the period with ₺150
+PASS AC31 with a payment left, voiding the other keeps the ₺300 freeze (Ekim 2026Son ödeme 1 Kas · ₺300,00Kısmi · ₺200,00 kaldı)
+PASS AC32 both members' two-period payments are stored, each in its own group
+PASS AC32 Demo Korist's Aynı ödemede lists only their own periods
+PASS AC32 Kaan Özdemir's Aynı ödemede lists only their own periods
+PASS AC36 dues rows are titled by the member (Elif Yıldız)
+PASS AC36 axe finds no aria-prohibited-attr ()
+PASS AC36 a period with payments has a disabled trash with the reason
+PASS AC36 the bulk preview names the due month (Kasım 2026 · son ödeme 15 Kas—)
+PASS AC36 the selected account chip shows a check mark
+PASS AC36 the sticky save bar meets the tab bar (gap -0.7 px)
+PASS AC36 the overdue chip text has 5.03:1 contrast (≥ 4.5) (light)
+PASS AC36 a paying member still sees Nasıl ödenir?
+PASS AC36 the overdue chip text has 6.22:1 contrast (≥ 4.5) (dark)
+PASS AC36 a fully exempt member doesn't see Nasıl ödenir?
+PASS Review: after a rate rise, Düzelt to more than the frozen ₺150 is refused (Kalan borç ₺150,00; daha fazlası girilemez.)
+PASS Review: after a rate rise, Düzelt up to the frozen ₺150 is accepted
+PASS Review: after a rate cut, Düzelt up to the frozen ₺300 is accepted ()
+
+# phase6-z-guards.mjs
+PASS AC25 seed.ts exits non-zero with NODE_ENV=production
+PASS AC25 seed.ts exits non-zero for a non-file DB
+PASS AC25 db:reset's guard refuses production, a remote DB and any file but data/arkhe.db
+PASS AC25 db:reset runs assert-local-db before anything else
+PASS AC25 e2e/lib.mjs refuses a non-file database
+PASS AC25 seedFinance and seedHomework reject under NODE_ENV=production
+PASS AC25 seedFinance and seedHomework reject a non-file client
+PASS AC25 nothing was written to the throwaway DB
+PASS AC25 data/arkhe.db is untouched (rows 25|45|2|6|20, content hash unchanged)
+
+# phase7-a-cron.mjs
+PASS AC1 vercel.json declares exactly one cron ([{"path":"/api/cron/aylik-yedek","schedule":"0 5 * * *"}])
+PASS AC2 no header → 401 {}, Bearer wrong → 401 {}
+PASS AC2/36 a 401 answer is no-store
+PASS AC2 a wrong bearer with recipients saved sends nothing and logs no run
+PASS AC2/36 no recipients → 200 {"status":"skipped"} only, JSON, no-store ({"status":"skipped"})
+PASS AC2 no recipients → no run row, no .eml
+PASS AC3 ?bugun=2026-11-01 → sent, one .eml ({"status":"sent"}, 1)
+PASS AC3 one run: cron / 2026-10 / sent (cron/2026-10/sent)
+AC34 measured dev send: 222 ms round trip, 268725 bytes
+PASS AC34 a dev send takes far below 60 s (222 ms)
+PASS AC4 ?bugun=2026-11-02 → skipped, no .eml, no new run ({"status":"skipped"})
+PASS AC4 two concurrent ?bugun=2026-12-01 → sent,skipped, 1 .eml, 1 run
+PASS AC5 a failed 2026-09 is retried by ?bugun=2026-10-02 ({"status":"sent"})
+PASS AC5 an 11-minute-old running 2026-08 is reaped with the stale message and resent (failed,sent)
+PASS AC5 a 2-minute-old running 2026-07 blocks the retry ({"status":"skipped"})
+PASS AC5 abandoned month: a failed 2026-10 alone + ?bugun=2026-12-01 sends 2026-11 only
+PASS AC6 precondition: no non-E2E data in January 2025 and no early joiners ({"reh":0,"hw":0,"fin":0,"dues":0,"early":0})
+PASS AC6 ?bugun=2025-02-01 sends January 2025 ({"status":"sent"})
+PASS AC7 From is Arkhe Portal <outbox@arkhe.local> (Arkhe Portal <outbox@arkhe.local>)
+PASS AC7 one message To both recipients (p7a@e2e.test, p7b@e2e.test)
+PASS AC7 decoded Subject is exact, no @ or ₺ (Arkhe aylık rapor ve yedek · Ocak 2025)
+PASS AC8 body lines present (missing: )
+PASS AC42 (Phase 9) the email says audio isn't in the backup, right before Raporlar şifresizdir…
+PASS AC8 the backup line names arkhe-yedek-YYYY-MM-DD-HHmm.sql.gz.enc (arkhe-yedek-2026-10-22-0227.sql.gz.enc)
+PASS AC8 an automatic send has no manual paragraph
+PASS AC8 plain text, decoded (no QP escapes left), one paragraph per line
+PASS AC8 five attachments; no demo or fixture email in the body or any CSV (0)
+PASS AC9 the attendance header equals /raporlar/csv's (BOM included)
+PASS AC6/9 31 Jan 23:30 counts, 1 Feb 00:30 doesn't: Ayla Geldi/Beklenen 2/2
+PASS AC10 homework CSV columns
+PASS AC10 exactly three rows: Zamanında, Geç, Gecikti (Zamanında,Geç,Gecikti)
+PASS AC10 singers the assignment isn't for are not listed
+PASS AC11 the finance attachment is byte-identical to /finans/rapor/csv for January 2025
+PASS AC12 dues rows equal /finans/aidat/csv with the period prepended (3 rows)
+PASS AC8 an empty month prints every summary line with zeros and —
+PASS AC8/12 empty month: five attachments; homework, ledger and dues header-only; attendance all zero
+PASS AC24 no failed row holds a secret value (0 rows checked)
+PASS AC32 .env.example lists the seven keys, SMTP_* commented out, points at .env.development
+PASS AC32 .env.development holds exactly the two dev values and a header comment
+PASS AC32 .gitignore has !.env.development and /data/outbox/
+PASS AC32 the e2e script loads .env.development before .env
+
+# phase7-b-page.mjs
+PASS AC15 korist@ opening /yedek ends on / with no Yedekleme heading
+PASS AC15 korist@ /profil has no /yedek link
+PASS AC15 sef@ gets /yedek with the Yedekleme heading
+PASS AC15 sef@ /profil has the Yedekleme link with its hint
+PASS AC15 yk@ gets /yedek with the Yedekleme heading
+PASS AC15 yk@ /profil has the Yedekleme link with its hint
+PASS AC21 sef@ sees the quiet not-configured aside with Ayarla ({"kind":"unconfigured","role":null,"tag":"aside","text":"Aylık yedek henüz ayarlanmadı.Koronun kayıtları her ay yönetimin e-postasına yedeklensin.Ayarla","before":true})
+PASS AC20/21 the banner sits between the greeting and the stage hero
+PASS AC21 yk@ and korist@ see no not-configured box
+PASS AC16 Durum reads Henüz ayarlanmadı. with no recipients
+PASS AC17 without recipients Şimdi gönder is disabled with Önce en az bir alıcı kaydet.
+PASS AC19 empty log without recipients
+PASS AC16 Kurulum: four rows; dev mail Tamam with the outbox note; Alıcılar Eksik
+PASS AC16 Kurulum shows no secret value, plus the README line and the passphrase reminder
+PASS AC14 sef@ save → toast Alıcılar kaydedildi.
+PASS AC14 the inputs re-render the normalised list (p7a@e2e.test,p7b@e2e.test)
+PASS AC14 the audit line appears
+PASS AC14 the first save sends no notice
+PASS AC21 after saving, the not-configured box is gone (created this month: no overdue banner)
+PASS AC14 a change writes one notice to old and new (1, p7a@e2e.test,p7b@e2e.test,p7c@e2e.test)
+PASS AC14 the notice body names who, the current list and the page with a lead-in
+PASS AC14 the notice is not logged as a backup run
+PASS AC14 saving the same list again sends nothing (checked after the action returned)
+PASS AC14 empty → En az bir adres gir., focus on the first input
+PASS AC14 row 1 is described by the list-level error
+PASS AC14 x@ → the message under row 2 with aria-invalid
+PASS AC14 invalid saves change nothing
+PASS AC16 at five rows Adres ekle is replaced by En fazla beş adres.
+PASS AC16 every recipients/send control is ≥ 44 px (44,44,44,44,44,44,44,44,44,44,44,44)
+PASS AC16 inputs are type=email, autocomplete=off
+PASS AC14 six addresses via a direct action call → refused, value unchanged
+PASS AC14 yk@'s save via a direct action call → refused, value unchanged
+PASS AC40 the 11th change in a day → Alıcılar bugün çok sık değişti., nothing written
+PASS AC17 unsaved edits → the dialog warns they are not included
+PASS AC17 the dialog names 2 addresses and Eylül 2026, lists them, no dirty warning
+PASS AC17 the dialog opens with focus on Vazgeç
+PASS AC17 while pending: both buttons disabled, Gönderiliyor…, Escape ignored, focus kept
+PASS AC17 Gönder → toast Gönderildi: 2 adres.
+PASS AC17 one .eml with the (elle gönderildi) subject and the manual paragraph (1)
+PASS AC17/19 a Elle · Demo Şef row is first in Geçmiş (Eylül 2026Gönderildi22 Eki 2026 02:28 · Elle · Demo Şef257 KB · 2 adres)
+PASS AC17 the polite live region keeps the result with the cooldown, no separate hint (Gönderildi: 2 adres. 10 dakika sonra yeniden gönderebilirsin.)
+PASS AC17 after the dialog closes, focus is on the result line, not <body>
+PASS AC16 Durum updates to gönderildi with Sonraki gönderim: 1 …, sabah 08:00–09:00 arası
+PASS AC17 right after, the button is disabled with the cooldown hint
+PASS AC17 a direct send in the cooldown → the cooldown message, no .eml, no run
+PASS AC17 yk@'s direct send → Bu işlemi yalnızca koro şefi yapabilir., no .eml
+PASS AC18 after the manual send, the cron for 2026-09 is skipped ({"status":"skipped"})
+PASS AC40 the 7th manual send in an hour → Çok fazla deneme., no run row
+PASS AC17/16 a running send → Durum says so, button disabled, direct call refused, no new row
+PASS AC19 empty log with recipients names the next try (Henüz gönderim yok. İlk otomatik gönderim: 22 Eki 2026, sabah 08:00–09:00 arası.)
+PASS AC19 one row per status, newest first, labelled (Gönderiliyor,Gönderilemedi,Yarıda kaldı,Gönderildi)
+PASS AC19 an unreaped stale row explains itself
+PASS AC19 a sent row reads … · Otomatik and 184 KB · 3 adres (Nisan 2026Gönderildi22 Eki 2026 01:58 · Otomatik184 KB · 3 adres)
+PASS AC19 a 200-character unbroken error wraps inside its row and the viewport
+PASS AC16 Durum for an uncovered month without a run for it reads pending
+PASS AC19 15 runs → 12 shown plus the footnote (12)
+PASS AC20(b) sef@ sees the overdue banner for Eylül 2026 (Eylül 2026 raporu ve yedeği henüz gönderilmedi.Yedeklemeye git)
+PASS AC20(b) yk@ sees the overdue banner for Eylül 2026 (Eylül 2026 raporu ve yedeği henüz gönderilmedi.Yedeklemeye git)
+PASS AC20 a failed row for an older month raises no (a) banner
+PASS AC20 recipients from this month and no run → no banner
+PASS AC20(a) a failed manual run for the month raises no banner
+PASS AC20(a) an unreaped stale cron run for the month raises the failure banner
+PASS AC20(a) sef@ sees the failure banner, above the hero (Aylık yedek gönderilemedi (Eylül 2026).Her sabah yeniden deneniyor. Nedenini Yedekleme sayfasında görebilirsin.Yedeklemeye git)
+PASS AC20(a) yk@ sees the failure banner, above the hero (Aylık yedek gönderilemedi (Eylül 2026).Her sabah yeniden deneniyor. Nedenini Yedekleme sayfasında görebilirsin.Yedeklemeye git)
+PASS AC20 the banner link Yedeklemeye git is 44 px
+PASS AC20 korist@ never sees the banner
+PASS AC16 Durum shows the failure headline, the error and the retry line
+PASS AC20 after a covering sent row the banner is gone
+PASS AC16 sef@arkhe.local light: no horizontal scroll with a 48-character address, four Kurulum rows, role controls
+PASS AC36 sef@arkhe.local light: /yedek carries the nonce CSP
+PASS AC16 axe sef@arkhe.local light: no serious/critical ()
+PASS AC17 axe on the open dialog light ()
+PASS AC20 axe on the banner sef@arkhe.local light ()
+PASS AC16 yk@arkhe.local light: no horizontal scroll with a 48-character address, four Kurulum rows, role controls
+PASS AC36 yk@arkhe.local light: /yedek carries the nonce CSP
+PASS AC16 axe yk@arkhe.local light: no serious/critical ()
+PASS AC20 axe on the banner yk@arkhe.local light ()
+PASS AC16 sef@arkhe.local dark: no horizontal scroll with a 48-character address, four Kurulum rows, role controls
+PASS AC36 sef@arkhe.local dark: /yedek carries the nonce CSP
+PASS AC16 axe sef@arkhe.local dark: no serious/critical ()
+PASS AC17 axe on the open dialog dark ()
+PASS AC20 axe on the banner sef@arkhe.local dark ()
+PASS AC16 yk@arkhe.local dark: no horizontal scroll with a 48-character address, four Kurulum rows, role controls
+PASS AC36 yk@arkhe.local dark: /yedek carries the nonce CSP
+PASS AC16 axe yk@arkhe.local dark: no serious/critical ()
+PASS AC20 axe on the banner yk@arkhe.local dark ()
+
+# phase7-c-restore.mjs
+PASS AC28 two manual sends → two .enc (2)
+PASS AC28 both attachments start with ARKHE-BK1 and differ
+PASS AC28 neither attachment contains a member's email as bytes
+PASS AC29 wrong passphrase → exit 1, the message, no file (1)
+PASS AC29 one flipped byte → exit 1, the message, no file (1)
+PASS AC30 db:decrypt with the dev passphrase → Decrypted: data/backups/p7-drill-1792625302575.sql
+PASS AC29 a second decrypt refuses to overwrite: Output file exists
+PASS AC29 db:restore refuses an existing target, a libsql:// target and an encrypted input
+PASS AC30 db:restore into data/
+PASS AC30/35 db:check on the restored DB → migrations=12/12
+PASS AC42 (Phase 9) the decrypted dump holds the assistant-note and recording rows (1, 7)
+PASS AC30 row counts match the live DB at send time ({"users":28,"attendance":208,"submissions":22,"finance_entries":49})
+
+# phase8-a-board.mjs
+PASS Phase 8 setup: all board actions are registered (moveTicket,deleteComment,deleteTicket,createTicket,addComment,markTicketSeen,updateTicket)
+PASS AC1 sef@arkhe.local opens the board pages with 200 (200,200,200,200,200)
+PASS AC1 yk@arkhe.local opens the board pages with 200 (200,200,200,200,200)
+PASS AC1 korist@ is redirected to / from every board page (/,/,/,/,/)
+PASS AC1 every board action refuses korist@ with Bu işlem için yetkin yok. (6/6; markTicketSeen → changed:false)
+PASS AC1 the refused calls change no board row
+PASS AC3 korist@ sees no board card and the home HTML holds no ticket title
+PASS AC2 the 375 px manager bar is Ana sayfa · Çalışmalar · Repertuvar · Ödevler · Yönetim (Ana sayfa,Çalışmalar,Repertuvar,Ödevler,Yönetim)
+PASS AC2 on the phone Üyeler is linked from the board header and the home card footer
+PASS AC2 the Yönetim tab has aria-current=page on a ticket page
+PASS AC2 korist@'s bar is unchanged, 4 tabs (Ana sayfa,Çalışmalar,Repertuvar,Ödevler)
+PASS AC2 the sidebar has Yönetim Kurulu between Finans and Üyeler (Ana sayfa,Çalışmalar,Repertuvar,Ödevler
+, 1 kayıt asistan notuyla bekliyor,Raporlar,Finans,Yönetim Kurulu,Üyeler)
+PASS AC2 the sidebar entry has aria-current=page on /yonetim/arsiv
+PASS AC2 korist@'s sidebar has no Yönetim Kurulu
+PASS AC3 the home card sits directly below the hero (home-board)
+PASS AC3 yk@: Sana atanan 2 açık iş · 1 yeni · 1 acil → /yonetim?kim=ben
+PASS AC3 the card shows the first assigned ticket in board order (#1)
+PASS AC3 with nothing assigned: Sana atanmış açık iş yok. and Panoya git → /yonetim
+PASS AC4 light: four tabs with data-count and names "<Sütun>, <n> iş" (4)
+PASS AC4 light: title Yönetim Kurulu and a ≥ 44 px Yeni iş
+PASS AC4 light: Yapılacak is the default and only its cards show
+PASS AC4 light: each tab sets ?sutun= and shows only its column ({"in_progress":{"url":true,"cards":[2],"fits":true,"small":[]},"blocked":{"url":true,"cards":[3],"fits":true,"small":[]},"done":{"url":true,"cards":[5],"fits":true,"small":[]}})
+PASS AC4 light: the tab survives a reload
+PASS AC4/AC42 light: no horizontal scroll on any tab
+PASS AC42 light: every board target ≥ 44 px ()
+PASS AC4 dark: four tabs with data-count and names "<Sütun>, <n> iş" (4)
+PASS AC4 dark: title Yönetim Kurulu and a ≥ 44 px Yeni iş
+PASS AC4 dark: Yapılacak is the default and only its cards show
+PASS AC4 dark: each tab sets ?sutun= and shows only its column ({"in_progress":{"url":true,"cards":[2],"fits":true,"small":[]},"blocked":{"url":true,"cards":[3],"fits":true,"small":[]},"done":{"url":true,"cards":[5],"fits":true,"small":[]}})
+PASS AC4 dark: the tab survives a reload
+PASS AC4/AC42 dark: no horizontal scroll on any tab
+PASS AC42 dark: every board target ≥ 44 px ()
+PASS UI P3-2 a tab switch, then the bottom-bar Yönetim tap, shows the default column again
+PASS AC5 1280 px: four columns with h2 and count, no Sütunlar nav (Yapılacak 2,Devam ediyor 1,Takıldı 1,Bitti 1)
+PASS AC43 the xl columns are sections labelled by their h2
+PASS AC5 1024 px: the Sütunlar nav and one column (1)
+PASS AC5 768 px: the Sütunlar nav and one column (1)
+PASS AC6 #2: number, title, Yüksek, Gecikti, 2 comments, assignee (#2#2 Festival başvurusu: katılım ücretini sorYüksekGecikti · 20 Eki2 yorumDYDemo YönetimTaşı)
+PASS AC6 Acil uses the alert tone, Yüksek the warning tone, Gecikti alert
+PASS AC6 #1 shows the Yeni dot with the accessible text yeni; the card links to /yonetim/1
+PASS AC6 an unassigned card shows Atanmadı
+PASS AC6 the title is clamped to 2 lines (2)
+PASS AC7 urgency, then due (none last), then most recently updated (903,902,901,904,3,900 vs 903,902,901,904,3,900)
+PASS AC7 Bitti is newest done_at first (906,905,5)
+PASS AC9 kim=ben: only yk@'s 2 tickets in the counts ({"todo":1,"in_progress":1,"blocked":0,"done":0})
+PASS AC9 the active Bana atananlar chip has aria-current
+PASS AC9 aciliyet=acil narrows further ({"todo":1,"in_progress":0,"blocked":0,"done":0})
+PASS AC9 below lg the trigger shows Acil, with a 44 px × link Aciliyet filtresini kaldır
+PASS AC9 the urgency dropdown holds 5 links, Tümü current (Tümü,Acil,Yüksek,Orta,Düşük)
+PASS AC9 unknown values are ignored ({"todo":2,"in_progress":1,"blocked":1,"done":1})
+PASS AC9 from lg the urgency chips are inline with Tümü (Tümü,Acil,Yüksek,Orta,Düşük)
+PASS AC8 a filter with no match: Bu filtreye uyan iş yok. + Filtreleri temizle → /yonetim?sutun=takildi
+PASS AC8 an empty column: Bu sütunda iş yok.
+PASS AC8 an empty board: Panoda henüz iş yok. with the hint
+PASS AC10 the form defaults: Aciliyet Orta, Durum from ?sutun= (Takıldı)
+PASS AC11 Sorumlu offers Atanmadı, then exactly the active managers (Atanmadı,Demo Şef,Demo Yönetim)
+PASS AC10 Durum defaults to Yapılacak; Son tarih is a native date input
+PASS AC10 Bana ata sets Sorumlu to me
+PASS AC10 Başlık en az 3 karakter olmalı.
+PASS AC10 the typed value is kept
+PASS AC10 Başlık en fazla 120 karakter olabilir.
+PASS AC10 Açıklama en fazla 4000 karakter olabilir.
+PASS AC10 an impossible date: Geçerli bir tarih seç.
+PASS AC11 a member as assignee is refused
+PASS AC10 invalid submits save nothing
+PASS AC10 Kaydet creates #7 with the trimmed title, assignee sef@ and defaults (#7)
+PASS AC10 the toast #7 açıldı.
+PASS AC10 the creation system entry is the first thread item
+PASS AC12 the description keeps its line breaks
+PASS AC10 a validation failure doesn't count toward the create limit (29)
+PASS AC10 the 30th create in an hour still goes through
+PASS AC10 the 31st create in an hour is refused with Çok fazla deneme and saves nothing
+PASS AC19 an empty comment gets its validation message, not the limit
+PASS AC19 the 61st comment in 10 minutes is refused with Çok fazla deneme
+PASS AC11 a demoted assignee keeps the name with (kurulda değil), offered only as the current value
+PASS AC12 #2 shows number, title, status, urgency, assignee, due, Açan and Son değişiklik (SorumluDYDemo YönetimAciliyetYüksekSon tarihGecikti · 20 EkiAçan: Demo Yönetim · 13 Eki 2026Son değişiklik: Demo Yönetim · 14 Eki 2026 02:28)
+PASS AC12 the thread is oldest first, then the comment box (system,system,comment,comment)
+PASS AC12 Panoya dön → /yonetim?sutun=devam
+PASS AC12 #4: Son tarih yok and no Son değişiklik
+PASS AC12 /yonetim/9999 and /yonetim/abc → 404 (404, 404)
+PASS AC13 sef@ edits yk@'s ticket: exactly one urgency entry, none for the title (urgency)
+PASS AC13 the toast Kaydedildi.
+PASS AC13/AC17 Son değişiklik names Demo Şef; the urgency sentence is in the thread
+PASS AC17 system entries have no delete control
+PASS AC17 assignee and due-date sentences in order (Demo Şef bu işi açtı. | Demo Şef sorumluyu Atanmadı → Demo Yönetim olarak değiştirdi. | Demo Şef son tarih koydu: 11 Kas 2026. | Demo Şef son tarihi 11 Kas 2026 → 18 Kas 2026 olarak değiştirdi. | Demo Şef son tarihi kaldırdı.)
+PASS AC17 every system entry has a tr-TR timestamp
+PASS AC13 a stale edit is refused with the message and Yenile; nothing is saved
+PASS AC13 Yenile reloads the editor with the current values
+PASS AC13 a move after the editor opened makes the save stale
+PASS UX P2-6 on the phone delete is the ghost İşi sil at the end of the page (İşi sil)
+PASS AC14 the confirm reads #N silinsin mi? / İş ve tüm yorumları kalıcı olarak silinir.
+PASS AC14 yk@ deletes their own ticket → /yonetim with #7 silindi.
+PASS AC14 yk@ sees no Sil on sef@'s ticket
+PASS AC14 a direct delete of sef@'s ticket by yk@ is refused
+PASS AC14 precondition: #2 was opened by yk@
+PASS AC14 the conductor deletes yk@'s ticket
+PASS AC14 after deleting #6 (and #7 earlier) the next ticket is #8
+PASS AC15 Taşı is ≥ 44 px with the name #4 taşı
+PASS AC15 the menu offers the other three columns (Devam ediyor,Takıldı,Bitti)
+PASS AC15 the toast #4 Takıldı sütununa taşındı.
+PASS AC15 both counts update and the DB says blocked ({"todo":1,"in_progress":1,"blocked":2,"done":1})
+PASS AC15 Göster opens ?sutun=takildi with the card
+PASS AC15 moving to Bitti sets done_at; moving out clears it
+PASS AC15 a keyboard-only move (Enter, arrows, Enter) at 1280
+PASS AC15 after the last card leaves, focus is on its column heading (sutun-takildi)
+PASS UI P3-3 below xl the focus lands on the Takıldı tab (blocked)
+PASS AC15 focus moves to the neighbouring card #4 (4)
+PASS AC16 one arrow press alone never moves the ticket
+PASS AC16 the Durum menu gives the same toast
+PASS AC16/AC17 the new system entry appears without a full reload
+PASS AC15 after a detail-page move the focus stays on the Durum button (Durum: Takıldı)
+PASS AC18 the stale move gets the error toast with Yenile
+PASS AC18 the ticket stays Devam ediyor with exactly one status entry
+PASS AC19/AC43 the comment box is labelled, placeholder Yorum yaz…
+PASS AC19 the comment appears at the end with the author, the time and its line break
+PASS AC19 the box clears
+PASS AC19 the card's comment count goes up
+PASS AC19 a double tap creates one comment (1)
+PASS AC19 Yorum boş olamaz.
+PASS AC19 Yorum en fazla 2000 karakter olabilir.
+PASS AC19 refused comments save nothing
+PASS UI P3-8 every comment delete button has its own name (Demo Yönetim yorumunu sil, 22 Eki 02:29: E2E ilk satır
+ikinci satır,Demo Yönetim yorumunu sil, 22 Eki 02:29: E2E çift tık)
+PASS AC20 the confirm Yorum silinsin mi?
+PASS AC20 the author deletes a fresh comment
+PASS AC20 after 15 minutes the Sil button is gone
+PASS AC20 a direct late delete is refused
+PASS AC20 sef@ sees no Sil on yk@'s comment; a direct call is refused
+PASS AC21 titles, descriptions and comments render as literal text; no dialog fires
+PASS AC22 the seeded new ticket: badge 1 on Yönetim (with , 1 yeni iş) and the Yeni dot
+PASS AC22 the home card agrees (1 yeni)
+PASS AC22 sef@ sees no Yeni on yk@'s ticket
+PASS AC22 opening the detail clears it, and it stays cleared after a reload
+PASS AC22 sef@ comments → 1 again
+PASS AC22 yk@'s own comment never marks it new
+PASS AC22 acting on a ticket (a move) clears it as opening does
+PASS AC22 deleting a comment marks nothing new
+PASS AC22 above 9 the badge reads 9+; data-nav-badge stays homework-only
+PASS AC23 the 40-day-old #6 is not in Bitti; Arşiv is linked from Bitti and the header (5)
+PASS AC23 #6 is on /yonetim/arsiv
+PASS AC23 29 days → on the board; 31 days → archived
+PASS AC23 page 1 holds 50, newest first (50)
+PASS AC23 page 2 has the rest (the oldest) with Daha yeni (968)
+PASS AC23 an archived ticket reopens into Yapılacak
+PASS AC23 the empty archive: Arşivde iş yok.
+PASS AC41 invalid board writes fail at the DB ()
+PASS AC42 light /yonetim/3: no horizontal scroll, every target ≥ 44 px ()
+PASS AC42 light /yonetim/yeni: no horizontal scroll, every target ≥ 44 px ()
+PASS AC42 light /yonetim/arsiv: no horizontal scroll, every target ≥ 44 px ()
+PASS AC42 dark /yonetim/3: no horizontal scroll, every target ≥ 44 px ()
+PASS AC42 dark /yonetim/yeni: no horizontal scroll, every target ≥ 44 px ()
+PASS AC42 dark /yonetim/arsiv: no horizontal scroll, every target ≥ 44 px ()
+PASS AC42 a focused card shows a focus ring (rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0)
+PASS AC43 axe: no serious violations on /yonetim and a detail ()
+PASS AC43 the status menu has an accessible name
+PASS AC42 no raw hex colour in 29 new files ()
+PASS AC44 300 tickets / 2000 comments: /yonetim 487 ms, a detail 102 ms (< 1 s)
+
+# phase8-b-budget.mjs
+PASS Phase 8 setup: all budget actions are registered (prefillPlan,deleteBudget,createBudget,approveBudget,savePlan,updateBudget)
+PASS AC24 sef@arkhe.local opens every budget page with 200 (200,200,200,200,200)
+PASS AC24 yk@arkhe.local opens every budget page with 200 (200,200,200,200,200)
+PASS AC24 FinanceNav shows Bütçe between Rapor and Ayarlar (Özet,Hareketler,Aidat,Etkinlikler,Sponsorlar,Rapor,Bütçe,Ayarlar)
+PASS AC24 korist@ is redirected to / (/,/,/,/)
+PASS AC24 every budget action refuses korist@ and changes nothing (6/6)
+PASS AC24 the CSV route answers korist@ with 403 (403)
+PASS AC24 logged out: no CSV body (no cookie 307 → /giris, stale cookie 401)
+PASS AC25 budgets newest start first (2026–27 sezonu,2025–26 sezonu)
+PASS AC25 each row: range, Onaylandı, Şu anki on the current one, Gelir %x · Gider %y (plana göre) (2026–27 sezonuOnaylandıŞu ankiEylül 2026 – Ağustos 2027Gelir %12 · Gider %14 (plana göre))
+PASS AC25 the primary button Yeni bütçe
+PASS AC25 the empty state
+PASS AC26/TL1 the default start is 2027-9, free of any budget (2027–28 sezonu)
+PASS UX P2-2 Oluştur with the defaults creates the draft, no overlap error
+PASS AC26 a January start names it 2031, ends Aralık 2031
+PASS AC26 a March start uses the range as the name (Mart 2031 – Şubat 2032)
+PASS AC26 after typing, the name no longer follows the start
+PASS AC26 Bir ad yaz.
+PASS AC26 Ad en fazla 40 karakter olabilir.
+PASS AC26 Not en fazla 500 karakter olabilir.
+PASS AC26 a duplicate name is refused
+PASS AC26 an overlap names the other budget
+PASS AC26 refused creates save nothing
+PASS AC26 Oluştur opens the editor with the toast
+PASS AC26 a Taslak for January 2031
+PASS AC26/AC35 the future budget: Ocak – Aralık range and Dönem henüz başlamadı
+PASS AC27 two groups, Gelir (6) and Gider (11), in categories.ts order
+PASS AC27 every amount input is inputmode=decimal and ≥ 44 px
+PASS AC27 live totals (Planlanan gelir ₺16.500,50 Planlanan gider ₺0,00 Planlanan net +₺16.500,50)
+PASS AC27 an invalid amount shows the parseAmount message inline
+PASS AC27 at 375 px no horizontal scroll and Kaydet stays reachable
+PASS AC27 with an invalid line nothing is saved
+PASS AC27 Kaydet returns to the report with Plan kaydedildi.
+PASS AC27 the DB has 1250000, 300050 and 100000 kuruş; no row for blank, 0 or 0,00 ({"donation":100000,"dues":1250000,"tickets":300050})
+PASS AC31 a draft save writes no history
+PASS AC28 the prefill hint names the prior 12 months
+PASS AC28 prefill: sums of the prior year rounded up to lira; voided, transfer and out-of-window ignored ({"tickets":"1.235,00","donation":"500,00","travel":"700,00"})
+PASS AC28 nothing is saved until Kaydet
+PASS AC28 with a typed value, a confirm asks first (Vazgeç / Doldur)
+PASS AC28 Vazgeç keeps the typed value
+PASS AC28 Doldur replaces the inputs
+PASS AC28 no entries in the window: Önceki 12 ayda kayıt yok.
+PASS AC29 the approve confirm copy
+PASS AC29 an empty plan can't be approved
+PASS AC30 the draft delete confirm copy
+PASS AC30 the draft is deleted with Bütçe silindi.; ledger untouched
+PASS AC29 Bütçe onaylandı.
+PASS AC29 after approval: Onaylandı, Onaylayan, no Sil, Planı değiştir
+PASS AC29 the server refuses name/start changes and deletes on an approved budget
+PASS AC29 the name and start month are no longer offered for change
+PASS AC29 the note stays editable, with no history entry
+PASS AC31 the editor of an approved budget is titled Planı değiştir
+PASS AC31 saving with no change: Hiçbir tutar değişmedi.
+PASS AC31 the server refuses a no-change revision too
+PASS UI P3-5 an invalid amount on an approved plan is flagged before the reason dialog opens
+PASS UI P3-6 the revise dialog opens with the focus on Değişiklik gerekçesi
+PASS AC31 the revise dialog lists the changed lines (Aidat: ₺12.500,00 → ₺13.000,00,Ulaşım ve konaklama: ₺0,00 → ₺2.600,00)
+PASS AC31 Gerekçe en az 5 karakter olmalı.
+PASS AC31 one history entry with two lines (Demo Yönetim · 22 Eki 2026 02:29 · “E2E festival daveti geldi”Aidat: ₺12.500,00 → ₺13.000,00Ulaşım ve konaklama: ₺0,00 → ₺2.600,00)
+PASS AC31 the report uses the new amounts; the approval is the oldest history entry
+PASS AC31 a stale revision is refused with Bu plan az önce değişti. and Yenile
+PASS UX P1-1 a future budget's summary shows only the plan and when actuals start (DÖNEM HENÜZ BAŞLAMADI Planlanan gelir ₺13.500,00 Planlanan gider ₺4.000,00 Planlanan net +₺9.500,00 Gerçekleşenler Eylül 2027'den itibaren burada görünür.)
+PASS UX P1-1 future line cards: plan only, a Başlamadı chip, no bar ({"kind":"income","category":"dues","signal":"upcoming","plan":1250000,"actual":0,"pct":"","planText":"₺12.500,00","chip":"Başlamadı","chipClass":"inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap bg-muted text-muted-foreground","bar":false,"over":false,"elapsed":null,"labels":["Plan"]})
+PASS UX P2-3 phone: only Onayla above the summary (Onayla); Bütçe işlemleri last (Planı düzenle,Bilgileri düzenle,CSV indir,Sil)
+PASS AC42 light: the future report fits 375 px, targets ≥ 44 px
+PASS AC42 dark: the future report fits 375 px, targets ≥ 44 px
+PASS UX P1-1 a future budget's CSV leaves Durum empty (,,)
+PASS UX P2-5 the hint names the window up to today (Eylül 2026 – 22 Ekim 2026 arası yazılır; bu dönem henüz bitmedi, rakamlar eksik olabilir.)
+PASS UX P2-5 a partial prefill ends with the warning toast
+PASS Backend P2-1 approving with the revision from before a start change gives PLAN_STALE; still a draft
+PASS AC32 actuals: first and last day in, day before/after out, leap day in, voided/transfer/opening out ({"donation":120000,"grant":40000,"other_income":30000,"venue":0,"scores_royalties":80000,"travel":130000,"festival_fee":95000,"organisation":100000,"other_expense":5000})
+PASS AC33 income lines first, then expense; 0/0 lines hidden
+PASS AC34 signals, labels, words and % per line ()
+PASS AC33 Planlanmadı and no bar on unplanned lines; bars fill min(pct,100) with an over-mark past 100
+PASS AC34 tones: over alert, near/short/unplanned expense warning, met/within success
+PASS AC43 every number carries its label (dt)
+PASS AC35 ended: totals include unplanned lines; Net −₺2.200 vs −₺2.500 → Plandan iyi ([["income",200000,190000],["expense",450000,410000]])
+PASS AC35 the ended heading Dönem sonu raporu, no period marker, the cash note once
+PASS AC42 light: the report has no horizontal scroll, targets ≥ 44 px
+PASS AC37 filename arkhe-butce-2019-09-2026-10-22.csv, BOM, CRLF (attachment; filename="arkhe-butce-2019-09-2026-10-22.csv"; filename*=UTF-8''arkhe-butce-2019-09-2026-10-22.csv)
+PASS AC37 the CSV rows, literally (Gelir;Bağış;1000,00;1200,00;200,00;%120;Hedefe ulaşıldı,Gelir;Hibe / destek;1000,00;400,00;-600,00;%40;Hedefin altında)
+PASS AC37 the CSV matches the report page to the kuruş
+PASS AC34 running: grant 1000/400 → pending Sürüyor ₺600,00 eksik ({"kind":"income","category":"grant","signal":"pending","plan":100000,"actual":40000,"pct":"40","planText":"₺1.000,00","pctText":"%40","words":"₺600,00 eksik","chip":"Sürüyor","chipClass":"inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap bg-muted text-muted-foreground","bar":true,"fill":"40","over":false,"elapsed":"14","labels":["Plan","Gerçekleşen","Fark"]})
+PASS AC35 running: Dönem içi durum, Dönemin geçen kısmı: %14, markers at 14 (14,14,14)
+PASS AC35 while running: Dönem sürüyor and no verdict; totals equal the sums of the lines
+PASS AC42 light: the running report fits at 375 px, targets ≥ 44 px ()
+PASS AC42 light /finans/butce: no horizontal scroll, targets ≥ 44 px ()
+PASS AC42 light /finans/butce/00000000-0000-4000-9b00-000000000001/duzenle: no horizontal scroll, targets ≥ 44 px ()
+PASS AC42 light /finans/butce/yeni: no horizontal scroll, targets ≥ 44 px ()
+PASS AC42 dark: the running report fits at 375 px, targets ≥ 44 px ()
+PASS AC42 dark /finans/butce: no horizontal scroll, targets ≥ 44 px ()
+PASS AC42 dark /finans/butce/00000000-0000-4000-9b00-000000000001/duzenle: no horizontal scroll, targets ≥ 44 px ()
+PASS AC42 dark /finans/butce/yeni: no horizontal scroll, targets ≥ 44 px ()
+PASS AC36 a January budget agrees with /finans/rapor for 2021 (173456,70000 vs 173456/70000)
+PASS AC43 axe: no serious violations on the report and the editor ()
+PASS AC37 the budget name (=2+3 sezon) is not written into the CSV, and no cell starts a formula
+PASS AC41 invalid budget writes fail at the DB ()
+PASS AC41 lines cascade with their budget
+PASS AC44 a report over 5000 entries answers in 108 ms (< 1 s)
+PASS AC44 the actuals query uses fe_occurred_idx (SEARCH finance_entries USING INDEX fe_occurred_idx (occurred_on>? AND occurred_on<?) | USE TEMP B-TREE FOR GROUP BY)
+
+# phase8-c-email.mjs
+PASS AC38 ?bugun=2020-03-01 sends February 2020 ({"status":"sent"})
+PASS AC38 six attachments including arkhe-butce-2020-02.csv (arkhe-devam-2020-02.csv,arkhe-odev-2020-02.csv,arkhe-finans-2020-02.csv,arkhe-aidat-2020-02.csv,arkhe-butce-2020-02.csv,arkhe-yedek-2026-10-22-0230.sql.gz.enc)
+PASS AC38 the attachment has a BOM and CRLF
+PASS AC38 actuals up to 2020-02-29 only, literally (Gelir;Bağış;1000,00;1000,00;0,00;%100;Hedefe ulaşıldı | Gelir;Hibe / destek;1000,00;400,00;-600,00;%40;Sürüyor | Gelir;Diğer gelir;0,00;300,00;300,00;;Plansız gelir)
+PASS AC38 the route CSV has the same header, BOM, CRLF and column count
+PASS AC39 right after Gelir: … the line Bütçe (E2E 2019–20, Onaylandı): gelir plana göre %85 · gider plana göre %69. (Bütçe (E2E 2019–20, Onaylandı): gelir plana göre %85 · gider plana göre %69.)
+PASS AC39 Ekler: names the budget file; the subject is unchanged
+PASS AC38 the 18 MB guard counts the budget attachment (260884 ≥ 260884)
+PASS AC38/AC39 no budget covers January 2018: five attachments, no budget line (5)
+PASS AC37/AC39 the body writes the name =2+3 sezon literally mid-line; the CSV never contains it (Bütçe (=2+3 sezon, Taslak): gelir plana göre %5 · gider planı yok.)
+
+# phase8b-a-format.mjs
+PASS 8b AC1 sef@ gets 200 on the 8 import pages (200,200,200,200,200,200,200,200)
+PASS 8b AC1 yk@ gets 200 on the 8 import pages (200,200,200,200,200,200,200,200)
+PASS 8b AC1 korist@ is redirected to / from every import page (/,/,/,/,/,/,/,/)
+PASS 8b AC1 logged-out requests to pages and downloads go to the login page
+PASS 8b AC1 the three download routes answer korist@ with the JSON 403 and no file
+PASS 8b AC1 korist@'s check, import and undo calls are refused with Bu işlem için yetkin yok.
+PASS 8b AC1 korist@'s calls wrote nothing
+PASS 8b AC2 sef@ sees Veri içe aktar on Profil, Yedekleme and Ayarlar (1,1,1)
+PASS 8b AC2 yk@ sees Veri içe aktar on Profil, Yedekleme and Ayarlar (1,1,1)
+PASS 8b AC2 korist@'s Profil has no import link
+PASS 8b AC2 neither sidebar nor bottom bar links to /ice-aktar (375 px)
+PASS 8b AC2 neither sidebar nor bottom bar links to /ice-aktar (1280 px)
+PASS 8b AC3 index has the title and the intro
+PASS 8b AC3 backup line: Henüz yedek yok. with a link to /yedek
+PASS 8b AC3 index offers Üye listesini indir
+PASS 8b AC3 step 0 shows the opening balance and Ayarlar'a git (Açılış: 1 Ağu 2026 · Kasa ₺2.500,00 · Banka ₺18.000,00)
+PASS 8b AC3 seven step cards in D1 order, each type linking to its page
+PASS 8b AC3 every type reads Henüz aktarılmadı on a clean DB
+PASS 8b AC3 the Sıradaki chip sits on step 1 when nothing is imported
+PASS 8b AC3 index links İçe aktarma geçmişi
+PASS 8b AC4 member list is UTF-8 with BOM and CRLF
+PASS 8b AC4 file name arkhe-uyeler-<date>.csv (attachment; filename="arkhe-uyeler-2026-10-22.csv"; filename*=UTF-8''arkhe-uyeler-2026-10-22.csv)
+PASS 8b AC4 header and one row per user (33/33)
+PASS 8b AC4 codes and dates in import format (ayse.demir@ornek.com|Ayşe Demir|alto|korist|aktif|2019-01-01||tam)
+PASS 8b AC4 a =HYPERLINK name doesn't start a formula ('=HYPERLINK("http://x"))
+PASS 8b AC4 the member list (without rol, durum) checks as all değişmeyecek (unchanged: Değişecek bir şey yok; bu dosyadaki her şey zaten portalda. )
+PASS 8b AC6 README has the D1 order and the opening-balance warning
+PASS 8b AC6 uyeler/ornek is byte-identical to docs/ice-aktarma/1-uyeler.csv
+PASS 8b AC6 uyeler/talimat is byte-identical to docs/ice-aktarma/1-uyeler.md
+PASS 8b AC6 uyeler: .md table columns = sample header = parser header
+PASS 8b AC5 uyeler: step, title and one column row per column (6)
+PASS 8b AC5 uyeler: the column table has the AC 5 headers
+PASS 8b AC5 uyeler: downloads, both tabs, the labelled file input and Kontrol et
+PASS 8b AC5/6 uyeler: the copied prompt equals the .md prompt
+PASS 8b AC8 uyeler: the prompt has the header, ; and UTF-8, the format examples, every code, the no-invent, @eski.invalid and skipped rules
+PASS 8b AC6 donemler/ornek is byte-identical to docs/ice-aktarma/2-donemler.csv
+PASS 8b AC6 donemler/talimat is byte-identical to docs/ice-aktarma/2-donemler.md
+PASS 8b AC6 donemler: .md table columns = sample header = parser header
+PASS 8b AC5 donemler: step, title and one column row per column (3)
+PASS 8b AC5 donemler: the column table has the AC 5 headers
+PASS 8b AC5 donemler: downloads, both tabs, the labelled file input and Kontrol et
+PASS 8b AC5/6 donemler: the copied prompt equals the .md prompt
+PASS 8b AC8 donemler: the prompt has the header, ; and UTF-8, the format examples, every code, the no-invent, @eski.invalid and skipped rules
+PASS 8b AC6 yoklama/ornek is byte-identical to docs/ice-aktarma/3-yoklama.csv
+PASS 8b AC6 yoklama/talimat is byte-identical to docs/ice-aktarma/3-yoklama.md
+PASS 8b AC6 yoklama: .md table columns = sample header = parser header
+PASS 8b AC5 yoklama: step, title and one column row per column (10)
+PASS 8b AC5 yoklama: the column table has the AC 5 headers
+PASS 8b AC5 yoklama: downloads, both tabs, the labelled file input and Kontrol et
+PASS 8b AC5/6 yoklama: the copied prompt equals the .md prompt
+PASS 8b AC8 yoklama: the prompt has the header, ; and UTF-8, the format examples, every code, the no-invent, @eski.invalid and skipped rules
+PASS 8b AC6 hareketler/ornek is byte-identical to docs/ice-aktarma/4-hareketler.csv
+PASS 8b AC6 hareketler/talimat matches outside the live lists, which are filled in, docs/ice-aktarma/4-hareketler.md
+PASS 8b AC6 hareketler: .md table columns = sample header = parser header
+PASS 8b AC5 hareketler: step, title and one column row per column (12)
+PASS 8b AC5 hareketler: the column table has the AC 5 headers
+PASS 8b AC5 hareketler: downloads, both tabs, the labelled file input and Kontrol et
+PASS 8b AC5/6 hareketler: the copied prompt equals the .md prompt outside the filled-in lists
+PASS 8b AC8 hareketler: the prompt has the header, ; and UTF-8, the format examples, every code, the no-invent, @eski.invalid and skipped rules
+PASS 8b AC6 aidat-donemleri/ornek is byte-identical to docs/ice-aktarma/5-aidat-donemleri.csv
+PASS 8b AC6 aidat-donemleri/talimat is byte-identical to docs/ice-aktarma/5-aidat-donemleri.md
+PASS 8b AC6 aidat-donemleri: .md table columns = sample header = parser header
+PASS 8b AC5 aidat-donemleri: step, title and one column row per column (6)
+PASS 8b AC5 aidat-donemleri: the column table has the AC 5 headers
+PASS 8b AC5 aidat-donemleri: downloads, both tabs, the labelled file input and Kontrol et
+PASS 8b AC5/6 aidat-donemleri: the copied prompt equals the .md prompt
+PASS 8b AC8 aidat-donemleri: the prompt has the header, ; and UTF-8, the format examples, every code, the no-invent, @eski.invalid and skipped rules
+PASS 8b AC6 aidat-odemeleri/ornek is byte-identical to docs/ice-aktarma/6-aidat-odemeleri.csv
+PASS 8b AC6 aidat-odemeleri/talimat matches outside the live lists, which are filled in, docs/ice-aktarma/6-aidat-odemeleri.md
+PASS 8b AC6 aidat-odemeleri: .md table columns = sample header = parser header
+PASS 8b AC5 aidat-odemeleri: step, title and one column row per column (8)
+PASS 8b AC5 aidat-odemeleri: the column table has the AC 5 headers
+PASS 8b AC5 aidat-odemeleri: downloads, both tabs, the labelled file input and Kontrol et
+PASS 8b AC5/6 aidat-odemeleri: the copied prompt equals the .md prompt outside the filled-in lists
+PASS 8b AC8 aidat-odemeleri: the prompt has the header, ; and UTF-8, the format examples, every code, the no-invent, @eski.invalid and skipped rules
+PASS 8b AC5 at 375 px the column table is stacked cards with no horizontal scroll
+PASS 8b AC9 BOM/no BOM, ; and , (quoted ;), LF and CRLF, and pasted text give one preview (clean|2 satır okundu · 2 eklenecek · 0 güncellenecek · 0 değişmeyecek|E2E Güz; A: 1 Eyl 2021 – 31 Oca 2022/E2E Bahar: 1 Şub 2022 – 30 Haz 2022)
+PASS 8b AC9 pasted text is checked as yapistirilan-metin.csv
+PASS 8b AC9 a Windows-1254 file is refused as a whole
+PASS 8b AC9 a quoted line break: Satır 3: Hücrede satır sonu olamaz.
+PASS 8b AC9 an .xlsx file is refused with the Excel message
+PASS 8b AC10 an unknown column is refused with the valid list, with no row checks
+PASS 8b AC10 the header error offers the valid header and Başlığı kopyala
+PASS 8b AC10 a duplicate column is refused
+PASS 8b AC10 a missing required column is refused
+PASS 8b AC10 (control) a nonsense header is still refused
+PASS 8b AC10 shuffled, upper-case headers with optional columns left out are accepted (1 satır okundu · 0 eklenecek · 1 güncellenecek · 0 değişmeyecek)
+PASS 8b review P2-1 twenty unknown columns give at most about 20 messages (20)
+PASS 8b review P2-1 a 3000-column unknown header is refused with 1 messages (195 chars, 601 ms)
+PASS 8b review P2-1 a 16k-wide blank header with 16k rows answers fast and small (23 ms, 359 bytes)
+PASS 8b AC11 the browser refuses 1,048,577 bytes before uploading
+PASS 8b AC11 the server refuses 1,048,577 bytes as well
+PASS 8b AC11 5001 data rows are refused
+PASS 8b AC11 header only file → Dosyada veri satırı yok.
+PASS 8b AC11 empty file → Dosyada veri satırı yok.
+PASS 8b AC11 BOM only file → Dosyada veri satırı yok.
+PASS 8b AC11 blank lines are skipped and the error still reads Satır 7 (Satır 7 · katilim_tarihi: Bu tarih takvimde yok.)
+PASS 8b AC12 per-row date and time messages; 2024-10-08, 08.10.2024, 8.10.2024, 9:30 and 19:00:00 pass (Satır 5 · tarih: Bu tarih takvimde yok. | Satır 6 · tarih: Tarihi 2025-10-07 ya da 07.10.2025 biçiminde yaz. | Satır 7 · tarih: Tarihi 2025-10-07 ya da 07.10.2025 biçiminde yaz. | Satır 8 · tarih: Tarihi 2025-10-07 ya da 07.10.2025 biçiminde yaz. | Satır 9 · tarih: Gelecek bir tarih olamaz. | Satır 10 · tarih: Tarih 2000'den önce olamaz. | Satır 13 · baslangic: Saati 19:30 biçiminde yaz. | Satır 14 · baslangic: Saati 19:30 biçiminde yaz.)
+PASS 8b AC12 three spellings of 8 Oct 2024 are one rehearsal (8 Eki 2024 19:00 Tutti: 6 kişi, 3 Gelmedi (listede yok))
+PASS 8b AC13 eight ambiguous amounts are refused (10)
+PASS 8b AC13 zero and over the maximum get the UI's messages
+PASS 8b AC14 an unknown code lists the canonical codes
+PASS 8b AC15 the broken checks above wrote nothing
+PASS 8b AC16 the error summary sentence (120 satır okundu · 120 hata. Hiçbir şey yazılmadı. Dosyayı düzeltip yeniden yükle.)
+PASS 8b AC16 100 errors shown, ve 20 hata daha (ilk 1000'i kopyalanır), no İçe aktar
+PASS 8b AC16 the copy holds the preface, a blank line and all 120 errors (120)
+PASS 8b AC43 the error list is a real list
+PASS 8b AC16 1200 errors: 1000 copied plus the closing line (1001)
+PASS 8b AC43 375 px light: no horizontal scroll, controls ≥ 44 px ()
+PASS 8b AC43 375 px dark: no horizontal scroll, controls ≥ 44 px ()
+PASS 8b AC43 the summary is a status region and the paste textarea is labelled CSV metni
+PASS 8b AC43 no raw hex colours in the import UI ()
+
+# phase8b-b-types.mjs
+PASS 8b review uyeler: the Önce line is a Dikkat warning only on steps 3 and 6 while step 1 is missing
+PASS 8b review uyeler: Üye listesini indir on the type page only for steps 1, 3 and 6
+PASS 8b review uyeler: Nasıl yapılır? shows a disclosure chevron
+PASS 8b review donemler: the Önce line is a Dikkat warning only on steps 3 and 6 while step 1 is missing
+PASS 8b review donemler: Üye listesini indir on the type page only for steps 1, 3 and 6
+PASS 8b review donemler: Nasıl yapılır? shows a disclosure chevron
+PASS 8b review yoklama: the Önce line is a Dikkat warning only on steps 3 and 6 while step 1 is missing
+PASS 8b review yoklama: Üye listesini indir on the type page only for steps 1, 3 and 6
+PASS 8b review yoklama: Nasıl yapılır? shows a disclosure chevron
+PASS 8b review hareketler: the Önce line is a Dikkat warning only on steps 3 and 6 while step 1 is missing
+PASS 8b review hareketler: Üye listesini indir on the type page only for steps 1, 3 and 6
+PASS 8b review hareketler: Nasıl yapılır? shows a disclosure chevron
+PASS 8b review aidat-donemleri: the Önce line is a Dikkat warning only on steps 3 and 6 while step 1 is missing
+PASS 8b review aidat-donemleri: Üye listesini indir on the type page only for steps 1, 3 and 6
+PASS 8b review aidat-donemleri: Nasıl yapılır? shows a disclosure chevron
+PASS 8b review aidat-odemeleri: the Önce line is a Dikkat warning only on steps 3 and 6 while step 1 is missing
+PASS 8b review aidat-odemeleri: Üye listesini indir on the type page only for steps 1, 3 and 6
+PASS 8b review aidat-odemeleri: Nasıl yapılır? shows a disclosure chevron
+PASS 8b review step 6 lists its prerequisites in step order 0, 1, 5
+PASS 8b AC30 a row before the opening date gives the opening message (Satır 2 · tarih: Tarih açılış bakiyesinden (1 Ağu 2026) önce. Önce Finans › Ayarlar'da açılış tarihini kayıtlarının başladığı güne çek ve o günkü bakiyeyi yaz.)
+PASS 8b AC30 the opening date moved to 2024-09-01 in Finans › Ayarlar
+PASS 8b AC7 sample 1-uyeler.csv checks with 0 errors and imports (clean: 5 satır okundu · 2 eklenecek · 3 güncellenecek · 0 değişmeyecek )
+PASS 8b AC18 uyeler result: the sentence, the re-download hint and button (İçe aktarıldı: 2 eklendi, 3 güncellendi, 0 değişmedi.)
+PASS 8b AC18 uyeler result links and Sıradaki (İçe aktarma geçmişi=/ice-aktar/gecmis, Üye listesini indir=/ice-aktar/uye-listesi, Üyeler=/uyeler, Aidat=/finans/aidat, Sıradaki: 2 · Çalışma dönemleri=/ice-aktar/donemler)
+PASS 8b AC21 Ayşe's joined_at is 2019-09-01 Istanbul start; the name stays
+PASS 8b AC23 the former member is an inactive member with no password, left_at 23:59:59 Istanbul
+PASS 8b AC23 no invite for the former member
+PASS 8b AC23 the former member is listed among the inactive members on /uyeler
+PASS 8b AC23 the former member can't log in (the normal wrong-credentials message)
+PASS 8b review after step 1 the Önce line on step 3 is back to the plain style
+PASS 8b AC7 sample 2-donemler.csv checks with 0 errors and imports (clean: 4 satır okundu · 4 eklenecek · 0 güncellenecek · 0 değişmeyecek )
+PASS 8b AC3 after steps 1 and 2 the Sıradaki chip moves to step 3
+PASS 8b AC3 the imported card reads Son aktarım: <tarih> · <ad> · <n> satır
+PASS 8b AC26 imported terms appear in the /raporlar period picker
+PASS 8b AC7 sample 3-yoklama.csv checks with 0 errors and imports (clean: 4 satır okundu · 4 eklenecek · 0 güncellenecek · 0 değişmeyecek )
+PASS 8b AC28 the auto-absent warning and one effect line per rehearsal (8 Eki 2024 19:00 Tutti · Mülkiye Salonu: 4 kişi, 1 Gelmedi (listede yok) / 10 Eki 2024 20:00 Partisyon (Soprano, Alto): 2 kişi, 1 Gelmedi (listede yok))
+PASS 8b AC27 the rehearsals have the file's type, parts, place and times, opened_at/closed_at and created_by
+PASS 8b AC27 each file row is a manual mark by the importer at starts_at; blank cells inherit
+PASS 8b AC27 every other expected person is absent/auto at ends_at; nobody unexpected is recorded
+PASS 8b AC27/35 the imported rehearsal is closed, has no Aç button and shows İçe aktarıldı to managers
+PASS 8b AC35 korist@ sees no marker
+PASS 8b review P2-5 imported roster rows read İçe aktarıldı, never Elle/Otomatik with a time (4 rows)
+PASS 8b AC35 a portal rehearsal has no marker
+PASS 8b AC27 the imported rehearsal is in the past list
+PASS 8b AC34 the term report CSV counts the imported rehearsals ("Ayşe Demir";"Alto";"2";"2";"100";"0";"0";"0";"")
+PASS 8b AC7 sample 4-hareketler.csv checks with 0 errors and imports (clean: 4 satır okundu · 4 eklenecek · 0 güncellenecek · 0 değişmeyecek )
+PASS 8b AC29 a new sponsor is listed in the warnings
+PASS 8b AC30 the clean preview shows İçe aktarımdan sonra with the step-4 hint
+PASS 8b AC30/32 hareketler: /finans shows exactly the previewed after balances (1146450/2638725 vs 965000,1146450,2488725,2638725)
+PASS 8b AC7 sample 5-aidat-donemleri.csv checks with 0 errors and imports (clean: 3 satır okundu · 3 eklenecek · 0 güncellenecek · 0 değişmeyecek )
+PASS 8b AC7 sample 6-aidat-odemeleri.csv checks with 0 errors and imports (clean: 5 satır okundu · 5 eklenecek · 0 güncellenecek · 0 değişmeyecek )
+PASS 8b AC30/32 aidat-odemeleri: /finans shows exactly the previewed after balances (1161450/2728725 vs 1146450,1161450,2638725,2728725)
+PASS 8b AC32 the step-6 balance hint
+PASS 8b AC32 payments show Ödendi; the reduced-rate member is judged on the reduced amount
+PASS 8b AC33 the waiver shows Muaf
+PASS 8b AC32 one income/dues entry with member, period and account, no payment group
+PASS 8b AC3 with every type imported, each card shows its last import and there is no Sıradaki chip
+PASS 8b AC17/20 every sample re-checks as nothing to change, with the same-file line and no button (true,true,true,true,true,true)
+PASS 8b AC15/20 the re-checks wrote nothing
+PASS 8b AC26/20 term overlap (DB and file), over a year, same name other dates, in-file duplicate (Satır 2 · baslangic: Dönemler çakışamaz. | Satır 4 · baslangic: Dönemler çakışamaz. | Satır 5 · bitis: Bir dönem en fazla bir yıl olabilir. | Satır 6 · ad: Bu adla farklı tarihli bir dönem var. | Satır 7 · ad: Satır 3 ile aynı kayıt.)
+PASS 8b AC28 joined later, conductor, left before and outside the sectional's parts are not expected (4)
+PASS 8b AC28 a different tur on a later row, a note on geldi, partiler on a tutti, a sectional without parts, a rehearsal not yet ended
+PASS 8b AC28/20 an earlier import with other rows, a portal rehearsal at the same start, an in-file duplicate (Satır 12 · tarih: Bu çalışma daha önce farklı yoklamayla aktarıldı; önce o aktarımı geri al.,Satır 13 · tarih: Bu saatte portalda girilmiş bir çalışma var; yoklamasını o sayfadan düzelt.,Satır 14 · eposta: Satır 2 ile aynı kayıt.)
+PASS 8b AC29/30/20 dues, category on a transfer, same account, unknown and ambiguous event, before opening, kayit_no conflict, duplicate (Satır 2 · kategori: Aidat ödemelerini 6. adımdaki aidat dosyasıyla aktar. | Satır 3 · kategori: Virmanda kategori olmaz. | Satır 4 · hedef_hesap: Kaynak ve hedef hesap aynı olamaz. | Satır 5 · etkinlik: Bu adla bir etkinlik yok. | Satır 6 · etkinlik: Bu adla birden çok etkinlik var; etkinliği adından ayırt et. | Satır 7 · tarih: Tarih açılış bakiyesinden (1 Eyl 2024) önce. Önce Finans › Ayarlar'da)
+PASS 8b AC31 overlap, reduced ≥ full, due before start, same name other values (Satır 2 · baslangic: Bu tarihler Eylül 2024 dönemiyle çakışıyor. | Satır 3 · indirimli_tutar: İndirimli aidat tam aidattan az olmalı. | Satır 4 · son_odeme: Son ödeme başlangıçtan önce olamaz. | Satır 5 · ad: Bu adla farklı bir aidat dönemi var.)
+PASS 8b AC32 joined later, left before and the conductor don't owe the period (Satır 2 · donem: Bu kişi bu dönemden sorumlu değil. | Satır 3 · donem: Bu kişi bu dönemden sorumlu değil. | Satır 4 · donem: Bu kişi bu dönemden sorumlu değil.)
+PASS 8b AC32 open amount counting earlier rows, nothing open, the reduced amount, unknown period; "Kasim 2024" matches Kasım (Satır 6 · tutar: Kalan borç ₺100,00; daha fazlası girilemez. | Satır 7 · tutar: Bu dönemin borcu yok. | Satır 8 · tutar: Kalan borç ₺150,00; daha fazlası girilemez. | Satır 9 · donem: Bu adla bir aidat dönemi yok. Dönem adları Finans › Aidat sayfasında. | Satır 11 · tutar: Muafiyet satırında tutar, tarih ve hesap boş olmalı. | Satır 12 · aciklama: Neden yaz (en az 3 karakter).)
+PASS 8b AC33 a waiver with an amount, without a reason, on a period paid in the DB and earlier in the file
+PASS 8b AC14 Bas and bass both mean bass (Elif Şahin: partisyon Soprano → Bas / Selin Çakır: partisyon Soprano → Bas)
+PASS 8b AC15 the rule checks of every type wrote nothing
+PASS 8b AC29 only the unknown sponsor is announced as new (Yeni sponsor oluşturulacak: E2E Yeni Fırın)
+PASS 8b AC13 1250, 1250,5, 1250,50 and 1250.50 are stored as 125000/125050 kuruş
+PASS 8b AC14 Ulaşım ve konaklama, ULASIM_VE_KONAKLAMA, travel and ulaşım ve konaklama all map to travel
+PASS 8b AC29 the sponsor matches case- and accent-insensitively, the event by its normalised name, created_by is the importer
+PASS 8b AC14 Geç geldi, gec, late and gec_geldi all map to late
+PASS 8b AC35 an imported entry shows İçe aktarıldı · Kayıt no <kayit_no>
+PASS 8b AC35 a hand-made entry has no marker
+PASS 8b AC38 the undo confirm text, with the finance line only on the two finance types (8 undone)
+PASS 8b AC39 after undoing all 8 batches the DB equals its state before the samples ()
+PASS 8b AC39 the batch rows stay as the audit record; their items are gone
+PASS 8b AC39 re-checking an undone file shows eklenecek again (4 satır okundu · 4 eklenecek · 0 güncellenecek · 0 değişmeyecek)
+PASS 8b AC39 an undone kayit_no can be imported again
+PASS 8b AC7 each .md example checks with 0 errors and imports in order (uyeler:clean, uyeler:clean, donemler:clean, yoklama:clean, hareketler:clean, aidat-donemleri:clean, aidat-odemeleri:clean)
+PASS 8b AC9 a pasted import is logged as yapistirilan-metin.csv
+PASS 8b the example batches are undone again
+PASS 8b AC18 İçe aktar always opens the confirm with the count, type and file name
+PASS 8b AC18 a double tap on İçe aktar creates exactly one batch
+PASS 8b AC18 one batch row with name, size, SHA-256 and counts, and no column for the content
+PASS 8b AC18 the result sentence
+PASS 8b AC18 a different file sent with the previewed hash is refused; nothing written
+PASS 8b AC18 two concurrent commits give one batch (done,unchanged)
+PASS 8b AC18 a DB change between check and commit returns the new error list (Kontrolden sonra portalda bir şey değişti. 1 satır okundu · 1 hata. Hiçbir şey yazılmadı. Dosyayı düzeltip yeniden yükle.)
+PASS 8b AC18 … and nothing is written
+PASS 8b AC17/24 deactivations come first and in full; name mismatches are one line (1 kişi pasifleştirilecek ve oturumları kapatılacak: Selin Aydın / 2 kişinin adı portaldakinden farklı (ad değişmez).)
+PASS 8b AC21 the name mismatches sit under Listeyi göster in the D7 wording
+PASS 8b AC17 effects read in plain Turkish (Ayşe Demir: katılım 1 Oca 2019 → 1 Eyl 2018)
+PASS 8b AC18 the confirm carries the deactivation line
+PASS 8b AC21/24 dates applied, the deactivated member is inactive with that left_at, names unchanged
+PASS 8b AC24 the deactivated member's sessions are gone
+PASS 8b AC24 the member's open browser is sent to login on the next request
+PASS 8b AC24 on an inactive member it only changes the date, with no warning
+PASS 8b AC22/23 left before joined, a future date, the importer's own row, an unknown email, a former member without partisyon (Satır 2 · ayrilis_tarihi: Ayrılış tarihi katılım tarihinden önce olamaz. | Satır 3 · ayrilis_tarihi: Gelecek bir tarih olamaz. | Satır 4 · ayrilis_tarihi: Ayrılış tarihi katılım tarihinden önce olamaz. | Satır 4 · ayrilis_tarihi: Kendini pasifleştiremezsin. | Satır 5 · eposta: Bu e-postayla üye yok.)
+PASS 8b AC25 as yk@ rows that would change the conductor or a board member are refused
+PASS 8b AC25 board users see the board-only note on uyeler
+PASS 8b AC25 the same file passes as sef@ (no note for the conductor)
+PASS 8b AC25 an unchanged conductor row is değişmeyecek for yk@ (2 satır okundu · 0 eklenecek · 1 güncellenecek · 1 değişmeyecek)
+PASS 8b AC36 141 past rehearsals: 60 + 60 + 21, newest first, no repeats
+PASS 8b AC36 Daha yeni / Daha eski appear only where they apply
+PASS 8b AC36 a bad sayfa value shows page 1
+
+# phase8b-c-undo.mjs
+PASS 8b AC37 the empty log reads Henüz içe aktarma yapılmadı.
+PASS 8b AC37 newest first, with date, importer, type, file name, counts, the 12-character hash and the status
+PASS 8b AC38 Geri al only on the latest batch (conductor)
+PASS 8b AC38 … and for its importer
+PASS 8b AC38 the server refuses a batch that isn't the latest
+PASS 8b AC38 yk@ undoes their own batch; toast İçe aktarma geri alındı.
+PASS 8b AC37/38 the undone card says who undid it; sef@'s batch is now latest and yk@ sees why there's no button
+PASS 8b AC38 yk@ can't undo sef@'s batch
+PASS 8b AC38 the conductor undoes it
+PASS 8b AC40 a corrected attendance row: 7 Mar 2023 19:00 çalışması bu aktarımdan sonra düzeltildi; geri alınamaz. (unchanged: true)
+PASS 8b AC40 an event linked to the imported rehearsal: 7 Mar 2023 19:00 çalışmasına bir etkinlik bağlanmış; geri alınamaz. (unchanged: true)
+PASS 8b AC40 the rehearsal batch undoes once restored
+PASS 8b AC40 an imported entry voided by hand: Kayıt V-1 bu aktarımdan sonra değişti; geri alınamaz. (unchanged: true)
+PASS 8b AC40 the entry batch undoes once restored
+PASS 8b AC39 the undone entry is deleted, not voided (D17)
+PASS 8b AC40 a member edited after a member-history import: Selin Aydın bu aktarımdan sonra değişti ya da kullanıldı; geri alınamaz. (unchanged: true)
+PASS 8b AC39 the member batch undoes and restores the part
+PASS 8b AC39 the previous voice part is back
+PASS 8b AC40 a dues period that received a hand-entered payment: E2E Mart 2021 dönemine ödeme girilmiş; geri alınamaz. (unchanged: true)
+PASS 8b AC40 a dues period edited by hand: E2E Mart 2021 dönemi bu aktarımdan sonra değişti; geri alınamaz. (unchanged: true)
+PASS 8b AC40 the period batch undoes once restored
+PASS 8b review P2-2 a waiver imports (1 satır okundu · 1 eklenecek · 0 güncellenecek · 0 değişmeyecek)
+PASS 8b review P2-2 re-checking a hand-deleted waiver names it as deleted, not a conflict (Satır 2 · kayit_no: Kayıt M-E2E-1 portalda silinmiş; bu satırı çıkar ya da yeni bir kayit_no ver.)
+PASS 8b review P2-2 the waiver batch undoes after Muaf kaldır
+PASS 8b review P2-2 the period batch undoes after Dönemi sil
+PASS 8b review P2-2 both batches end up undone
+PASS 8b review P2-2 a rate change after a payment pins a freeze (1 satır okundu · 0 eklenecek · 1 güncellenecek · 0 değişmeyecek)
+PASS 8b review P2-2 the rate batch undoes after the paid entry was voided
+PASS 8b review P2-2 the rate is back to indirimli
+PASS 8b review P2-2 the June period batch undoes afterwards
+PASS 8b AC19 the failed commit shows the generic error
+PASS 8b AC19 every table is unchanged: batch, items, sponsors, entries
+PASS 8b AC42 invalid direct writes are refused by the DB ()
+PASS 8b AC44 5000-row yoklama: check 632 ms (< 15 s), import 820 ms (< 30 s)
+PASS 8b AC44 2000-row hareketler: check 646 ms (< 10 s)
+PASS 8b AC44 index and log with 50+ batches answer in under 1 s (/ice-aktar 71 ms,/ice-aktar/gecmis 125 ms)
+PASS 8b AC37 the log shows 50 per page with Daha eski
+PASS 8b AC37 page 2 links Daha yeni
+
+# phase9-a-record.mjs
+PASS AC34 home Ödevlerim offers Kaydını yap → /odevler/<id>#kayit, no inline Teslim ettim
+PASS AC34 every unsubmitted list row links Kaydını yap to #kayit
+PASS AC7 idle: the two steps Partisyonunu dinle and Kaydını yap, no step 3
+PASS AC7/AC21 transparency names Demo Asistan; the D11 sentences sit in the 44 px disclosure
+PASS AC7 Kayda başla and Dosya yükle; no /api/dosya request yet
+PASS AC7 the silent count-in Hazırlan… 3 · 2 · 1 with Vazgeç
+PASS AC7 recording: timer 0:01 / 10:00, Durdur (Kaydı durdur), role=timer
+PASS AC7 the level meter hears the tone
+PASS AC7 stopped: Dinle, Gönder, Yeniden kaydet; still no upload request
+PASS AC7 Gönder shows progress, then "Kaydın gönderildi · 22 Eki 02:32 · 0:05"
+PASS AC7 sent: Dinle, Değiştir, Sil
+PASS AC1/AC7 one UUID-named file with key, size 24848, type audio/mp4, duration 5100
+PASS AC8 header chip Teslim edildi · 22 Eki
+PASS AC8 korist's data-nav-badge drops 4 → 3
+PASS AC8 A moves to TESLİM ETTİKLERİM
+PASS AC8 submissions.method is self
+PASS AC8/AC33 roster shows Kayıt · 0:0x under the name and a chevron link to the review page for sef@
+PASS AC8 matrix cell is done (done)
+PASS AC10 no /api/dosya request before Dinle
+PASS AC10 Dinle fetches once and plays from blob: (t=1.03)
+PASS review P2-2 the 11th listen of one take in an hour is a 429 with the per-file message (200,200,200,200,200,200,200,200,200,429)
+PASS review P2-2 the player shows the server's cap message
+PASS AC11 Değiştir shows the idle controls with the replace line
+PASS AC11 replace: Değiştirildi · today, submitted_at kept, old file gone, one current take, still on time (Teslim edildi · 22 Eki)
+PASS AC11 an upload on overdue D is Geç teslim (Geç teslim · 22 Eki)
+PASS AC12 Sil asks Kaydın silinsin mi? / Teslimin de geri alınır.
+PASS AC12 Sil removes the file, clears the submission (5 gün kaldı), badge back to 4
+PASS AC12 the fallback Geri al withdraws the take too
+PASS AC36 a manual mark still shows şef işaretledi
+PASS AC36 the singer sees Teslim ettin and can still record
+PASS AC36 the take attaches to the manual mark; roster shows şef işaretledi and Kayıt
+PASS AC36 the manager's Teslim edilmedi is refused while a take exists
+PASS AC12 the confirm says the manual mark stays
+PASS AC12 Sil on a manual mark removes only the take; the mark stays
+PASS AC36 once the audio is gone the unmark works
+PASS AC13 after the comment: locked, no Değiştir/Sil
+PASS AC13 upload, delete and undo are refused with the lock; no row or file changes
+PASS AC14 from the 3rd upload the count line; the 5th preview says Bu son yükleme hakkın.
+PASS AC14 after 5 uploads Değiştir is hidden
+PASS AC14 the 6th upload is refused (withdrawn and replaced takes count)
+PASS AC6 no or foreign Origin → 403 (403, 403)
+PASS AC6 a PNG renamed and text sent as audio/mp4 are refused with the type message
+PASS AC6 4,194,305 bytes → the 4 MB message
+PASS AC6 refusals write no row and no file
+PASS AC6 4,194,304 bytes is accepted; the stored type is the detected one, not the claimed one
+PASS AC58 a 4 MB upload completes in under 5 s (24 ms)
+PASS AC9 an empty file is refused locally; a WAV goes to preview (Gönder / Başka dosya seç) with no request
+PASS AC9 Gönder stores the WAV as audio/wav
+PASS AC9 a generated MP3 is stored as audio/mpeg
+PASS review P2-2 after a server refusal Gönder is gone and Başka dosya seç is the focused primary
+PASS review P2-2 a new pick brings Gönder back
+PASS AC15 korist@ on F (T+B) is refused
+PASS AC15 the conductor has no recorder
+PASS AC15 an inactive user's session can't upload (401)
+PASS AC35 Başka yolla gönderdim is collapsed by default
+PASS AC35 the Phase 4 mail link sits inside
+PASS AC35 Teslim ettim works: method self, no recording
+PASS AC35 roster shows no Kayıt tag
+PASS AC35 the conductor's queue shows Portalda kayıt yok
+PASS AC35 without Kayıt e-postası: the hint and Teslim ettim, no mailto
+PASS AC16 the dev hook sets data-max-ms
+PASS AC16 the recorder stops by itself: Kayıt 10 dakikada durdu. with Dinle/Gönder
+PASS D40 an unsent take survives in-app navigation (Esere git, back)
+PASS AC47 put fault: the D21 message, no row, the fallback opens
+PASS AC47 Kaydı indir downloads the take (11995 = 11995 bytes)
+PASS AC47 Tekrar dene after clearing the fault succeeds
+PASS AC47 get fault: Dinle shows Kayıt şu an açılamıyor…
+PASS AC17 a denied microphone shows the message (the AC sentence as the accessible description)
+PASS review P2-7 the permission steps reach screen readers; the alert is not described twice
+PASS AC17 Dosya yükle still works after a denial
+PASS AC17 without MediaRecorder: no Kayda başla, the hint instead
+PASS AC57 recorder at 375 light: no axe issue, overflow or <44 px target ()
+PASS AC57 recorder at 375 dark: no axe issue, overflow or <44 px target ()
+PASS AC57 no raw hex colours in the Phase 9 components
+PASS AC1 cleanup leaves only the 6 seeded recordings (6)
+
+# phase9-b-review.mjs
+PASS AC22 asistan@'s Dinlenecek lists the 3 seeded S/A takes, Geç on Nazlı, no tenor/no-take rows (3, SQL 3)
+PASS AC22 grouped by homework; each row has duration and upload date
+PASS AC22 the home card says Dinleme kuyruğun: 3 kayıt
+PASS AC22 the /odevler header shows Dinleme with a pill of 3
+PASS AC27 sef@'s chips Yorum bekleyen 17 · Asistan notlu 1 · Yorumlananlar (Yorum bekleyen17,Asistan notlu1,Yorumlananlar)
+PASS AC27 Asistan notlu lists the one noted take with 1 asistan notu
+PASS AC27 Yorumlananlar lists 2, no cut notice
+PASS AC27 sef@'s Ödevler carries data-review-badge=1 at 1280
+PASS AC27 the badge's accessible text; sef@ still has no data-nav-badge
+PASS AC27 the same badge on the 375 px bottom bar
+PASS AC27 korist@ has no data-review-badge
+PASS AC27 yk@ has no data-review-badge
+PASS AC27 asistan@ has no data-review-badge
+PASS AC27 + review P2-4 the home card counts only takes with audio, the no-recording submissions on a second line (5 + 12)
+PASS review P2-4 inside each homework group rows with audio come first (1 1 1 0000011111111 1)
+PASS review P2-4 Dinlemeye başla opens the first row with audio (/odevler/00000000-0000-4000-8000-00000000000d/dinle/6c805f9a-c5f0-4dfc-a2d8-8c5968dbcd6b?filtre=bekleyen)
+PASS AC27 a Portalda kayıt yok submission due 31 days ago isn't listed
+PASS AC27 above 9 the badge reads 9+ (5 seeded)
+PASS AC18 /odevler/asistanlar lists Demo Asistan · Soprano, Alto
+PASS AC18 yk@ is redirected to /odevler
+PASS AC18 korist@ is redirected to /odevler
+PASS AC18 asistan@ is redirected to /odevler
+PASS AC18 the actions refuse non-conductors and write nothing
+PASS AC19 the picker lists active member/board users, not the conductor, assistants or inactive users
+PASS AC19 no part and Tüm partisyonlar off → En az bir partisyon seç.
+PASS AC19 added with Tüm partisyonlar
+PASS AC19 editing to Bas only shows Bas
+PASS AC3 korist (owner) gets 200 on the alto take (200)
+PASS AC3 sef gets 200 on the alto take (200)
+PASS AC3 asistan gets 200 on the alto take (200)
+PASS AC3 yk gets 404 on the alto take (404)
+PASS AC3 another alto gets 404 on the alto take (404)
+PASS AC3 tenor-only assistant gets 404 on the alto take (404)
+PASS AC3 logged out gets 401 on the alto take (401)
+PASS AC3 ?indir=1: attachment for the owner and sef@, 404 for asistan@ (D44)
+PASS AC3/AC20 asistan@'s own take: 200 as owner, not in his queue, review 404, even with all parts
+PASS AC3 after sef@'s comment asistan@ gets 404 (owner still 200)
+PASS AC3 after the comment is deleted, 200 again
+PASS AC2 no storage key, data/uploads path or Blob host in any HTML/RSC ()
+PASS AC2 data/uploads isn't served by Next
+PASS AC19 Kaldır confirms with the PO sentence
+PASS AC3/AC19 removed: audio 404 at once, queue redirects, review 404; his notes stay
+PASS AC21 after removal korist@ no longer sees Demo Asistan
+PASS AC21 with nobody left: Kaydını yalnızca şef dinler.
+PASS AC21 a tenor sees Kaydını yalnızca şef dinler. and the retention sentence
+PASS AC23 over 1000 characters: Not en fazla 1000 karakter olabilir.
+PASS AC23 Kaydet stores the note and toasts Notun kaydedildi.
+PASS AC23 the item moves to Not yazdıklarım
+PASS AC23 Sonraki opens the next Dinlenecek item
+PASS AC23 Notu sil deletes it
+PASS AC33 Sonraki walks the chip to the end, then Bu listede başka kayıt yok. (2 hops)
+PASS D41 unsaved note: Sonraki asks Notun kaydedilmedi… (Kal / Geç)
+PASS review P2-1 Kal is the focused primary, Geç the soft outline
+PASS D41 Kal keeps the text and the page
+PASS AC24 each assistant's page holds only their own note: no other text, author or count
+PASS AC28 sef@ sees both notes with author and date
+PASS AC28 Yorumun with the D63 help line
+PASS AC28 Yoruma ekle appends the note text to Yorumun
+PASS AC28 Yoruma ekle is disabled with Yorum 1000 karakteri geçer. when it would pass 1000
+PASS AC28 unsent text: Sonraki asks Yorumun gönderilmedi…
+PASS AC28 the page shows Bu kayıt 20 Oca 2027 tarihinde silinecek.
+PASS AC28 the review badge drops by 1
+PASS AC28 the item leaves Yorum bekleyen
+PASS AC28 korist@ sees Yeni yorum
+PASS AC28 korist@ reads Şefin yorumu with Demo Şef · <tarih>
+PASS AC24 neither assistant page holds the comment text; they see Şef yorumunu gönderdi.
+PASS AC25 the assistant's page: read-only note, no player, audio 404
+PASS AC25 the note actions refuse with the lock and change nothing
+PASS AC25 the item left asistan@'s Dinlenecek
+PASS AC30 korist@'s pages and the audio headers hold no note marker, author or count ()
+PASS AC30 the review page is 404 and note actions refuse for korist@ and yk@
+PASS AC30/D45 the board never sees assistant notes
+PASS AC31 editing revives Yeni yorum and keeps the deletion date
+PASS AC31 Yorumu sil confirm
+PASS AC31 Yorumu sil clears the comment; the 120-day rule applies again
+PASS AC31 the singer's Değiştir is back
+PASS AC25/AC31 the item is back in the queues (1)
+PASS TL1 clearing the comment on a 130-day-old take sets delete_on to tomorrow, not the past (2026-10-23)
+PASS AC26 a re-take reappears in Dinlenecek with Yeni kayıt
+PASS AC26 the old note shows Önceki kayda yazıldı to him and to sef@
+PASS AC29 a take with zero notes
+PASS AC29 a Portalda kayıt yok submission opens with the no-take box
+PASS AC29 both comments reach their singers
+PASS AC32 yk@'s roster sheet has no note field
+PASS AC32 saveFeedback as yk@ is refused
+PASS AC32 an old board note still shows under Geri bildirim
+PASS AC32 sef@ can edit the board note (prefilled, attributed)
+PASS AC33 for yk@ the Kayıt tag is plain text and the review URL is 404
+PASS AC20 a soprano moved to tenor leaves his queue; review and audio 404
+PASS AC20 made conductor he gets the conductor's view
+PASS AC57 queue, review, asistanlar and the roster (no name cut to a few letters) at 375 light: clean ()
+PASS AC57 queue, review, asistanlar and the roster (no name cut to a few letters) at 375 dark: clean ()
+
+# phase9-c-storage.mjs
+PASS AC38 the cron deletes the file of a take whose delete_on was yesterday
+PASS AC38 the submission, the comment and the notes stay
+PASS AC38 korist@ sees "Ses dosyası silindi (22 Eki 2026). Yorumlar duruyor." and no Dinle
+PASS AC38 sef@'s review page shows the same, with the notes
+PASS AC38 the route answers 410
+PASS AC39 the 121-day uncommented take goes, the 119-day one stays
+PASS AC41 the cron reply is exactly {status}; the sweep wrote its row (2 deleted)
+PASS AC41 /odevler/depolama shows Son temizlik: <tarih> · <n> dosya silindi
+PASS AC40 the conductor's Kaydı sil confirm (D48)
+PASS AC40 with the delete fault the action succeeds, the file stays queued, the submission stays
+PASS AC41 with the delete fault the cron still answers exactly {status} and records a sweep (skipped)
+PASS AC41 the faulted sweep leaves the file queued
+PASS AC40 the next sweep removes it
+PASS AC40 the homework delete confirm says <n> teslim kaydı, <k> ses kaydı ve notlar da silinir.
+PASS AC40 deleting the homework deletes its audio
+PASS AC43 the four meters match SQL over our tables
+PASS AC43 format <used> / <limit>, the percentage only once at the top (289 KB / 1 GB)
+PASS AC43 the D19 explanation lines
+PASS AC43 yk@ sees the gauge too
+PASS AC43 korist@ is redirected to /odevler
+PASS AC43 asistan@ is redirected to /odevler
+PASS AC44 sef@ sees the 81% banner on /odevler
+PASS AC44 sef@ sees the 81% banner on /
+PASS AC44 yk@ sees the 81% banner on /odevler
+PASS AC44 yk@ sees the 81% banner on /
+PASS AC44 korist@ doesn't
+PASS AC44 the Depolama meter shows the warning state with text
+PASS AC45 at 95% storage korist@'s upload is refused with the D20 message; nothing written
+PASS AC45 the fallback disclosure is open, the paused note shows, Dosya yükle is hidden
+PASS AC45 the in-page take offers Kaydı indir instead of Gönder
+PASS AC45 a MIDI upload by sef@ is refused with Dosya alanı dolu; yeni dosya yüklenemiyor.
+PASS AC45 listening still works
+PASS AC45 the same at 95% of the upload count
+PASS AC46 at 100% transfer recording playback is refused (quota); MIDI still plays
+PASS AC46 the player says Dinleme bu ay için geçici olarak kapalı (ücretsiz kota).
+PASS AC48 sef@ sees the early-clean button (1 kayıt, <MB>)
+PASS AC48 yk@ doesn't
+PASS AC48 the action refuses yk@
+PASS AC48 exactly the take commented 31 days ago loses its audio; younger and uncommented keep theirs; the comment stays
+PASS AC58 with 200 takes and 400 notes: queue 569 ms, assistant 52 ms, depolama 49 ms
+PASS AC42 the README's backup section has the D22 sentence
+PASS AC57 /odevler/depolama at 375 light: clean ()
+PASS AC57 /odevler/depolama at 375 dark: clean ()
+
+# phase9-d-midi.mjs
+PASS AC4 MIDI route: 200 with the immutable private cache for a member, 401 logged out
+PASS AC4 ?indir=1 names Ave-Verum-Corpus-Alto.mid (attachment; filename="Ave-Verum-Corpus-Alto.mid")
+PASS AC50 a tenor with no tenor MIDI keeps Phase 3's Drive Partisyonum hero
+PASS AC50 korist@ (alto) sees Tutti and Alto, not Tenor (tutti,alto)
+PASS AC50 each row has Çal and İndir
+PASS AC50 the hero is Partisyonumu çal (Alto); the Drive part stays under PARTİSYON KAYDI
+PASS AC50 ?partisyon=tumu lists all three
+PASS AC50 ?cal=1 opens the player ready for the tap
+PASS D59 the home row of Ave Verum Corpus links to ?cal=1
+PASS AC51 no MIDI fetch and no player before the tap
+PASS AC51 the file is fetched once on the tap
+PASS AC51 data-state=playing, the audio context runs, the position passes 0:01
+PASS AC51 four track toggles Soprano, Alto, Tenor, Bas, all on
+PASS AC51 the silent-switch hint
+PASS AC51 Duraklat holds the position
+PASS AC51 Başa dön → 0:00
+PASS AC51 %50 advances at about half speed (1000 vs 2000 ms)
+PASS AC51 unchecking Alto mutes it and keeps playing
+PASS AC51 starting another file stops the first
+PASS review P3-7 an open row trigger is Kapat (no second pause); it collapses the panel
+PASS AC53 A's step 1 offers MIDI'yi çal for the Alto file, the Drive part as a text link under it
+PASS AC53 MIDI'yi çal plays inline
+PASS AC53 with only a Tutti file it plays the Tutti one
+PASS AC53 without MIDI there is no button
+PASS AC49 sef@ sees MIDI dosyaları on the edit page
+PASS AC49 yk@ sees MIDI dosyaları on the edit page
+PASS AC49 korist@ can't reach the edit page
+PASS AC49 the upload and delete actions refuse korist@
+PASS AC49 the upload lists Alto önde · Alto
+PASS AC49 bytes that aren't MThd are refused
+PASS AC49 1,048,577 bytes → MIDI dosyası en fazla 1 MB olabilir.
+PASS AC49 a 61-character Etiket is refused
+PASS AC49 at 20 files: Bir esere en fazla 20 MIDI dosyası eklenebilir.
+PASS AC57 MIDI editor and the open player at 375 light: clean ()
+PASS AC57 MIDI editor and the open player at 375 dark: clean ()
+PASS AC54 Sil confirms "<etiket>" silinsin mi?
+PASS AC54 the row and the file go; the detail no longer lists it
+PASS AC54 deleting an E2E piece with MIDI files works and removes the files
+PASS AC54 a piece with homework is still refused (Phase 4 rule)
+PASS AC50 the arranged tenor file stays until cleanup
+
+# phase9-e-db-lock.mjs
+PASS DB lock: after refused writes the server holds no write lock
+PASS DB lock: a new session is committed and every pooled connection sees it (/,/yonetim,/finans,/repertuvar,/uyeler,/yonetim/1)
+PASS DB lock: a writeTx after the lock is released commits
+PASS DB lock: the login's writes are visible to another process and the lock stays free
+
+1437/1437 passed

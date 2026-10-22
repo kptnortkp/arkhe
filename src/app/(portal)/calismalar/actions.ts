@@ -5,15 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db";
-import {
-  attendance,
-  REHEARSAL_TYPES,
-  rehearsalParts,
-  rehearsalSecrets,
-  rehearsals,
-  terms,
-  VOICE_PARTS,
-} from "@/db/schema";
+import { attendance, rehearsalParts, rehearsalSecrets, rehearsals, terms } from "@/db/schema";
 import { closeRehearsal } from "@/lib/attendance/close";
 import { newSecretRow, verifyCode } from "@/lib/attendance/code";
 import { getRehearsal, phaseOf } from "@/lib/attendance/rehearsals";
@@ -23,19 +15,17 @@ import {
   CHECKIN_MAX_WRONG_PER_DAY,
   CHECKIN_WINDOW_MS,
   LATE_AFTER_MINUTES,
-  SERIES_MAX_WEEKS,
 } from "@/lib/attendance/rules";
+import {
+  rehearsalSchema,
+  TERM_NAME_TAKEN,
+  termConflict,
+  termSchema,
+} from "@/lib/attendance/schemas";
 import { assertManager, assertUser } from "@/lib/auth/dal";
 import { consumeAttempt, forgetAttempt } from "@/lib/auth/rate-limit";
-import { cleanLine } from "@/lib/text";
 import { addDays, istanbulToUtc } from "@/lib/time";
-import {
-  fieldErrorsOf,
-  formValues,
-  optionalLine,
-  optionalText,
-  type FormState,
-} from "@/lib/validation";
+import { fieldErrorsOf, formValues, optionalText, type FormState } from "@/lib/validation";
 
 const FORBIDDEN = "Bu işlem için yetkin yok.";
 const NOT_FOUND = "Bu çalışma bulunamadı.";
@@ -47,46 +37,6 @@ function revalidateRehearsal(id?: string) {
 }
 
 const idSchema = z.uuid();
-const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tarih seç.");
-const timeSchema = z.string().regex(/^\d{2}:\d{2}$/, "Saat seç.");
-
-const rehearsalSchema = z
-  .object({
-    type: z.enum(REHEARSAL_TYPES, "Bir tür seç."),
-    date: dateSchema,
-    start: timeSchema,
-    end: timeSchema,
-    title: optionalLine(80),
-    location: optionalLine(120),
-    note: optionalText(500),
-    parts: z.array(z.enum(VOICE_PARTS)).max(4),
-    repeat: z.literal("on").optional(),
-    repeatUntil: z.string().optional(),
-  })
-  .superRefine((d, ctx) => {
-    if (d.type === "sectional" && d.parts.length === 0) {
-      ctx.addIssue({ code: "custom", path: ["parts"], message: "En az bir partisyon seç." });
-    }
-    if (d.end <= d.start) {
-      ctx.addIssue({ code: "custom", path: ["end"], message: "Bitiş, başlangıçtan sonra olmalı." });
-    }
-    if (d.repeat) {
-      if (!d.repeatUntil || !/^\d{4}-\d{2}-\d{2}$/.test(d.repeatUntil) || d.repeatUntil < d.date) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["repeatUntil"],
-          message: "Geçerli bir son tarih seç.",
-        });
-      } else if (d.repeatUntil > addDays(d.date, SERIES_MAX_WEEKS * 7)) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["repeatUntil"],
-          message: `En fazla ${SERIES_MAX_WEEKS} hafta ileriye kadar.`,
-        });
-      }
-    }
-  });
-
 function parseRehearsalForm(formData: FormData) {
   return rehearsalSchema.safeParse({
     ...Object.fromEntries(formData),
@@ -485,45 +435,22 @@ export async function withdrawExcuse(rehearsalId: string): Promise<FormState> {
     : { error: "Mazeret geri alınamadı; yoklamayı alan kişiye yaz." };
 }
 
-const termSchema = z
-  .object({
-    name: z
-      .string()
-      .overwrite(cleanLine)
-      .trim()
-      .min(1, "Bir ad gir.")
-      .max(40, "En fazla 40 karakter."),
-    startsOn: dateSchema,
-    endsOn: dateSchema,
-  })
-  .refine((d) => d.endsOn >= d.startsOn, {
-    path: ["endsOn"],
-    message: "Bitiş başlangıçtan önce olamaz.",
-  })
-  .refine((d) => d.endsOn <= addDays(d.startsOn, 366), {
-    path: ["endsOn"],
-    message: "Bir dönem en fazla bir yıl olabilir.",
-  });
-
 export async function createTerm(_prev: FormState, formData: FormData): Promise<FormState> {
   const actor = await assertManager();
   if (!actor) return { error: FORBIDDEN };
   const parsed = termSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return fieldErrorsOf(parsed.error, formData);
   const d = parsed.data;
-  const [overlap] = await db
-    .select({ id: terms.id })
-    .from(terms)
-    .where(and(sql`${terms.startsOn} <= ${d.endsOn}`, sql`${terms.endsOn} >= ${d.startsOn}`))
-    .limit(1);
-  if (overlap) return { values: formValues(formData), error: "Dönemler çakışamaz." };
+  const existing = await db
+    .select({ name: terms.name, startsOn: terms.startsOn, endsOn: terms.endsOn })
+    .from(terms);
+  const conflict = termConflict(existing, d);
+  if (conflict?.field === "dates") return { values: formValues(formData), error: conflict.message };
+  if (conflict) return { values: formValues(formData), fieldErrors: { name: [conflict.message] } };
   try {
     await db.insert(terms).values(d);
   } catch {
-    return {
-      values: formValues(formData),
-      fieldErrors: { name: ["Bu adla bir dönem zaten var."] },
-    };
+    return { values: formValues(formData), fieldErrors: { name: [TERM_NAME_TAKEN] } };
   }
   revalidatePath("/raporlar");
   return { success: `${d.name} eklendi.` };

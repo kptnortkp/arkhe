@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, isNull, lt, ne, notExists, sql } from "drizzle-orm";
+import { and, eq, isNull, lt, ne, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -9,7 +9,6 @@ import { db } from "@/db";
 import { writeTx } from "@/db/write-tx";
 import {
   appSettings,
-  duesOverrides,
   events,
   financeEntries,
   rehearsals,
@@ -17,9 +16,11 @@ import {
 } from "@/db/schema";
 import { assertManager } from "@/lib/auth/dal";
 import { searchKey } from "@/lib/format";
-import { overpaymentError } from "@/lib/finance/dues";
+import { BEFORE_OPENING, beforeOpening, overpaymentError } from "@/lib/finance/dues";
+import { entryRow, type EntryInput } from "@/lib/finance/entries";
+import { SPONSOR_TAKEN, sponsorSchema } from "@/lib/finance/sponsors";
 import { FieldError, guarded } from "@/lib/finance/guard";
-import { duesPosition, openingDate, type Tx } from "@/lib/finance/ledger";
+import { dropLapsedFreezes, duesPosition, openingDate, type Tx } from "@/lib/finance/ledger";
 import {
   ACCOUNT_COOKIE,
   ALREADY_VOID,
@@ -33,7 +34,6 @@ import {
   openingDayField,
   safeReturn,
   STALE,
-  text,
   voidReason,
 } from "@/lib/finance/schemas";
 import { AMOUNT_ZERO, parseAmount } from "@/lib/money";
@@ -41,11 +41,10 @@ import { secureCookies } from "@/lib/auth/cookie-names";
 import { setFlash } from "@/lib/flash";
 import { cleanLine, cleanText } from "@/lib/text";
 import { now } from "@/lib/time";
-import { fieldErrorsOf, formValues, optionalText, type FormState } from "@/lib/validation";
+import { fieldErrorsOf, formValues, type FormState } from "@/lib/validation";
 
 const idSchema = z.uuid();
 const OPENING_ONLY_IN_SETTINGS = "Açılış bakiyesi Ayarlar'dan değiştirilir.";
-const BEFORE_OPENING = "Tarih açılış bakiyesinden önce olamaz.";
 
 // Home cards (Kasa, Aidatım) live outside /finans, so every write refreshes the whole tree.
 function revalidateFinance() {
@@ -62,7 +61,6 @@ async function rememberAccount(account: "cash" | "bank") {
   });
 }
 
-type EntryInput = z.infer<typeof entrySchema>;
 
 async function checkRefs(tx: Tx, d: EntryInput) {
   if ("sponsorId" in d && d.sponsorId) {
@@ -77,23 +75,7 @@ async function checkRefs(tx: Tx, d: EntryInput) {
     if (!e) throw new FieldError("eventId", NOT_FOUND);
   }
   const opened = await openingDate(tx);
-  if (opened && d.occurredOn < opened) throw new FieldError("occurredOn", BEFORE_OPENING);
-}
-
-function rowOf(d: EntryInput) {
-  return {
-    kind: d.kind,
-    category: d.kind === "transfer" ? null : d.category,
-    amountKurus: d.amount,
-    occurredOn: d.occurredOn,
-    account: d.account,
-    toAccount: d.kind === "transfer" ? d.toAccount : null,
-    description: d.description,
-    counterparty: d.counterparty,
-    documentUrl: d.kind === "transfer" ? null : d.documentUrl,
-    sponsorId: d.kind === "income" ? d.sponsorId : null,
-    eventId: d.kind === "transfer" ? null : d.eventId,
-  };
+  if (beforeOpening(opened, d.occurredOn)) throw new FieldError("occurredOn", BEFORE_OPENING);
 }
 
 function parseEntry(formData: FormData) {
@@ -114,7 +96,7 @@ export async function createEntry(_prev: FormState, formData: FormData): Promise
       await checkRefs(tx, d);
       const rows = await tx
         .insert(financeEntries)
-        .values({ id: id.data, ...rowOf(d), createdBy: actor.id, createdAt: now() })
+        .values({ id: id.data, ...entryRow(d), createdBy: actor.id, createdAt: now() })
         .onConflictDoNothing()
         .returning({ id: financeEntries.id });
       if (rows.length) return true;
@@ -181,7 +163,7 @@ export async function correctEntry(
         const remaining = (before?.periods[0]?.remaining ?? 0) + old.amountKurus;
         if (d.amount > remaining) throw new FieldError("amount", overpaymentError(remaining));
         const opened = await openingDate(tx);
-        if (opened && d.occurredOn < opened) throw new FieldError("occurredOn", BEFORE_OPENING);
+        if (beforeOpening(opened, d.occurredOn)) throw new FieldError("occurredOn", BEFORE_OPENING);
         row = {
           kind: "income",
           category: "dues",
@@ -201,7 +183,7 @@ export async function correctEntry(
       } else {
         const d = parsed.data as EntryInput;
         await checkRefs(tx, d);
-        row = rowOf(d);
+        row = entryRow(d);
       }
       await tx.insert(financeEntries).values({
         id: id.data,
@@ -318,27 +300,8 @@ export async function voidEntry(
         if (!row) return NOT_FOUND;
         return row.voidedAt ? ALREADY_VOID : OPENING_ONLY_IN_SETTINGS;
       }
-      // A freeze pins what a partly paid period owed; once no live payment is left it must go.
       if (v.category === "dues" && v.memberId && v.periodId) {
-        await tx.delete(duesOverrides).where(
-          and(
-            eq(duesOverrides.duesPeriodId, v.periodId),
-            eq(duesOverrides.userId, v.memberId),
-            eq(duesOverrides.kind, "freeze"),
-            notExists(
-              tx
-                .select({ id: financeEntries.id })
-                .from(financeEntries)
-                .where(
-                  and(
-                    eq(financeEntries.memberId, v.memberId),
-                    eq(financeEntries.duesPeriodId, v.periodId),
-                    isNull(financeEntries.voidedAt),
-                  ),
-                ),
-            ),
-          ),
-        );
+        await dropLapsedFreezes(tx, v.memberId, v.periodId);
       }
       return null;
     });
@@ -544,21 +507,6 @@ export async function deleteEvent(id: string): Promise<FormState> {
 }
 
 // Sponsors --------------------------------------------------------------------------------------
-
-const sponsorSchema = z.object({
-  name: z
-    .string()
-    .overwrite(cleanLine)
-    .trim()
-    .min(1, "Ad gir.")
-    .max(120, "En fazla 120 karakter.")
-    .transform((v) => v.replace(/\s+/g, " ")),
-  contactName: text(80),
-  contact: text(120),
-  note: optionalText(500),
-});
-
-const SPONSOR_TAKEN = "Bu adla bir sponsor zaten var.";
 
 export async function createSponsor(_prev: FormState, formData: FormData): Promise<FormState> {
   if (!(await assertManager())) return { error: FORBIDDEN };

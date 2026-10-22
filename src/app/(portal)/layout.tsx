@@ -5,7 +5,9 @@ import { SidebarUserActions, UserAvatar } from "@/components/shell/user-menu";
 import { VoicePartBadge } from "@/components/voice-part-badge";
 import { FlashToast } from "@/components/flash-toast";
 import { requireUser } from "@/lib/auth/dal";
+import { boardBadgeCount } from "@/lib/board/queries";
 import { readFlash } from "@/lib/flash";
+import { reviewBadgeCount } from "@/lib/review/queries";
 import { openHomeworkCount } from "@/lib/homework/queries";
 import { ROLE_LABELS } from "@/lib/labels";
 import { isManager } from "@/lib/permissions";
@@ -13,8 +15,14 @@ import { isManager } from "@/lib/permissions";
 export default async function PortalLayout({ children }: LayoutProps<"/">) {
   const user = await requireUser();
   const canManage = isManager(user.role);
-  const homework = await openHomeworkCount(user.id);
-  const flash = await readFlash();
+  const [homework, board, review, flash] = await Promise.all([
+    openHomeworkCount(user.id),
+    boardBadgeCount(),
+    // The conductor only: assistant-noted takes waiting for the comment (D14).
+    user.role === "conductor" ? reviewBadgeCount() : 0,
+    readFlash(),
+  ]);
+  const badges = { homework, board, review };
 
   return (
     <div className="flex min-h-dvh">
@@ -34,7 +42,7 @@ export default async function PortalLayout({ children }: LayoutProps<"/">) {
           <ArkheLockup className="hidden w-44 [@media(min-resolution:2dppx)]:block" />
         </Link>
         <div className="mt-8 flex-1">
-          <SidebarNav canManage={canManage} homework={homework} />
+          <SidebarNav canManage={canManage} badges={badges} />
         </div>
         <SidebarUserActions />
         <div className="mt-3 flex items-center gap-3 border-t px-2 pt-4">
@@ -68,7 +76,7 @@ export default async function PortalLayout({ children }: LayoutProps<"/">) {
         </main>
       </div>
 
-      <BottomNav canManage={canManage} homework={homework} />
+      <BottomNav canManage={canManage} badges={badges} />
       {flash && <FlashToast key={flash} message={flash} />}
     </div>
   );

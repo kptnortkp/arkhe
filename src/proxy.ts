@@ -15,7 +15,8 @@ function contentSecurityPolicy(nonce: string) {
     "img-src 'self' data: blob:",
     "font-src 'self'",
     "connect-src 'self'",
-    "media-src 'self'",
+    // Players fetch the file, then play it from an object URL.
+    "media-src 'self' blob:",
     "frame-src https://drive.google.com https://www.youtube-nocookie.com",
     "worker-src 'self'",
     "manifest-src 'self'",
@@ -56,8 +57,9 @@ export function proxy(request: NextRequest) {
 
 // Static assets, the service worker and the offline page never reach the proxy. Extensions are
 // only skipped at the root (favicon, icon, manifest), so a page like "/davet/x.png" keeps the CSP.
+// /api/dosya/ sets its own sandbox CSP and streams 4 MB bodies, so it checks the session itself.
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|brand/|icons/|sw\\.js$|offline\\.html$|[^/]+\\.(?:svg|png|ico|webmanifest)$).*)",
+    "/((?!_next/static|_next/image|brand/|icons/|api/dosya/|sw\\.js$|offline\\.html$|[^/]+\\.(?:svg|png|ico|webmanifest)$).*)",
   ],
 };

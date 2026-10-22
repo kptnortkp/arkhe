@@ -4,12 +4,15 @@ import Link from "next/link";
 import stageChoir from "../../../public/brand/stage-choir.webp";
 import { CheckInPanel } from "@/components/attendance/check-in-panel";
 import { BackupBanner } from "@/components/backup/backup-banner";
+import { BoardHomeCard } from "@/components/board/home-card";
 import { AttendanceStrip, TypeChip } from "@/components/attendance/status-chip";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KasaCard, MyDuesCard } from "@/components/finance/home-cards";
 import { ManagerHomeworkCard, MyHomeworkCard } from "@/components/homework/home-cards";
 import { PieceRow } from "@/components/repertoire/piece-row";
+import { ReviewHomeCard } from "@/components/review/home-card";
+import { StorageBanner } from "@/components/storage/storage-banner";
 import { VOICE_PARTS } from "@/db/schema";
 import { autoCloseStale } from "@/lib/attendance/close";
 import { resolvePeriod } from "@/lib/attendance/period";
@@ -29,6 +32,7 @@ import { VOICE_PART_LABELS, VOICE_PART_STYLES } from "@/lib/labels";
 import { isManager } from "@/lib/permissions";
 import { loadViewer } from "@/lib/homework/queries";
 import { learningPieces, withMyPart } from "@/lib/repertoire";
+import { midiForExactPart } from "@/lib/repertoire-midi";
 import { formatLongDate, formatTime, istanbulDateOf, istanbulToUtc, now } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
@@ -90,6 +94,15 @@ export default async function HomePage() {
   const learning = await learningPieces();
   const pieces = await withMyPart(learning.slice(0, 5), user.voicePart);
   const morePieces = learning.length - pieces.length;
+  const midiPieces = new Set(
+    user.voicePart
+      ? (
+          await Promise.all(
+            pieces.map(async (p) => ((await midiForExactPart(p.id, user.voicePart!)) ? p.id : null)),
+          )
+        ).filter(Boolean)
+      : [],
+  );
 
   return (
     <div className="space-y-8">
@@ -99,6 +112,7 @@ export default async function HomePage() {
       </section>
 
       <BackupBanner state={await bannerState} />
+      {manager && <StorageBanner conductor={user.role === "conductor"} />}
 
       <section
         className="on-stage relative overflow-hidden rounded-3xl bg-stage p-6 text-stage-foreground ring-1 ring-white/5 md:p-8"
@@ -181,6 +195,8 @@ export default async function HomePage() {
         )}
       </section>
 
+      {manager && <BoardHomeCard />}
+      <ReviewHomeCard user={user} />
       <MyHomeworkCard viewer={viewer} at={at} />
       {manager && <ManagerHomeworkCard at={at} />}
       <MyDuesCard />
@@ -280,6 +296,7 @@ export default async function HomePage() {
                   myPart={piece.myPart}
                   voicePart={user.voicePart}
                   showMeta={false}
+                  midiHref={midiPieces.has(piece.id) ? `/repertuvar/${piece.id}?cal=1` : undefined}
                 />
               ))}
               {morePieces > 0 && (

@@ -1,4 +1,5 @@
-export default function Loading() {
+/** The finance pages' loading placeholder. */
+export function FinanceSkeleton() {
   return (
     <div className="space-y-6" aria-busy="true" aria-label="Yükleniyor">
       <div className="h-10 w-48 rounded-lg bg-muted" />

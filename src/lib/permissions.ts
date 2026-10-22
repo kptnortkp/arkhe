@@ -30,3 +30,21 @@ export function canEditMember(
   if (actor.role === "conductor") return true;
   return target.role === "member" && nextRole === "member";
 }
+
+/** The opener or the conductor; the server re-checks this inside the delete statement. */
+export function canDeleteTicket(actor: { id: string; role: Role }, ticket: { createdBy: string }) {
+  return isManager(actor.role) && (ticket.createdBy === actor.id || actor.role === "conductor");
+}
+
+/** Own comments only, for 15 minutes after posting; nobody else, the conductor included. */
+export function canDeleteComment(
+  actor: { id: string },
+  entry: { kind: string; actorId: string; createdAt: Date },
+  at: Date,
+) {
+  return (
+    entry.kind === "comment" &&
+    entry.actorId === actor.id &&
+    at.getTime() - entry.createdAt.getTime() < 15 * 60_000
+  );
+}

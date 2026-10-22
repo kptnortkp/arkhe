@@ -154,6 +154,8 @@ Do them in this order, on one evening. None of them needs a card or a paid plan.
 
 ## 5. Consolidated backlog (after go-live; replaces the list in `phase-6/review-po.md`)
 
+Phase 8 adds items 17–27 in `design/phase-8/review-po.md` §5. Together they are the single backlog.
+
 Ordered by value to the choir. Items 1–5 are a good first small release, once the choir has used the portal for a few weeks. Nothing else should be built until someone asks for it.
 
 1. **Stale-row wording for an older month** (UI P3-2, decision 2): the retry sentence only for the current target month, plus one e2e check.

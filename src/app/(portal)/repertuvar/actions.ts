@@ -7,6 +7,7 @@ import { db } from "@/db";
 import {
   assignments,
   LINK_KINDS,
+  midiFiles,
   PIECE_STATUSES,
   pieceLinks,
   pieces,
@@ -14,6 +15,7 @@ import {
 } from "@/db/schema";
 import { assertManager } from "@/lib/auth/dal";
 import { parseDuration } from "@/lib/format";
+import { drainKeys } from "@/lib/storage/ledger";
 import { cleanLine } from "@/lib/text";
 import {
   BULK_MAX_LINES,
@@ -175,8 +177,16 @@ export async function deletePiece(id: string): Promise<FormState> {
   if (!(await assertManager())) return { error: FORBIDDEN };
   if (!idSchema.safeParse(id).success) return { error: NOT_FOUND };
   let deleted: { id: string }[] | "homework";
+  let midiKeys: string[] = [];
   try {
     deleted = await db.transaction(async (tx) => {
+      // MIDI rows cascade with the piece; the 0010 trigger queues their files (AC 54).
+      midiKeys = (
+        await tx
+          .select({ key: midiFiles.storageKey })
+          .from(midiFiles)
+          .where(eq(midiFiles.pieceId, id))
+      ).map((r) => r.key);
       const [homework] = await tx
         .select({ id: assignments.id })
         .from(assignments)
@@ -193,6 +203,7 @@ export async function deletePiece(id: string): Promise<FormState> {
   }
   if (deleted === "homework") return { error: HAS_HOMEWORK };
   if (deleted.length === 0) return { error: NOT_FOUND };
+  await drainKeys(midiKeys);
   revalidatePiece(id);
   return { success: "Eser silindi." };
 }

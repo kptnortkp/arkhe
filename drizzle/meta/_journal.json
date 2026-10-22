@@ -57,6 +57,34 @@
       "when": 1792581473334,
       "tag": "0007_phase7_backup",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1792589856492,
+      "tag": "0008_phase8_board_budget",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1792595804222,
+      "tag": "0009_phase8b_import",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1792604290805,
+      "tag": "0010_phase9_media",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1792614582434,
+      "tag": "0011_phase9_review",
+      "breakpoints": true
     }
   ]
 }

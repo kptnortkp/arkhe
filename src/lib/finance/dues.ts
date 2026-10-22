@@ -1,6 +1,8 @@
 // Pure dues rules shared by the manager list, the member card, the CSV and the payment guard.
+import { z } from "zod";
 import type { Role } from "@/db/schema";
 import { formatKurus } from "@/lib/money";
+import { cleanText } from "@/lib/text";
 import { istanbulDateOf } from "@/lib/time";
 import type { DuesRate, OverrideKind } from "./categories";
 
@@ -120,4 +122,83 @@ const monthYear = new Intl.DateTimeFormat("tr-TR", {
 /** "2027-01" → "Ocak 2027": the name bulk creation gives a month, and month headings. */
 export function periodNameOf(month: string) {
   return monthYear.format(new Date(`${month}-01T00:00:00Z`));
+}
+
+export const NOT_RESPONSIBLE = "Bu kişi bu dönemden sorumlu değil.";
+export const BEFORE_OPENING = "Tarih açılış bakiyesinden önce olamaz.";
+
+/** Only members and board members pay dues; the conductor never does. */
+export function isDuesPayer(role: Role) {
+  return role === "member" || role === "board";
+}
+
+/** True when `day` lies before the live opening date (no opening date: never). */
+export function beforeOpening(opened: string | null, day: string) {
+  return opened !== null && day < opened;
+}
+
+export type PeriodPosition<P extends DuesPeriodLike = DuesPeriodLike> = {
+  period: P;
+  override: (DuesOverride & { createdAt?: Date }) | null;
+  onRoster: boolean;
+  owed: number;
+  paid: number;
+  remaining: number;
+};
+
+/** What one member owes and has paid per period, from already loaded rows. */
+export function positionOf<P extends DuesPeriodLike, O extends DuesOverride>(
+  member: Omit<DuesMember, "rate"> & { rate: DuesRate | null },
+  periods: readonly P[],
+  overrideOf: ReadonlyMap<string, O>,
+  paidOf: ReadonlyMap<string, number>,
+) {
+  const rate = member.rate ?? "standard";
+  return {
+    rate,
+    periods: periods.map((p) => {
+      const paid = paidOf.get(p.id) ?? 0;
+      const override = overrideOf.get(p.id) ?? null;
+      const owed = owedFor(rate, p, override, paid);
+      return {
+        period: p,
+        override,
+        onRoster: owesPeriod(member, p) || paid > 0,
+        owed,
+        paid,
+        remaining: Math.max(owed - paid, 0),
+      };
+    }),
+  };
+}
+
+/** Periods already being paid keep what they owed under the old rate: the freezes to insert. */
+export function freezesForRateChange(
+  oldRate: DuesRate,
+  nextRate: DuesRate,
+  periods: readonly { period: DuesPeriodLike; override: unknown; paid: number; owed: number }[],
+) {
+  if (oldRate === nextRate) return [];
+  return periods
+    .filter((p) => p.paid > 0 && !p.override && p.owed > 0)
+    .map((p) => ({ periodId: p.period.id, owedKurus: owedFor(oldRate, p.period, null, 0) }));
+}
+
+export const RATE_FREEZE_REASON = "Oran değişikliği";
+
+export const waiverReason = z
+  .string()
+  .overwrite(cleanText)
+  .trim()
+  .min(3, "Neden yaz (en az 3 karakter).")
+  .max(200, "En fazla 200 karakter.");
+
+/** Why a waiver can't be given: the member doesn't owe the period, or it already has payments. */
+export function waiverRefusal(
+  member: Omit<DuesMember, "rate">,
+  p: { period: DuesPeriodLike; paid: number },
+): "not_responsible" | "paid" | null {
+  if (!owesPeriod(member, p.period)) return "not_responsible";
+  if (p.paid > 0) return "paid";
+  return null;
 }

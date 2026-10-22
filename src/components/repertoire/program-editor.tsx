@@ -36,7 +36,7 @@ export function ProgramEditor({ pieces, children }: { pieces: Item[]; children: 
     next.splice(index + delta, 0, item);
     setAnnounce(`${item.title} programda ${index + delta + 1}. sırada.`);
     run(() => reorderProgram(next.map((i) => i.id)), next);
-    focusAfter(...moveTargets(item.id, delta));
+    focusAfter(moveTargets(item.id, delta, index + delta));
   }
 
   return (

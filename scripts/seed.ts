@@ -11,6 +11,7 @@
 // one past rehearsal never opened ("Yoklama alınmadı"), a weekly series ahead and a Tenor+Bas sectional.
 import { count } from "drizzle-orm";
 import { createDb } from "../src/db/client";
+import { seedBoard, seedBudgets } from "./board-fixture.mjs";
 import { assertFixtureTarget } from "./fixture-guard.mjs";
 import { seedFinance } from "./finance-fixture.mjs";
 import { seedHomework } from "./homework-fixture.mjs";
@@ -247,17 +248,23 @@ async function main() {
   else console.log("Rehearsals already exist; skipped calendar seed.");
   // After the calendar: the fixture's concert rehearsal would otherwise make a fresh DB skip it.
   await seedFinance(db.$client, new Date());
+  await seedBoard(db.$client, new Date());
+  await seedBudgets(db.$client, new Date());
 
   console.log(
-    `Seeded ${people.length} members, the demo calendar, ${REPERTOIRE.length} pieces and the demo ledger. Demo logins (password "${DEMO_PASSWORD}"):`,
+    `Seeded ${people.length} members, the demo calendar, ${REPERTOIRE.length} pieces, the demo ledger, board and budgets. Demo logins (password "${DEMO_PASSWORD}"):`,
   );
   for (const a of LOGIN_ACCOUNTS) console.log(`  ${a.email}  (${a.role})`);
+  console.log("  asistan@arkhe.local  (member, listening assistant for Soprano + Alto)");
 }
 
 async function seedCalendar(db: ReturnType<typeof createDb>) {
   const all = await db.select().from(users);
-  // yeni@ (from the homework fixture) joined after these rehearsals.
-  const choir = all.filter((u) => u.role !== "conductor" && u.email !== "yeni@arkhe.local");
+  // yeni@ and asistan@ (from the homework/media fixtures) joined after these rehearsals.
+  const choir = all.filter(
+    (u) =>
+      u.role !== "conductor" && u.email !== "yeni@arkhe.local" && u.email !== "asistan@arkhe.local",
+  );
   const conductor = all.find((u) => u.role === "conductor")!;
   const today = istanbulDateOf(new Date());
 

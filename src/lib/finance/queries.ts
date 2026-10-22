@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import {
   appSettings,
+  budgets,
   duesOverrides,
   duesPeriods,
   events,
@@ -18,9 +19,29 @@ import { requireManager, requireUser } from "@/lib/auth/dal";
 import { collator } from "@/lib/format";
 import { monthRange, yearRange } from "@/lib/finance/dates";
 import { addDays, formatAuditDate, istanbulDateOf, now } from "@/lib/time";
-import type { Account, Category, EntryKind } from "./categories";
+import {
+  addMonths,
+  budgetRange,
+  ceilToLira,
+  computeReport,
+  defaultName,
+  defaultStart,
+  monthName,
+  phaseOf,
+  priorWindow,
+  rangeLabel,
+  sidePercents,
+  type ComputedReport,
+  type BudgetPhase,
+  type BudgetStatus,
+} from "./budget";
+import { CATEGORIES, type Account, type Category, type EntryKind } from "./categories";
 import { duesStatus, owedFor, owesPeriod, type DuesPeriodLike, type DuesStatus } from "./dues";
 import {
+  allBudgets,
+  budgetHistory,
+  budgetWithPlan,
+  categoryActuals,
   creator,
   entryColumns,
   fe,
@@ -32,19 +53,13 @@ import {
   monthTotals,
   num,
   periodColumns,
+  signedBalance,
   type DuesMemberRow,
 } from "./queries-internal";
 
 export type { DuesCell, DuesMemberRow, DuesPeriod } from "./queries-internal";
 
-/** Signed effect of a row on one account: openings and income add, expenses and outgoing transfers subtract. */
-function signed(account: Account) {
-  return sql<number>`coalesce(sum(case
-    when ${fe.account} = ${account} and ${fe.kind} in ('opening', 'income') then ${fe.amountKurus}
-    when ${fe.account} = ${account} and ${fe.kind} in ('expense', 'transfer') then -${fe.amountKurus}
-    when ${fe.toAccount} = ${account} then ${fe.amountKurus}
-    else 0 end), 0)`;
-}
+const signed = signedBalance;
 
 export function todayIstanbul() {
   return istanbulDateOf(now());
@@ -651,3 +666,160 @@ export const myDues = cache(async () => {
   const remaining = rows.reduce((s, r) => s + r.status.remaining, 0);
   return { exempt: rate === "exempt", remaining, rows, payments };
 });
+
+// ---------- Budget ----------
+
+const budgetId = z.uuid();
+
+export type BudgetListItem = {
+  id: string;
+  name: string;
+  startMonth: string;
+  rangeLabel: string;
+  status: BudgetStatus;
+  phase: BudgetPhase;
+  // The budget containing today ("Şu anki").
+  current: boolean;
+  // Shown for current and past budgets only; null means that side has no plan ("—").
+  incomePct: number | null;
+  expensePct: number | null;
+};
+
+/** AC 25: newest start first. */
+export async function listBudgets(): Promise<BudgetListItem[]> {
+  await requireManager();
+  const today = todayIstanbul();
+  return (await allBudgets(addDays(today, 1))).map((b) => {
+    const phase = phaseOf(b.startMonth, today);
+    return {
+      id: b.id,
+      name: b.name,
+      startMonth: b.startMonth,
+      rangeLabel: rangeLabel(b.startMonth),
+      status: b.status,
+      phase,
+      current: phase === "running",
+      ...sidePercents(b.plan, b.actual),
+    };
+  });
+}
+
+export type BudgetReport = ComputedReport & {
+  id: string;
+  name: string;
+  startMonth: string;
+  // Exclusive, "YYYY-MM".
+  endMonth: string;
+  rangeLabel: string;
+  note: string | null;
+  status: BudgetStatus;
+  approved: { name: string; at: Date } | null;
+  revision: number;
+  // The Istanbul day the report is "as of" (today); actuals count entries dated up to it.
+  asOf: string;
+  // Only for a future period: "Eylül 2027".
+  startsLabel: string | null;
+  history: Awaited<ReturnType<typeof budgetHistory>>;
+};
+
+/**
+ * The plan-vs-actual report as of today; null for a malformed or unknown id. Actuals stop at
+ * today, like the email stops at the end of its month, so a future-dated entry never counts early.
+ */
+export const budgetReport = cache(async (id: string): Promise<BudgetReport | null> => {
+  await requireManager();
+  if (!budgetId.safeParse(id).success) return null;
+  const b = await budgetWithPlan(id);
+  if (!b) return null;
+  const today = todayIstanbul();
+  const [from, to] = budgetRange(b.startMonth);
+  const cap = addDays(today, 1);
+  const [actual, history] = await Promise.all([
+    cap > from ? categoryActuals(from, cap < to ? cap : to) : {},
+    budgetHistory(id),
+  ]);
+  const report = computeReport({ start: b.startMonth, plan: b.plan, actual, today });
+  return {
+    ...report,
+    id: b.id,
+    name: b.name,
+    startMonth: b.startMonth,
+    endMonth: b.endMonth,
+    rangeLabel: rangeLabel(b.startMonth),
+    note: b.note,
+    status: b.status,
+    approved: b.approved,
+    revision: b.revision,
+    asOf: today,
+    startsLabel: report.phase === "future" ? monthName(b.startMonth) : null,
+    history,
+  };
+});
+
+/** The editor's data: every category's current plan in kuruş (0 = not planned). */
+export async function planForEditor(id: string) {
+  await requireManager();
+  if (!budgetId.safeParse(id).success) return null;
+  const b = await budgetWithPlan(id);
+  if (!b) return null;
+  const lines = Object.fromEntries(CATEGORIES.map((c) => [c, b.plan[c] ?? 0])) as Record<
+    Category,
+    number
+  >;
+  return {
+    id: b.id,
+    name: b.name,
+    startMonth: b.startMonth,
+    rangeLabel: rangeLabel(b.startMonth),
+    note: b.note,
+    status: b.status,
+    revision: b.revision,
+    lines,
+    // D35 hint: "Eylül 2025 – Ağustos 2026 gerçekleşenleri yazılır…"
+    priorLabel: rangeLabel(addMonths(b.startMonth, -12)),
+    // The prior window's first month, "Eylül 2026".
+    priorFrom: monthName(addMonths(b.startMonth, -12)),
+    // "21 Ekim 2026" while the prior window hasn't fully passed (its numbers stop today); else null.
+    priorThrough: priorThrough(b.startMonth, todayIstanbul()),
+  };
+}
+
+function priorThrough(start: string, today: string) {
+  const w = priorWindow(start, today);
+  return w.partial ? w.throughLabel : null;
+}
+
+function priorInfo(start: string, today: string) {
+  const w = priorWindow(start, today);
+  return {
+    partial: w.partial,
+    label: w.label,
+    throughLabel: w.throughLabel,
+    lastFullMonth: w.lastFullMonth,
+  };
+}
+
+/** D18: actuals of the 12 months before the start (never past today), rounded up to whole lira. */
+export async function priorActuals(id: string) {
+  await requireManager();
+  if (!budgetId.safeParse(id).success) return null;
+  const b = await budgetWithPlan(id);
+  if (!b) return null;
+  const today = todayIstanbul();
+  const w = priorWindow(b.startMonth, today);
+  const actual = w.to > w.from ? await categoryActuals(w.from, w.to) : {};
+  const lines: Partial<Record<Category, number>> = {};
+  for (const c of CATEGORIES) if (actual[c]) lines[c] = ceilToLira(actual[c]!);
+  return { lines, ...priorInfo(b.startMonth, today) };
+}
+
+/** Create-form defaults: tech lead decision TL1 (amends D33) picks a start no budget covers. */
+export async function budgetFormDefaults() {
+  await requireManager();
+  const today = todayIstanbul();
+  const existing = await db
+    .select({ startMonth: budgets.startMonth, endMonth: budgets.endMonth })
+    .from(budgets);
+  const start = defaultStart(today, existing);
+  return { start, name: defaultName(start), year: Number(today.slice(0, 4)) };
+}

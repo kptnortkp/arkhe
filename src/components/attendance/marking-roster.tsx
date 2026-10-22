@@ -86,6 +86,7 @@ export function MarkingRoster({
   online,
   onOnline,
   canClear,
+  imported = false,
 }: {
   rehearsalId: string;
   snapshot: LiveSnapshot;
@@ -93,6 +94,8 @@ export function MarkingRoster({
   online: boolean;
   onOnline: (v: boolean) => void;
   canClear: boolean;
+  /** The rehearsal came from a file: its untouched marks have no real time or actor. */
+  imported?: boolean;
 }) {
   const [pending, setPendingState] = useState<Record<string, Pending>>({});
   const [query, setQuery] = useState("");
@@ -294,7 +297,13 @@ export function MarkingRoster({
             </div>
             <ul className="divide-y overflow-hidden rounded-2xl border bg-card">
               {members.map((r) => (
-                <RosterRow key={r.userId} row={r} onMark={mark} canClear={canClear} />
+                <RosterRow
+                  key={r.userId}
+                  row={r}
+                  onMark={mark}
+                  canClear={canClear}
+                  imported={imported}
+                />
               ))}
             </ul>
           </section>
@@ -308,7 +317,13 @@ export function MarkingRoster({
           </h3>
           <ul className="divide-y overflow-hidden rounded-2xl border bg-card">
             {extras.filter(visible).map((r) => (
-              <RosterRow key={r.userId} row={r} onMark={mark} canClear={canClear} />
+              <RosterRow
+                key={r.userId}
+                row={r}
+                onMark={mark}
+                canClear={canClear}
+                imported={imported}
+              />
             ))}
           </ul>
         </section>
@@ -321,22 +336,26 @@ function RosterRow({
   row,
   onMark,
   canClear,
+  imported,
 }: {
   row: LiveRow & { pending?: Pending };
   onMark: (userId: string, status: AttendanceStatus | null) => void;
   canClear: boolean;
+  imported: boolean;
 }) {
   const sub = row.pending?.failed
     ? null
     : row.status === "excused" && row.note
       ? `“${row.note}”`
-      : row.method && row.recordedAt
-        ? `${METHOD_LABELS[row.method as keyof typeof METHOD_LABELS]} · ${timeFormat.format(new Date(row.recordedAt))}${
-            row.method === "manual" && row.recordedByName
-              ? ` · ${row.recordedByName.split(" ")[0]}`
-              : ""
-          }`
-        : null;
+      : imported && row.status && !row.corrected && !row.pending
+        ? "İçe aktarıldı"
+        : row.method && row.recordedAt
+          ? `${METHOD_LABELS[row.method as keyof typeof METHOD_LABELS]} · ${timeFormat.format(new Date(row.recordedAt))}${
+              row.method === "manual" && row.recordedByName
+                ? ` · ${row.recordedByName.split(" ")[0]}`
+                : ""
+            }`
+          : null;
   return (
     <li
       className="flex flex-col gap-2 px-4 py-3 sm:min-h-16 sm:flex-row sm:items-center sm:gap-3 sm:py-2"

@@ -41,6 +41,11 @@ export function isExpected(user: RosterUser, rehearsal: RehearsalForRoster) {
   return true;
 }
 
+/** Ids of everyone expected at `rehearsal`, in `users` order. */
+export function expectedIds(users: readonly RosterUser[], rehearsal: RehearsalForRoster) {
+  return users.filter((u) => isExpected(u, rehearsal)).map((u) => u.id);
+}
+
 export async function loadRosterUsers(): Promise<RosterUser[]> {
   return db
     .select({

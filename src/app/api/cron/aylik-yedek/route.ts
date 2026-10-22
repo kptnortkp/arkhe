@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { cronSecret } from "@/lib/backup/config";
 import { runMonthlyBackup, type RunResult } from "@/lib/backup/run";
 import { isRealDay } from "@/lib/finance/schemas";
+import { runStorageSweep } from "@/lib/storage/sweep";
 import { istanbulDateOf } from "@/lib/time";
 
 export const runtime = "nodejs";
@@ -32,21 +33,30 @@ function testToday(url: URL) {
   return v && isRealDay(v) ? v : null;
 }
 
-/** Vercel Cron, daily 05:00 UTC. Sends the previous Istanbul month once it isn't covered. */
+/**
+ * Vercel Cron, daily 05:00 UTC. Sends the previous Istanbul month once it isn't covered, then runs
+ * the storage sweep as an independent step: it never changes the reply or the backup (D18, D53).
+ */
 export async function GET(request: Request) {
   await connection();
+  const started = Date.now();
   const secret = cronSecret(process.env);
   if (!secret) return reply(503);
   if (!bearerMatches(request.headers.get("authorization"), secret)) return reply(401);
   const today = testToday(new URL(request.url)) ?? istanbulDateOf(new Date());
+  let code = 500;
+  let status: RunResult = "failed";
   try {
     const { result } = await runMonthlyBackup({ trigger: "cron", today });
-    return reply(result === "failed" ? 500 : 200, result);
+    code = result === "failed" ? 500 : 200;
+    status = result;
   } catch (e) {
     console.error("backup cron failed before the run was claimed", {
       name: (e as Error)?.name,
       code: (e as { code?: unknown })?.code,
     });
-    return reply(500, "failed");
   }
+  // Sequential, after the backup: a parallel sweep write could make the backup's claim skip.
+  await runStorageSweep({ today, reason: "cron", deadline: started + 55_000 });
+  return reply(code, status);
 }

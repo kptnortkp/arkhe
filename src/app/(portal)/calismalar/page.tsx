@@ -2,6 +2,7 @@ import { ChartColumn, Plus } from "lucide-react";
 import Link from "next/link";
 import { AttendanceStrip } from "@/components/attendance/status-chip";
 import { RehearsalRow } from "@/components/attendance/rehearsal-row";
+import { Pager, pageParam } from "@/components/pager";
 import { buttonVariants } from "@/components/ui/button";
 import { autoCloseStale } from "@/lib/attendance/close";
 import { resolvePeriod } from "@/lib/attendance/period";
@@ -13,6 +14,8 @@ import { addDays, formatDayMonth, istanbulDateOf, istanbulToUtc } from "@/lib/ti
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Çalışmalar" };
+
+const PAGE = 60;
 
 function groupByWeek(list: Rehearsal[]) {
   const groups = new Map<string, Rehearsal[]>();
@@ -30,18 +33,22 @@ export default async function RehearsalsPage({ searchParams }: PageProps<"/calis
   const user = await requireUser();
   await autoCloseStale();
   const canManage = isManager(user.role);
-  const { sekme } = await searchParams;
+  const { sekme, sayfa } = await searchParams;
   const past = sekme === "gecmis";
+  const page = past ? pageParam(sayfa) : 1;
   const todayStart = istanbulToUtc(istanbulDateOf(new Date()));
 
-  const list = past
-    ? await listRehearsals({ to: todayStart, order: "desc", limit: 60 })
-    : await listRehearsals({ from: todayStart, limit: 60 });
+  // One extra row only says whether an older page exists.
+  const fetched = past
+    ? await listRehearsals({ to: todayStart, order: "desc", limit: PAGE + 1, offset: (page - 1) * PAGE })
+    : await listRehearsals({ from: todayStart, limit: PAGE });
+  const hasMore = past && fetched.length > PAGE;
+  const list = fetched.slice(0, PAGE);
   const ids = list.map((r) => r.id);
   const [marks, expected] = await Promise.all([myMarks(user.id, ids), expectedFor(user.id, list)]);
   const showMine = user.role !== "conductor";
 
-  const period = past && showMine ? await resolvePeriod() : null;
+  const period = past && showMine && page === 1 ? await resolvePeriod() : null;
   const mine = period
     ? (await attendanceStats({ from: period.from, to: period.to, userId: user.id })).members[0]
     : null;
@@ -146,6 +153,15 @@ export default async function RehearsalsPage({ searchParams }: PageProps<"/calis
             </ul>
           </section>
         ))
+      )}
+
+      {past && (
+        <Pager
+          page={page}
+          hasMore={hasMore}
+          label="Geçmiş çalışmalar sayfaları"
+          href={(n) => (n === 1 ? "/calismalar?sekme=gecmis" : `/calismalar?sekme=gecmis&sayfa=${n}`)}
+        />
       )}
     </div>
   );

@@ -6,7 +6,7 @@ import { backupPassphrase, redactionSecrets, smtpConfig } from "./config";
 import { COOLDOWN_SECONDS, MAX_ATTACHMENT_BYTES, STALE_SECONDS } from "./constants";
 import { encryptBackup } from "./crypto";
 import { dumpDatabase } from "./dump";
-import { attachmentNames, monthlyEmail } from "./email";
+import { attachmentNames, budgetAttachmentName, monthlyEmail } from "./email";
 import { SEND_BUDGET_MS, sendMail } from "./mail";
 import { BackupError, describeError, errorKey, RUN_ERRORS } from "./messages";
 import { loadRecipients } from "./recipients";
@@ -174,6 +174,7 @@ export async function runMonthlyBackup(opts: RunOptions): Promise<RunOutcome> {
     const dump = await dumpDatabase(client());
     const encrypted = encryptBackup(Buffer.from(dump.sql, "utf8"), passphrase);
     const files = attachmentNames(month, { date: istanbulDateOf(at), time: istanbulTimeOf(at) });
+    let budgetFile = reports.budget ? budgetAttachmentName(month) : null;
     const csv = (filename: string, body: string) => ({
       filename,
       content: Buffer.from(body, "utf8"),
@@ -188,6 +189,17 @@ export async function runMonthlyBackup(opts: RunOptions): Promise<RunOutcome> {
     ];
     size = attachments.reduce((s, a) => s + a.content.byteLength, 0);
     if (size > MAX_ATTACHMENT_BYTES) throw new BackupError("size");
+    // D39: the budget part is best effort, so it can never be what fails the size check.
+    if (budgetFile && reports.budget) {
+      const budget = csv(budgetFile, reports.budget.csv);
+      if (size + budget.content.byteLength > MAX_ATTACHMENT_BYTES) {
+        console.info("budget attachment skipped (size)");
+        budgetFile = null;
+      } else {
+        attachments.splice(attachments.length - 1, 0, budget);
+        size += budget.content.byteLength;
+      }
+    }
 
     const { subject, text } = monthlyEmail({
       month,
@@ -195,6 +207,16 @@ export async function runMonthlyBackup(opts: RunOptions): Promise<RunOutcome> {
       summary: reports.summary,
       files,
       pageUrl: appUrl("/yedek"),
+      budget:
+        budgetFile && reports.budget
+          ? {
+              name: reports.budget.name,
+              status: reports.budget.status,
+              incomePct: reports.budget.incomePct,
+              expensePct: reports.budget.expensePct,
+              filename: budgetFile,
+            }
+          : null,
     });
     delivered = await sendMail(
       mail,

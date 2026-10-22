@@ -19,6 +19,13 @@ async function badge(page) {
   return (await el.count()) ? el.getAttribute("data-nav-badge") : null;
 }
 
+// Phase 9 (D5): the mail block and Teslim ettim sit inside the collapsed "Başka yolla gönderdim".
+async function openFallback(page) {
+  const d = page.locator("#baska-yolla");
+  await d.waitFor();
+  if (!(await d.evaluate((el) => el.open))) await d.locator("summary").click();
+}
+
 const row = (page, id) => page.locator(`[data-testid=homework-row][data-id="${id}"]`);
 
 async function chip(locator) {
@@ -120,9 +127,9 @@ export default async function phase4(browser, shots) {
   const homeCard = korist.locator("[data-testid=home-homework]");
   check(
     (await homeCard.locator("[data-testid=homework-row]").getAttribute("data-id")) === D &&
-      (await homeCard.locator("[data-testid=submit-row]").count()) === 1 &&
+      (await homeCard.locator("[data-testid=record-link]").getAttribute("href")) === `/odevler/${D}#kayit` &&
       (await homeCard.textContent()).includes("+3 ödev daha"),
-    "AC22 korist's Ödevlerim shows D first with Teslim ettim and +3",
+    "AC22 korist's Ödevlerim shows D first with Kaydını yap and +3",
   );
   const yeni = await loginAs(browser, "yeni@arkhe.local");
   check((await badge(yeni)) === null, "AC1 yeni@ has no badge");
@@ -154,8 +161,8 @@ export default async function phase4(browser, shots) {
   );
   // AC8 new note dot before opening
   check(
-    (await row(korist, E).locator("[data-testid=new-note]").count()) === 1,
-    "AC8 E shows Yeni not before opening",
+    (await row(korist, E).locator("[data-testid=new-note]").textContent()) === "Yeni yorum",
+    "AC8 E shows Yeni yorum before opening",
   );
 
   // AC3 seeded tones
@@ -186,6 +193,7 @@ export default async function phase4(browser, shots) {
 
   // AC4 mail
   await goto(korist, `/odevler/${A}`);
+  await openFallback(korist);
   const href = await korist.locator("[data-testid=mailto]").getAttribute("href");
   const subject = decodeURIComponent(/subject=([^&]*)/.exec(href)[1]);
   const body = decodeURIComponent(/body=([^&]*)/.exec(href)[1]);
@@ -203,9 +211,9 @@ export default async function phase4(browser, shots) {
   check(true, "AC4 Konuyu kopyala answers with a toast");
   check(
     (await korist.locator("text=Partisyonunu dinle").count()) === 1 &&
-      (await korist.locator("text=Kaydını gönder").count()) === 1 &&
-      (await korist.locator("text=Gönderdiysen işaretle").count()) === 1,
-    "AC4 the three steps are shown",
+      (await korist.locator("text=Kaydını yap").count()) >= 1 &&
+      (await korist.locator("text=Gönderdiysen işaretle").count()) === 0,
+    "AC4 the two steps are shown (Phase 9 D61: step 3 is gone)",
   );
   // AC5
   check(
@@ -224,10 +232,10 @@ export default async function phase4(browser, shots) {
   const feedback = korist.locator("[data-testid=feedback]");
   const feedbackText = await feedback.textContent();
   check(
-    feedbackText.includes("Şefin notu") &&
+    feedbackText.includes("Şefin yorumu") &&
       feedbackText.includes("Girişler çok iyi, 20. ölçüde nefesi erken alıyorsun.") &&
       feedbackText.includes("Demo Şef ·"),
-    "AC8 E shows Şefin notu with author and date",
+    "AC8 E shows Şefin yorumu with author and date",
   );
   check(
     (await korist.getByRole("button", { name: "Geri al" }).count()) === 0,
@@ -302,10 +310,12 @@ export default async function phase4(browser, shots) {
     saveFeedback: [D, buse, {}, {}],
     setRecordingEmail: [{}, {}],
   };
+  // Read again: on a fresh dev server the manager pages above compile (and register) only now.
+  const manage = await actionIds(ACTIONS_FILE, A);
   const before = await snapshot();
   let refused = true;
   for (const [name, args] of Object.entries(manageCalls)) {
-    const text = actions[name] ? await callAction(korist, actions[name], args) : "";
+    const text = manage[name] ? await callAction(korist, manage[name], args) : "";
     if (!text.includes("Bu işlem için yetkin yok.")) {
       refused = false;
       console.log(`${name} did not refuse: ${text.slice(0, 160)}`);
@@ -317,6 +327,7 @@ export default async function phase4(browser, shots) {
   // AC12 no recording email
   await db.execute("delete from app_settings where key = 'recording_email'");
   await goto(korist, `/odevler/${A}`);
+  await openFallback(korist);
   check(
     (await korist.locator("[data-testid=email-missing]").textContent()).includes(
       "Kayıt e-postası henüz ayarlanmadı.",
@@ -351,6 +362,7 @@ export default async function phase4(browser, shots) {
       (await busePage.locator("text=Teslimini Demo Şef işaretledi.").count()) === 1,
     "AC16 the singer sees Teslim edildi and who marked it",
   );
+  await openFallback(busePage);
   await busePage.getByRole("button", { name: "Geri al" }).click();
   await busePage.locator("[data-testid=submit-toggle][data-state=pending]").waitFor();
   await goto(sef, `/odevler/${D}`);
@@ -362,10 +374,12 @@ export default async function phase4(browser, shots) {
 
   // AC6 submit and undo on A (detail) and B (list)
   await goto(korist, `/odevler/${A}`);
+  await openFallback(korist);
   await korist.getByRole("button", { name: "Teslim ettim" }).click();
   await korist.locator("[data-testid=submit-toggle][data-state=done]").waitFor();
   await korist.waitForTimeout(500);
   await goto(korist, `/odevler/${A}`);
+  await openFallback(korist);
   const doneChip = await chip(korist.locator("[data-testid=submit-toggle]"));
   check(
     doneChip.tone === "done" && doneChip.text === `Teslim edildi · ${today()}`,
@@ -376,24 +390,23 @@ export default async function phase4(browser, shots) {
   await korist.locator("[data-testid=submit-toggle][data-state=pending]").waitFor();
   await korist.waitForTimeout(500);
   await goto(korist, `/odevler/${A}`);
+  await openFallback(korist);
   check(
     (await chip(korist.locator("[data-testid=submit-toggle]"))).tone === "green" &&
       (await badge(korist)) === "4",
     "AC6 Geri al restores green and 4",
   );
+  // Phase 9 (D5, AC 34): the list row offers Kaydını yap instead of an inline Teslim ettim.
   await goto(korist, "/odevler");
-  await row(korist, B).locator("[data-testid=submit-row]").click();
-  await korist.locator(`[data-testid=done-list] [data-id="${B}"]`).waitFor();
   check(
-    await korist.locator("[data-sonner-toast]", { hasText: "Teslim edildi." }).isVisible(),
-    "AC6 list submit moves B with a toast",
+    (await row(korist, B).locator("[data-testid=record-link]").getAttribute("href")) === `/odevler/${B}#kayit` &&
+      (await row(korist, B).locator("[data-testid=submit-row]").count()) === 0,
+    "AC6 the list row links Kaydını yap to B's recorder",
   );
-  await korist.locator("[data-sonner-toast] button", { hasText: "Geri al" }).click();
-  await korist.locator(`[data-testid=todo-list] [data-id="${B}"]`).waitFor();
-  check(true, "AC6 the toast's Geri al moves B back");
 
   // AC7 late submit on D
   await goto(korist, `/odevler/${D}`);
+  await openFallback(korist);
   await korist.getByRole("button", { name: "Teslim ettim" }).click();
   await korist.locator("[data-testid=submit-toggle][data-state=done]").waitFor();
   check(
@@ -431,6 +444,7 @@ export default async function phase4(browser, shots) {
     (await sef.locator("[data-testid=roster-row]", { hasText: "Arda Tan" }).count()) === 0,
     "AC11 not listed before submitting",
   );
+  await openFallback(yeni);
   await yeni.getByRole("button", { name: "Teslim ettim" }).click();
   await yeni.locator("[data-testid=submit-toggle][data-state=done]").waitFor();
   await goto(sef, `/odevler/${D}`);
@@ -446,6 +460,7 @@ export default async function phase4(browser, shots) {
 
   // AC17 notes: the conductor on A, the board on B
   await goto(korist, `/odevler/${A}`);
+  await openFallback(korist);
   await korist.getByRole("button", { name: "Teslim ettim" }).click();
   await korist.locator("[data-testid=submit-toggle][data-state=done]").waitFor();
   async function writeNote(page, id, text) {
@@ -453,22 +468,27 @@ export default async function phase4(browser, shots) {
     await page.locator("[data-testid=roster-row]", { hasText: "Demo Korist" }).click();
     await page.fill("#feedback", text);
     await page.getByRole("button", { name: "Notu kaydet" }).click();
-    await page.locator("text=Not kaydedildi.").waitFor();
+    // Phase 9 (D63): the conductor's note is the comment.
+    await page.locator("text=Yorum gönderildi.").waitFor();
   }
   await writeNote(sef, A, "E2E şef notu");
   await goto(korist, "/odevler");
   check(
     (await row(korist, A).locator("[data-testid=new-note]").count()) === 1,
-    "AC17 korist sees Yeni not on A",
+    "AC17 korist sees Yeni yorum on A",
   );
   await goto(korist, `/odevler/${A}`);
   check(
     (await korist.locator("[data-testid=feedback]").textContent()).includes(
-      "Şefin notuE2E şef notu",
+      "Şefin yorumuE2E şef notu",
     ) && (await korist.getByRole("button", { name: "Geri al" }).count()) === 0,
-    "AC17 Şefin notu shows and Geri al is gone",
+    "AC17 Şefin yorumu shows and Geri al is gone",
   );
-  await writeNote(yk, B, "E2E yk notu");
+  // Phase 9 (D3): the board can't write notes any more; an old board note is arranged in the DB.
+  await db.execute({
+    sql: "insert into submissions (assignment_id, user_id, feedback, feedback_by, feedback_at) values (?, (select id from users where email = 'korist@arkhe.local'), 'E2E yk notu', (select id from users where email = 'yk@arkhe.local'), unixepoch()) on conflict(assignment_id, user_id) do update set feedback = excluded.feedback, feedback_by = excluded.feedback_by, feedback_at = excluded.feedback_at",
+    args: [B],
+  });
   await goto(korist, `/odevler/${B}`);
   const ykNote = await korist.locator("[data-testid=feedback]").textContent();
   check(
@@ -478,8 +498,9 @@ export default async function phase4(browser, shots) {
   await goto(sef, `/odevler/${A}`);
   await sef.locator("[data-testid=roster-row]", { hasText: "Demo Korist" }).click();
   await sef.getByRole("button", { name: "Notu sil" }).click();
-  await sef.locator("text=Not silindi.").waitFor();
+  await sef.locator("text=Yorum silindi.").waitFor();
   await goto(korist, `/odevler/${A}`);
+  await openFallback(korist);
   check(
     (await korist.locator("[data-testid=feedback]").count()) === 0 &&
       (await korist.getByRole("button", { name: "Geri al" }).count()) === 1,
@@ -614,7 +635,9 @@ export default async function phase4(browser, shots) {
 
   // AC20 recording email
   await goto(sef, "/odevler");
-  await sef.getByRole("button", { name: "Kayıt e-postası" }).click();
+  // Phase 9 (D60): the recording email moved into the Ayarlar menu.
+  await sef.getByRole("button", { name: "Ayarlar" }).click();
+  await sef.getByRole("menuitem", { name: "Kayıt e-postası…" }).click();
   await sef.fill("input[name=email]", "kayit@");
   await sef.getByRole("dialog").getByRole("button", { name: "Kaydet" }).click();
   await sef.getByRole("dialog").locator("text=Geçerli bir e-posta adresi gir.").waitFor();
@@ -622,7 +645,9 @@ export default async function phase4(browser, shots) {
   await sef.fill("input[name=email]", "kayit@koro.org");
   await sef.getByRole("dialog").getByRole("button", { name: "Kaydet" }).click();
   await sef.locator("text=Kayıt e-postası güncellendi.").waitFor();
-  await goto(korist, `/odevler/${B}`);
+  // Phase 9 (D46): B carries the old board note, which locks it; C shows the fallback.
+  await goto(korist, `/odevler/${C}`);
+  await openFallback(korist);
   check(
     (await korist.locator("[data-testid=mailto]").getAttribute("href")).startsWith(
       "mailto:kayit@koro.org?subject=",

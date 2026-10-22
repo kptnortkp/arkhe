@@ -1,12 +1,12 @@
 "use server";
 
-import { and, eq, isNull, ne } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { invites, users } from "@/db/schema";
+import { users } from "@/db/schema";
 import { requireManager } from "@/lib/auth/dal";
-import { deleteUserSessions } from "@/lib/auth/session";
 import { createSetPasswordLink } from "@/lib/auth/set-password-links";
+import { deactivateQueries } from "@/lib/members/deactivate";
 import { canEditMember, canIssueLink } from "@/lib/permissions";
 import { fieldErrorsOf, formValues, memberSchema, type FormState } from "@/lib/validation";
 
@@ -154,13 +154,11 @@ export async function setMemberActive(id: string, active: boolean): Promise<Form
   if (!target || actor.id === id || !canEditMember(actor, target, target.role))
     return { error: FORBIDDEN };
 
-  await db
-    .update(users)
-    .set({ isActive: active, leftAt: active ? null : new Date() })
-    .where(eq(users.id, id));
-  if (!active) {
-    await deleteUserSessions(id);
-    await db.delete(invites).where(and(eq(invites.userId, id), isNull(invites.usedAt)));
+  if (active) {
+    await db.update(users).set({ isActive: true, leftAt: null }).where(eq(users.id, id));
+  } else {
+    // One batch: the user is never left inactive with a live session.
+    await db.batch(deactivateQueries(db, id, new Date()));
   }
   revalidatePath("/uyeler");
   revalidatePath(`/uyeler/${id}`);

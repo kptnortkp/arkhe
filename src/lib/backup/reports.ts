@@ -3,13 +3,61 @@ import { autoCloseStale } from "@/lib/attendance/close";
 import { attendanceCsv } from "@/lib/attendance/csv";
 import { attendanceStats } from "@/lib/attendance/stats";
 import { csvDocument } from "@/lib/csv";
-import { DUES_HEADER, duesRows, LEDGER_HEADER, ledgerRows } from "@/lib/finance/csv";
-import { ledgerRowsBetween, loadDuesMatrix, monthTotals } from "@/lib/finance/queries-internal";
+import { budgetRange, computeReport, sidePercents, type BudgetStatus } from "@/lib/finance/budget";
+import {
+  BUDGET_HEADER,
+  budgetRows,
+  DUES_HEADER,
+  duesRows,
+  LEDGER_HEADER,
+  ledgerRows,
+} from "@/lib/finance/csv";
+import {
+  budgetCovering,
+  categoryActuals,
+  ledgerRowsBetween,
+  loadDuesMatrix,
+  monthTotals,
+} from "@/lib/finance/queries-internal";
 import { collator } from "@/lib/format";
 import { homeworkCsv } from "@/lib/homework/csv";
 import { homeworkDueBetween } from "@/lib/homework/queries";
 import type { MonthSummary } from "./email";
-import { monthBounds } from "./schedule";
+import { describeError } from "./messages";
+import { monthBounds, nextMonth } from "./schedule";
+
+export type BudgetMailPart = {
+  name: string;
+  status: BudgetStatus;
+  incomePct: number | null;
+  expensePct: number | null;
+  csv: string;
+};
+
+/**
+ * The budget whose range contains `month`, with actuals from its start through the last day of
+ * `month` (D39). Best effort: a failure here must never cost the choir its monthly backup.
+ */
+async function budgetPart(month: string): Promise<BudgetMailPart | null> {
+  try {
+    const b = await budgetCovering(month);
+    if (!b) return null;
+    const [from, end] = budgetRange(b.startMonth);
+    // "As of the end of M": the day after M is the first day whose entries don't count.
+    const asOf = `${nextMonth(month)}-01`;
+    const actual = await categoryActuals(from, asOf < end ? asOf : end);
+    const report = computeReport({ start: b.startMonth, plan: b.plan, actual, today: asOf });
+    return {
+      name: b.name,
+      status: b.status,
+      ...sidePercents(b.plan, actual),
+      csv: csvDocument(BUDGET_HEADER, budgetRows(report)),
+    };
+  } catch (e) {
+    console.error("budget attachment skipped", describeError(e, []));
+    return null;
+  }
+}
 
 const percentOf = (part: number, whole: number) =>
   whole > 0 ? Math.round((part / whole) * 100) : null;
@@ -22,12 +70,13 @@ export async function buildReports(month: string, today: string, at: Date) {
   const { from, to, firstDay, lastDay } = monthBounds(month);
   // Same side effect as opening /raporlar: forgotten rehearsals close before they are counted.
   await autoCloseStale();
-  const [stats, homework, ledger, dues, totals] = await Promise.all([
+  const [stats, homework, ledger, dues, totals, budget] = await Promise.all([
     attendanceStats({ from, to }),
     homeworkDueBetween(from, to, at),
     ledgerRowsBetween(firstDay, lastDay),
     loadDuesMatrix(today),
     monthTotals(month),
+    budgetPart(month),
   ]);
 
   const members = [...stats.members].sort((a, b) => collator.compare(a.name, b.name));
@@ -52,6 +101,7 @@ export async function buildReports(month: string, today: string, at: Date) {
   };
   return {
     summary,
+    budget,
     csv: {
       attendance: attendanceCsv(members),
       homework: homeworkCsv(homework.rows),

@@ -1,6 +1,6 @@
 # Status (tech lead)
 
-Updated: 2026-10-21.
+Updated: 2026-10-22 (Phases 8b and 9 accepted).
 
 ## Done
 - Phase 0–1: scaffold, brand refresh (vector ARKHE logo, Jost, navy-violet), auth, members, profile. Team review done, P1s fixed.
@@ -19,10 +19,29 @@ Updated: 2026-10-21.
 - **Live since 2026-10-19** (Vercel Hobby iad1 + Turso free, Stockholm; 37 users). Roadmap of 2026-10-21: Phase 7 data safety, Phase 8 board kanban + budget plan vs actual, Phase 9 audio upload + assistant → conductor → singer review + MIDI.
 - Phase 7: data safety. Monthly email (Vercel Cron daily 05:00 UTC, sends while the previous Istanbul month is uncovered) with four CSVs (devam, ödev, finans, aidat) and an AES-256-GCM encrypted gzipped DB dump (scrypt from `BACKUP_PASSPHRASE`); Gmail SMTP via nodemailer 10.1.7 (MIT-0), file outbox outside production. `/yedek` (Yedekleme: Durum, Kurulum, Alıcılar, Şimdi gönder, Geçmiş), conductor-only recipients (1–5) with change notice, home banners, throttles, `db:decrypt`/`db:restore`, README `Aylık yedek e-postası`. Migration `0007_phase7_backup` (`backup_runs`, `app_settings` rebuild with `created_at`). Team review: 0 P1, 13 P2, all fixed (`design/phase-7/review-fixes.md`). `npm run e2e` **657/657**, `npm run e2e:prod` **44/44**, lint/typecheck clean. **ACCEPTED** (`design/phase-7/review-po.md`); AC 7, 8, 19 amended there. **Not yet live:** the user does the go-live steps in `review-po.md` §4 (commit, `db:migrate` on Turso, Gmail App Password, passphrase in two places, Vercel env vars Production-only, push, recipients on `/yedek`, first September email, restore drill = AC 39); record the date here when done.
 
+- Phase 8: Yönetim Kurulu board and budget plan vs actual.
+  - **Board** (`/yonetim`): kanban Yapılacak/Devam ediyor/Takıldı/Bitti, tabs below `xl`, `Taşı`/`Durum` menus, urgency, due dates, comments with a 15-minute delete, system entries, the `Yeni` marker + `data-board-badge`, a 30-day archive. The manager bar has `Yönetim` instead of `Üyeler`.
+  - **Budget** (`/finans/butce`): 12-month budgets, draft → approved → revisions with a reason, prefill, signals, period progress, CSV, and `arkhe-butce-<M>.csv` in the monthly email.
+  - Migration `0008_phase8_board_budget`: 8 tables and 2 triggers on `budgets`, additive.
+  - Team review: 1 P1 and all P2s fixed (`design/phase-8/review-fixes.md`; TL1 sets the default start).
+  - `npm run e2e` **923/923**, `npm run e2e:prod` **52/52**, lint/typecheck clean.
+  - **ACCEPTED** (`design/phase-8/review-po.md`); AC 24, 26, 32 and 34 amended there.
+  - **Not yet live:** it ships in one push with Phases 7 and 8b, when the user says so.
+
+- Phase 8b: historical CSV import (`/ice-aktar`, template pack + AI prompts in `docs/ice-aktarma/`, all-or-nothing batches, undo of the latest batch). Migration `0009_phase8b_import`. **ACCEPTED** by the tech lead (`design/phase-8b/review-po.md`).
+- Phase 9: in-browser recording and upload, assistant → conductor → singer review, storage quota and retention, MIDI player. Migrations `0010_phase9_media`, `0011_phase9_review`. Local libsql lock leak fixed (`src/db/local-client.mjs`). `npm run e2e` **1437/1437** (twice), `npm run e2e:prod` **63/63**. **ACCEPTED** by the tech lead (`design/phase-9/review-po.md`).
+  - **Not yet live:** Phases 7–9 ship in one push when the user says so; `db:migrate` must show 12/12 and a private Blob store must be connected first.
+
 ## Next steps (in order)
-1. **Phase 7 go-live is the user's:** `design/phase-7/review-po.md` §4 steps 1–11. Record the date steps 9–10 (first real email + restore drill, AC 39) passed.
-2. **Phase 8** (board kanban + budget plan vs actual): spec may start now; don't deploy its migration before Phase 7 is live.
-3. **Post-launch backlog:** the single consolidated list is now §5 of `design/phase-7/review-po.md` (it replaces the Phase 6 list and includes everything still open from Phases 2–6). Items 1–5 make a good first small release.
+1. **Go-live of Phases 7 + 8 + 8b (the user's):** `design/phase-7/review-po.md` §4, with the changes in `design/phase-8/review-po.md` §4.
+   - One `db:migrate` applies 0007 → 0008 → 0009, and `db:check` must show `migrations=10/10`.
+   - Record here the date of the first real email and the restore drill (Phase 7 AC 39).
+2. **Phase 8** is accepted (see above).
+   - **Phase 8b** (historical data import, `design/phase-8b/`): spec and `po-decisions.md` (D17–D34) done 2026-10-21. Migration `0009` after Phase 8's, not deployed before Phase 7 is live.
+   - **Function region:** `vercel.json` pins `arn1` (committed in Phase 7, not pushed). Live still runs in `iad1` until the user pushes Phases 7–8b. The 8b commit must also work under `iad1` (few-round-trip batched path, D30).
+3. **Phase 9** (audio recording upload, assistant → conductor → singer review, MIDI): the spec may start. It needs a free storage decision first.
+4. **Post-launch backlog:** one list in two parts: `design/phase-7/review-po.md` §5 items 1–16 and `design/phase-8/review-po.md` §5 items 17–27. The first small release is items 1–5, 17 and 18.
+5. **One month after go-live:** ask the board whether `Üyeler` is easy to find on the phone and whether jobs moved out of WhatsApp (Phase 8 risks 1–2). Note the answers here.
 
 ## Open review items from Phases 2–3 (post-launch backlog; consolidated in phase-7/review-po.md §5)
 - UI: a late poll can briefly undo a fresh mark; ticked sectional parts are lost after a form error; no wake-lock indicator (cut by PO).

@@ -1,5 +1,7 @@
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Play } from "lucide-react";
 import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { VoicePart } from "@/db/schema";
 import type { MyPart, PieceSummary } from "@/lib/repertoire";
 import { PartButton } from "./part-button";
@@ -12,6 +14,7 @@ export function PieceRow({
   showStatus = false,
   showMeta = true,
   number,
+  midiHref,
 }: {
   piece: PieceSummary;
   myPart: MyPart;
@@ -19,6 +22,8 @@ export function PieceRow({
   showStatus?: boolean;
   showMeta?: boolean;
   number?: number;
+  /** D59: a portal MIDI for my part plays on the piece page (`?cal=1`) instead of Drive. */
+  midiHref?: string;
 }) {
   const by = composerLine(piece.composer, piece.arranger);
   return (
@@ -50,7 +55,22 @@ export function PieceRow({
         </span>
         {!myPart && <ChevronRight className="size-4 shrink-0 text-muted-foreground" />}
       </Link>
-      <PartButton myPart={myPart} voicePart={voicePart} pieceId={piece.id} title={piece.title} />
+      {midiHref ? (
+        <Link
+          href={midiHref}
+          className={cn(
+            buttonVariants({ variant: "outline" }),
+            "h-11 w-[116px] shrink-0 justify-center gap-1.5 rounded-full px-3 text-sm",
+          )}
+          data-testid="midi-part-link"
+        >
+          <Play className="size-3.5" aria-hidden />
+          Partisyonum
+          <span className="sr-only">: {piece.title}, portalda çal</span>
+        </Link>
+      ) : (
+        <PartButton myPart={myPart} voicePart={voicePart} pieceId={piece.id} title={piece.title} />
+      )}
     </li>
   );
 }

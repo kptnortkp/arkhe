@@ -6,7 +6,9 @@ import {
   ENTRY_KIND_LABELS,
   VOICE_PART_LABELS,
 } from "@/lib/labels";
+import { csvNum, type CsvValue } from "@/lib/csv";
 import { csvAmount } from "@/lib/money";
+import type { BudgetTotal, ComputedReport } from "./budget";
 import type { VoicePart } from "@/db/schema";
 import type { Account, Category, DuesRate, EntryKind } from "./categories";
 import type { DuesStatus } from "./dues";
@@ -97,4 +99,59 @@ export function duesRows(members: DuesCsvMember[], periodId: string) {
         s.label,
       ];
     });
+}
+
+export const BUDGET_HEADER = [
+  "Tür",
+  "Kategori",
+  "Plan",
+  "Gerçekleşen",
+  "Fark",
+  "Gerçekleşme",
+  "Durum",
+];
+
+const amountCell = (kurus: number) => csvNum(csvAmount(kurus));
+const pctCell = (pct: number | null) => (pct === null ? "" : `%${pct}`);
+
+/** AC 37: shown lines per side, each side's total, then the net; Fark is actual − plan, signed. */
+export function budgetRows(report: ComputedReport): CsvValue[][] {
+  const rows: CsvValue[][] = [];
+  const totalRow = (label: string, t: BudgetTotal): CsvValue[] => [
+    label,
+    "Toplam",
+    amountCell(t.planKurus),
+    amountCell(t.actualKurus),
+    amountCell(t.diffKurus),
+    pctCell(t.pct),
+    "",
+  ];
+  for (const [kind, label] of [
+    ["income", "Gelir"],
+    ["expense", "Gider"],
+  ] as const) {
+    for (const l of report.lines.filter((x) => x.kind === kind)) {
+      rows.push([
+        label,
+        CATEGORY_LABELS[l.category],
+        amountCell(l.planKurus),
+        amountCell(l.actualKurus),
+        amountCell(l.diffKurus),
+        pctCell(l.pct),
+        l.signalLabel,
+      ]);
+    }
+    rows.push(totalRow(label, report.totals[kind]));
+  }
+  const net = report.totals.net;
+  rows.push([
+    "Net",
+    "Gelir − gider",
+    amountCell(net.planKurus),
+    amountCell(net.actualKurus),
+    amountCell(net.actualKurus - net.planKurus),
+    "",
+    "",
+  ]);
+  return rows;
 }

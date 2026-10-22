@@ -1,11 +1,11 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, notExists, sql } from "drizzle-orm";
 import { duesOverrides, duesPeriods, financeEntries, memberDues, users } from "@/db/schema";
-import { owedFor, owesPeriod } from "./dues";
+import { positionOf } from "./dues";
 
 export type { Tx } from "@/db/write-tx";
-import type { Tx } from "@/db/write-tx";
+import type { Q, Tx } from "@/db/write-tx";
 
 /** Deterministic v8 uuid, so replaying one multi-period payment yields the same row ids. */
 export function derivedId(...parts: string[]) {
@@ -50,25 +50,37 @@ export async function duesPosition(tx: Tx, memberId: string, periodIds?: string[
       ),
     )
     .groupBy(financeEntries.duesPeriodId);
-  const rate = member.rate ?? "standard";
-  const paidOf = new Map(paid.map((p) => [p.periodId, Number(p.total)]));
+  const paidOf = new Map(paid.map((p) => [p.periodId!, Number(p.total)]));
   const overrideOf = new Map(overrides.map((o) => [o.duesPeriodId, o]));
-  return {
-    member: { ...member, rate },
-    periods: periods.map((p) => {
-      const paidKurus = paidOf.get(p.id) ?? 0;
-      const override = overrideOf.get(p.id) ?? null;
-      const owed = owedFor(rate, p, override, paidKurus);
-      return {
-        period: p,
-        override,
-        onRoster: owesPeriod(member, p) || paidKurus > 0,
-        owed,
-        paid: paidKurus,
-        remaining: Math.max(owed - paidKurus, 0),
-      };
-    }),
-  };
+  const position = positionOf(member, periods, overrideOf, paidOf);
+  return { member: { ...member, rate: position.rate }, periods: position.periods };
+}
+
+/** A freeze pins what a partly paid period owed; once no live payment is left it must go. */
+export function lapsedFreezeDelete(q: Q, memberId: string, periodId: string) {
+  return q.delete(duesOverrides).where(
+    and(
+      eq(duesOverrides.duesPeriodId, periodId),
+      eq(duesOverrides.userId, memberId),
+      eq(duesOverrides.kind, "freeze"),
+      notExists(
+        q
+          .select({ id: financeEntries.id })
+          .from(financeEntries)
+          .where(
+            and(
+              eq(financeEntries.memberId, memberId),
+              eq(financeEntries.duesPeriodId, periodId),
+              isNull(financeEntries.voidedAt),
+            ),
+          ),
+      ),
+    ),
+  );
+}
+
+export async function dropLapsedFreezes(tx: Tx, memberId: string, periodId: string) {
+  await lapsedFreezeDelete(tx, memberId, periodId);
 }
 
 /** The live opening date; nothing may be dated before it. */

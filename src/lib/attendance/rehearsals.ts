@@ -82,19 +82,26 @@ export async function listRehearsals({
   to,
   order = "asc",
   limit = 200,
+  offset = 0,
 }: {
   from?: Date;
   to?: Date;
   order?: "asc" | "desc";
   limit?: number;
+  offset?: number;
 }) {
   const conditions = [from && gte(rehearsals.startsAt, from), to && lt(rehearsals.startsAt, to)];
   const rows = await db
     .select(publicColumns)
     .from(rehearsals)
     .where(and(...conditions.filter(Boolean)))
-    .orderBy(order === "asc" ? asc(rehearsals.startsAt) : desc(rehearsals.startsAt))
-    .limit(limit);
+    // Ties on starts_at are broken by id so offset pages never repeat or skip a row.
+    .orderBy(
+      order === "asc" ? asc(rehearsals.startsAt) : desc(rehearsals.startsAt),
+      order === "asc" ? asc(rehearsals.id) : desc(rehearsals.id),
+    )
+    .limit(limit)
+    .offset(offset);
   return withParts(rows);
 }
 

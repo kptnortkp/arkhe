@@ -101,6 +101,8 @@ export async function seedFinance(client, T = new Date()) {
   };
 
   const statements = [
+    // Import items reference entries, sponsors and overrides (restrict); the batches cascade them.
+    "delete from import_batches",
     // Corrections point at the rows they replaced (restrict), so unlink before deleting.
     "update finance_entries set replaces_id = null where replaces_id is not null",
     "delete from finance_entries",
@@ -159,6 +161,13 @@ export async function seedFinance(client, T = new Date()) {
       args: [FINANCE_IDS.periods[2], uid("deniz.aslan@arkhe.local"), yk, t],
     },
   );
+  // The Phase 9 demo assistant (media fixture) is a demo login, not a paying singer.
+  if (users.has("asistan@arkhe.local")) {
+    statements.push({
+      sql: "insert into dues_overrides (dues_period_id, user_id, kind, owed_kurus, reason, created_by, created_at) values (?, ?, 'waiver', 0, 'Demo hesap', ?, ?)",
+      args: [FINANCE_IDS.periods[2], uid("asistan@arkhe.local"), yk, t],
+    });
+  }
 
   let n = 0;
   const entry = (e) => {
@@ -204,9 +213,14 @@ export async function seedFinance(client, T = new Date()) {
   entry({ kind: "opening", kurus: 250000, on: `${m2}-01`, account: "cash" });
   entry({ kind: "opening", kurus: 1800000, on: `${m2}-01`, account: "bank" });
 
-  // Roster of P1/P2: yk, korist and the 20 seeded members; yeni@ joined this month.
+  // Roster of P1/P2: yk, korist and the 20 seeded members; yeni@ and asistan@ joined this month.
   const roster = [...users.values()]
-    .filter((u) => (u[2] === "member" || u[2] === "board") && u[0] !== "yeni@arkhe.local")
+    .filter(
+      (u) =>
+        (u[2] === "member" || u[2] === "board") &&
+        u[0] !== "yeni@arkhe.local" &&
+        u[0] !== "asistan@arkhe.local",
+    )
     .map((u) => u[0]);
   for (const email of roster) {
     if (email === "onur.cetin@arkhe.local" || email === "baris.gunes@arkhe.local") continue;

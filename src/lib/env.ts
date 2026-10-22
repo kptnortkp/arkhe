@@ -61,5 +61,11 @@ export function bootWarnings(env: Env): string[] {
   if (backup.length) {
     warnings.push(`Monthly backup email is not fully configured: ${backup.join(", ")}`);
   }
+  const localFiles = !env.DATABASE_URL || env.DATABASE_URL.startsWith("file:");
+  if (!localFiles && !env.BLOB_STORE_ID && !env.BLOB_READ_WRITE_TOKEN) {
+    warnings.push(
+      "File storage is not configured: connect a private Blob store (BLOB_STORE_ID or BLOB_READ_WRITE_TOKEN).",
+    );
+  }
   return warnings;
 }

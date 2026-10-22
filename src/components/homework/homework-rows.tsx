@@ -1,12 +1,13 @@
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Mic } from "lucide-react";
 import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { VOICE_PART_SHORT } from "@/lib/labels";
 import { deadlineBadge, managerBadge } from "@/lib/homework/deadline";
 import { barsLabel } from "@/lib/homework/mail";
 import type { MemberRow, PartCount } from "@/lib/homework/queries";
 import type { VoicePart } from "@/db/schema";
 import { DeadlineChip, DueLine, PartList } from "./deadline-chip";
-import { SubmitRowButton } from "./submit-button";
 
 export function NewNote() {
   return (
@@ -15,7 +16,7 @@ export function NewNote() {
       data-testid="new-note"
     >
       <span className="size-2 rounded-full bg-gold" aria-hidden />
-      Yeni not
+      Yeni yorum
     </span>
   );
 }
@@ -56,7 +57,20 @@ export function SingerRow({ row, at, calm = false }: { row: MemberRow; at: Date;
           </span>
         )}
       </Link>
-      {row.eligible && !row.submittedAt && <SubmitRowButton id={row.id} title={title} />}
+      {row.eligible && !row.submittedAt && (
+        <Link
+          href={`/odevler/${row.id}#kayit`}
+          aria-label={`Kaydını yap: ${title}`}
+          data-testid="record-link"
+          className={cn(
+            buttonVariants({ variant: "outline" }),
+            "h-11 w-[124px] shrink-0 gap-1.5 rounded-full px-3",
+          )}
+        >
+          <Mic />
+          Kaydını yap
+        </Link>
+      )}
     </li>
   );
 }

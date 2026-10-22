@@ -214,7 +214,7 @@ export function LinksEditor({
         next.map((l) => l.id),
       );
     });
-    focusAfter(...moveTargets(item.id, delta));
+    focusAfter(moveTargets(item.id, delta, to));
   }
 
   return (

@@ -1,5 +1,5 @@
 import { and, count, eq, gt } from "drizzle-orm";
-import { CalendarClock, ChevronLeft, MapPin } from "lucide-react";
+import { CalendarClock, ChevronLeft, FileUp, MapPin } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
@@ -19,6 +19,7 @@ import {
   rehearsalTitle,
 } from "@/lib/attendance/rehearsals";
 import { requireUser } from "@/lib/auth/dal";
+import { rehearsalImported } from "@/lib/import/queries";
 import { isManager } from "@/lib/permissions";
 import { formatLongDate, formatTime, now } from "@/lib/time";
 
@@ -34,7 +35,11 @@ export default async function RehearsalPage({ params }: PageProps<"/calismalar/[
   const phase = phaseOf(r);
   const manager = isManager(user.role);
   const started = r.startsAt <= new Date();
-  const [marks, expected] = await Promise.all([myMarks(user.id, [id]), expectedFor(user.id, [r])]);
+  const [marks, expected, imported] = await Promise.all([
+    myMarks(user.id, [id]),
+    expectedFor(user.id, [r]),
+    manager ? rehearsalImported(id) : false,
+  ]);
   const mine = marks.get(id);
 
   const snapshot = manager && phase !== "cancelled" ? await liveSnapshot(id, false) : null;
@@ -79,6 +84,15 @@ export default async function RehearsalPage({ params }: PageProps<"/calismalar/[
           {phase === "untaken" && (
             <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
               Yoklama alınmadı
+            </span>
+          )}
+          {imported && (
+            <span
+              className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground"
+              data-testid="imported-chip"
+            >
+              <FileUp className="size-3.5" aria-hidden />
+              İçe aktarıldı
             </span>
           )}
         </div>
@@ -130,7 +144,7 @@ export default async function RehearsalPage({ params }: PageProps<"/calismalar/[
             </p>
           )}
           {showRoster && snapshot ? (
-            <DetailRoster rehearsalId={id} initial={snapshot} />
+            <DetailRoster rehearsalId={id} initial={snapshot} imported={imported} />
           ) : (
             excusesAhead.length > 0 && (
               <div className="space-y-2">

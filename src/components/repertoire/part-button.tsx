@@ -14,20 +14,26 @@ export function PartButton({
   pieceId,
   title,
   hero = false,
+  asLink = false,
 }: {
   myPart: MyPart;
   voicePart: VoicePart | null;
   pieceId: string;
   title: string;
   hero?: boolean;
+  /** A text link under the portal MIDI button (D59): the Drive part stays one tap away. */
+  asLink?: boolean;
 }) {
   if (!myPart || !voicePart) return null;
+  if (asLink && myPart.links.length === 0) return null;
   const partName = VOICE_PART_LABELS[voicePart];
-  const text = hero ? `Partisyonumu aç (${partName})` : "Partisyonum";
-  const base = hero
-    ? "h-12 w-full rounded-2xl px-5 text-base md:w-auto"
-    : "h-11 w-[116px] shrink-0 justify-center rounded-full px-3 text-sm";
-  const variant = hero ? "default" : "outline";
+  const text = hero || asLink ? `Partisyonumu aç (${partName})` : "Partisyonum";
+  const base = asLink
+    ? "h-auto min-h-11 justify-start px-0 text-sm font-medium text-primary hover:bg-transparent hover:underline"
+    : hero
+      ? "h-12 w-full rounded-2xl px-5 text-base md:w-auto"
+      : "h-11 w-[116px] shrink-0 justify-center rounded-full px-3 text-sm";
+  const variant = asLink ? "ghost" : hero ? "default" : "outline";
 
   if (myPart.links.length === 0) {
     return (
@@ -54,11 +60,14 @@ export function PartButton({
         rel="noopener noreferrer"
         className={cn(buttonVariants({ variant }), base, "gap-2")}
       >
-        {!hero && dot}
+        {!hero && !asLink && dot}
         {text}
         <span className="sr-only">
-          {" "}
-          ({myPart.tutti ? "Tutti" : partName}): {title}, yeni sekmede açılır
+          {hero || asLink
+            ? myPart.tutti
+              ? ` (Tutti): ${title}, yeni sekmede açılır`
+              : `: ${title}, yeni sekmede açılır`
+            : ` (${myPart.tutti ? "Tutti" : partName}): ${title}, yeni sekmede açılır`}
         </span>
         <ArrowUpRight className="size-3.5" aria-hidden />
       </a>
@@ -71,7 +80,7 @@ export function PartButton({
       description={`${myPart.tutti ? "Tutti" : partName} partisyon kayıtları`}
       links={myPart.links.map((l) => ({ id: l.id, url: l.url, label: l.label ?? partName }))}
       className={cn(buttonVariants({ variant }), base, "gap-2")}
-      dot={hero ? null : dot}
+      dot={hero || asLink ? null : dot}
       text={text}
     />
   );

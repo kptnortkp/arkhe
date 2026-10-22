@@ -1,18 +1,28 @@
 "use server";
 
-import { and, eq, gte, inArray, isNull, lte, ne } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lte } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { writeTx } from "@/db/write-tx";
 import { duesOverrides, duesPeriods, financeEntries, memberDues } from "@/db/schema";
 import { assertManager } from "@/lib/auth/dal";
 import { ACCOUNTS, DUES_RATES } from "@/lib/finance/categories";
-import { allocate, owedFor, owesPeriod, periodNameOf } from "@/lib/finance/dues";
+import {
+  allocate,
+  BEFORE_OPENING,
+  beforeOpening,
+  freezesForRateChange,
+  isDuesPayer,
+  NOT_RESPONSIBLE,
+  periodNameOf,
+  RATE_FREEZE_REASON,
+  waiverReason,
+  waiverRefusal,
+} from "@/lib/finance/dues";
 import { guarded } from "@/lib/finance/guard";
 import { derivedId, duesPosition, openingDate, type Tx } from "@/lib/finance/ledger";
 import {
   amountField,
-  boundedDayField,
   constraintKind,
   DATE_OUT_OF_RANGE,
   entryDayField,
@@ -22,13 +32,19 @@ import {
   STALE,
   text,
 } from "@/lib/finance/schemas";
+import {
+  optionalReduced,
+  PERIOD_NAME_TAKEN,
+  periodNameTaken,
+  periodOverlap,
+  periodSchema,
+  REDUCED_TOO_HIGH,
+} from "@/lib/finance/periods";
 import { formatKurus, parseAmount } from "@/lib/money";
-import { cleanLine, cleanText } from "@/lib/text";
 import { addDays, now } from "@/lib/time";
 import { fieldErrorsOf, formValues, type FormState } from "@/lib/validation";
 
 const idSchema = z.uuid();
-const NOT_RESPONSIBLE = "Bu kişi bu dönemden sorumlu değil.";
 const HAS_PAYMENTS = "Bu döneme ödeme girilmiş.";
 
 function revalidateDues() {
@@ -96,9 +112,7 @@ export async function recordDuesPayment(_prev: FormState, formData: FormData): P
         const total = existing.reduce((s, e) => s + e.amount, 0);
         return { success: paidMessage(total, d.periodIds) };
       }
-      if (position.member.role !== "member" && position.member.role !== "board") {
-        return { error: NOT_RESPONSIBLE };
-      }
+      if (!isDuesPayer(position.member.role)) return { error: NOT_RESPONSIBLE };
       if (position.periods.some((p) => !p.onRoster)) return { error: NOT_RESPONSIBLE };
       const open = position.periods.map((p) => ({
         periodId: p.period.id,
@@ -106,11 +120,8 @@ export async function recordDuesPayment(_prev: FormState, formData: FormData): P
         remaining: p.remaining,
       }));
       const opened = await openingDate(tx);
-      if (opened && d.occurredOn < opened) {
-        return {
-          values: formValues(formData),
-          fieldErrors: { occurredOn: ["Tarih açılış bakiyesinden önce olamaz."] },
-        };
+      if (beforeOpening(opened, d.occurredOn)) {
+        return { values: formValues(formData), fieldErrors: { occurredOn: [BEFORE_OPENING] } };
       }
       const owedNow = open.reduce((s, p) => s + p.remaining, 0);
       if (amount === null && d.expected !== undefined && d.expected !== owedNow) {
@@ -153,71 +164,30 @@ export async function recordDuesPayment(_prev: FormState, formData: FormData): P
 
 // Periods ---------------------------------------------------------------------------------------
 
-const optionalReduced = z
-  .string()
-  .optional()
-  .transform((v, ctx) => {
-    if (!v?.trim()) return null;
-    const a = parseAmount(v);
-    if (!a.ok) {
-      ctx.addIssue({ code: "custom", message: a.error });
-      return z.NEVER;
-    }
-    return a.kurus;
-  });
-
-const REDUCED_TOO_HIGH = "İndirimli aidat tam aidattan az olmalı.";
-
-const periodSchema = z
-  .object({
-    name: z.string().overwrite(cleanLine).trim().min(1, "Ad gir.").max(40, "En fazla 40 karakter."),
-    startsOn: boundedDayField,
-    endsOn: boundedDayField,
-    dueOn: boundedDayField,
-    amount: amountField,
-    reducedAmount: optionalReduced,
-  })
-  .superRefine((d, ctx) => {
-    if (d.endsOn < d.startsOn) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["endsOn"],
-        message: "Bitiş başlangıçtan önce olamaz.",
-      });
-    }
-    if (d.dueOn < d.startsOn) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["dueOn"],
-        message: "Son ödeme başlangıçtan önce olamaz.",
-      });
-    }
-    if (d.reducedAmount !== null && d.reducedAmount >= d.amount) {
-      ctx.addIssue({ code: "custom", path: ["reducedAmount"], message: REDUCED_TOO_HIGH });
-    }
-  });
-
 async function overlapping(tx: Tx, startsOn: string, endsOn: string, exceptId?: string) {
-  const [row] = await tx
-    .select({ name: duesPeriods.name })
+  const periods = await tx
+    .select({
+      id: duesPeriods.id,
+      name: duesPeriods.name,
+      startsOn: duesPeriods.startsOn,
+      endsOn: duesPeriods.endsOn,
+    })
     .from(duesPeriods)
-    .where(
-      and(
-        lte(duesPeriods.startsOn, endsOn),
-        gte(duesPeriods.endsOn, startsOn),
-        exceptId ? ne(duesPeriods.id, exceptId) : undefined,
-      ),
-    )
-    .limit(1);
-  return row ? `Bu tarihler ${row.name} dönemiyle çakışıyor.` : null;
+    .where(and(lte(duesPeriods.startsOn, endsOn), gte(duesPeriods.endsOn, startsOn)));
+  return periodOverlap(periods, startsOn, endsOn, exceptId);
 }
 
 async function nameTaken(tx: Tx, name: string, exceptId?: string) {
-  const [row] = await tx
-    .select({ id: duesPeriods.id })
+  const periods = await tx
+    .select({
+      id: duesPeriods.id,
+      name: duesPeriods.name,
+      startsOn: duesPeriods.startsOn,
+      endsOn: duesPeriods.endsOn,
+    })
     .from(duesPeriods)
-    .where(and(eq(duesPeriods.name, name), exceptId ? ne(duesPeriods.id, exceptId) : undefined));
-  return Boolean(row);
+    .where(eq(duesPeriods.name, name));
+  return periodNameTaken(periods, name, exceptId);
 }
 
 export async function createDuesPeriod(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -228,7 +198,7 @@ export async function createDuesPeriod(_prev: FormState, formData: FormData): Pr
   const d = parsed.data;
   return guarded(formData, async () => {
     const result = await writeTx(async (tx): Promise<FormState | null> => {
-      if (await nameTaken(tx, d.name)) return { fieldErrors: { name: ["Bu adla bir dönem var."] } };
+      if (await nameTaken(tx, d.name)) return { fieldErrors: { name: [PERIOD_NAME_TAKEN] } };
       const overlap = await overlapping(tx, d.startsOn, d.endsOn);
       if (overlap) return { fieldErrors: { startsOn: [overlap] } };
       await tx.insert(duesPeriods).values({
@@ -277,8 +247,7 @@ export async function updateDuesPeriod(
     const result = await writeTx(async (tx): Promise<FormState | null> => {
       if (await hasPayments(tx, id, false))
         return { error: "Bu döneme ödeme girilmiş; değiştirilemez." };
-      if (await nameTaken(tx, d.name, id))
-        return { fieldErrors: { name: ["Bu adla bir dönem var."] } };
+      if (await nameTaken(tx, d.name, id)) return { fieldErrors: { name: [PERIOD_NAME_TAKEN] } };
       const overlap = await overlapping(tx, d.startsOn, d.endsOn, id);
       if (overlap) return { fieldErrors: { startsOn: [overlap] } };
       const updated = await tx
@@ -438,23 +407,20 @@ export async function setDuesRate(
     const result = await writeTx(async (tx) => {
       const position = await duesPosition(tx, userId);
       if (!position) return NOT_FOUND;
-      if (position.member.role !== "member" && position.member.role !== "board") return FORBIDDEN;
-      if (position.member.rate !== d.rate) {
-        // Periods already being paid keep what they owed under the old rate.
-        const frozen = position.periods.filter((p) => p.paid > 0 && !p.override && p.owed > 0);
-        if (frozen.length) {
-          await tx.insert(duesOverrides).values(
-            frozen.map((p) => ({
-              duesPeriodId: p.period.id,
-              userId,
-              kind: "freeze" as const,
-              owedKurus: owedFor(position.member.rate, p.period, null, 0),
-              reason: "Oran değişikliği",
-              createdBy: actor.id,
-              createdAt: now(),
-            })),
-          );
-        }
+      if (!isDuesPayer(position.member.role)) return FORBIDDEN;
+      const frozen = freezesForRateChange(position.member.rate, d.rate, position.periods);
+      if (frozen.length) {
+        await tx.insert(duesOverrides).values(
+          frozen.map((f) => ({
+            duesPeriodId: f.periodId,
+            userId,
+            kind: "freeze" as const,
+            owedKurus: f.owedKurus,
+            reason: RATE_FREEZE_REASON,
+            createdBy: actor.id,
+            createdAt: now(),
+          })),
+        );
       }
       await tx
         .insert(memberDues)
@@ -482,13 +448,7 @@ export async function setWaiver(
   if (!idSchema.safeParse(periodId).success || !idSchema.safeParse(userId).success) {
     return { error: NOT_FOUND };
   }
-  const reason = z
-    .string()
-    .overwrite(cleanText)
-    .trim()
-    .min(3, "Neden yaz (en az 3 karakter).")
-    .max(200, "En fazla 200 karakter.")
-    .safeParse(formData.get("reason") ?? "");
+  const reason = waiverReason.safeParse(formData.get("reason") ?? "");
   if (!reason.success) {
     return {
       values: formValues(formData),
@@ -500,8 +460,9 @@ export async function setWaiver(
       const position = await duesPosition(tx, userId, [periodId]);
       const p = position?.periods[0];
       if (!position || !p) return NOT_FOUND;
-      if (!owesPeriod(position.member, p.period)) return NOT_RESPONSIBLE;
-      if (p.paid > 0) return "Bu döneme ödeme girilmiş; önce ödemeyi iptal et.";
+      const refusal = waiverRefusal(position.member, p);
+      if (refusal === "not_responsible") return NOT_RESPONSIBLE;
+      if (refusal === "paid") return "Bu döneme ödeme girilmiş; önce ödemeyi iptal et.";
       await tx
         .insert(duesOverrides)
         .values({

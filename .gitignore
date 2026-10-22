@@ -46,6 +46,8 @@ next-env.d.ts
 # local database, backups and the dev mail outbox
 /data/
 /data/outbox/
+# local recording and MIDI files (one folder per database)
+data/uploads*/
 .idea/
 
 # project subagents are versioned (overrides a global .claude/ ignore)

@@ -4,6 +4,7 @@ import {
   House,
   Library,
   Mic,
+  SquareKanban,
   Users,
   Wallet,
   type LucideIcon,
@@ -16,15 +17,17 @@ export type NavItem = {
   managersOnly?: boolean;
   // Kept out of the mobile tab bar; reached from inside a section instead.
   sidebarOnly?: boolean;
-  // Shows the count of the user's open homework.
-  homeworkBadge?: boolean;
+  // The bottom bar's shorter label.
+  shortLabel?: string;
+  // Which count badge the entry carries: open homework or new board tickets.
+  badge?: "homework" | "board";
 };
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Ana sayfa", icon: House },
   { href: "/calismalar", label: "Çalışmalar", icon: CalendarCheck },
   { href: "/repertuvar", label: "Repertuvar", icon: Library },
-  { href: "/odevler", label: "Ödevler", icon: Mic, homeworkBadge: true },
+  { href: "/odevler", label: "Ödevler", icon: Mic, badge: "homework" },
   {
     href: "/raporlar",
     label: "Raporlar",
@@ -39,5 +42,13 @@ export const NAV_ITEMS: NavItem[] = [
     managersOnly: true,
     sidebarOnly: true,
   },
-  { href: "/uyeler", label: "Üyeler", icon: Users, managersOnly: true },
+  {
+    href: "/yonetim",
+    label: "Yönetim Kurulu",
+    shortLabel: "Yönetim",
+    icon: SquareKanban,
+    managersOnly: true,
+    badge: "board",
+  },
+  { href: "/uyeler", label: "Üyeler", icon: Users, managersOnly: true, sidebarOnly: true },
 ];

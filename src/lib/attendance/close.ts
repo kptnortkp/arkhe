@@ -5,6 +5,17 @@ import { attendance, rehearsals } from "@/db/schema";
 import { openUntil } from "./rehearsals";
 import { unmarkedExpected } from "./roster";
 
+/** The close rule's rows: every expected person without a mark is absent, recorded by nobody. */
+export function absentRows(rehearsalId: string, userIds: readonly string[], at: Date) {
+  return userIds.map((userId) => ({
+    rehearsalId,
+    userId,
+    status: "absent" as const,
+    method: "auto" as const,
+    recordedAt: at,
+  }));
+}
+
 /** Closes attendance and records every unmarked expected person as absent. Idempotent. */
 export async function closeRehearsal(rehearsalId: string, closedAt = new Date()) {
   const absentees = await unmarkedExpected(rehearsalId);
@@ -23,15 +34,7 @@ export async function closeRehearsal(rehearsalId: string, closedAt = new Date())
     if (absentees.length) {
       await tx
         .insert(attendance)
-        .values(
-          absentees.map((userId) => ({
-            rehearsalId,
-            userId,
-            status: "absent" as const,
-            method: "auto" as const,
-            recordedAt: closedAt,
-          })),
-        )
+        .values(absentRows(rehearsalId, absentees, closedAt))
         .onConflictDoNothing();
     }
   });

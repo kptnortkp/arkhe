@@ -7,9 +7,11 @@ import { MarkingRoster, useLiveSnapshot } from "./marking-roster";
 export function DetailRoster({
   rehearsalId,
   initial,
+  imported = false,
 }: {
   rehearsalId: string;
   initial: LiveSnapshot;
+  imported?: boolean;
 }) {
   const { snapshot, setSnapshot, online, setOnline } = useLiveSnapshot(rehearsalId, initial, false);
   return (
@@ -20,6 +22,7 @@ export function DetailRoster({
       online={online}
       onOnline={setOnline}
       canClear={snapshot.closedAt === null && snapshot.openedAt !== null}
+      imported={imported}
     />
   );
 }

@@ -1,4 +1,4 @@
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, FileUp } from "lucide-react";
 import Link from "next/link";
 import { RecipientsForm } from "@/components/backup/recipients-form";
 import { RecipientsList } from "@/components/backup/recipients-list";
@@ -6,8 +6,10 @@ import { RunLog } from "@/components/backup/run-log";
 import { SendNow } from "@/components/backup/send-now";
 import { SetupList } from "@/components/backup/setup-list";
 import { nextSendText, StatusCard } from "@/components/backup/status-card";
+import { buttonVariants } from "@/components/ui/button";
 import { loadBackupPage } from "@/lib/backup/queries";
 import { formatAuditDateTime } from "@/lib/time";
+import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Yedekleme" };
 // Şimdi gönder runs as a server action of this page and inherits this limit (< STALE_SECONDS).
@@ -82,6 +84,17 @@ export default async function BackupPage() {
           Geçmiş
         </h2>
         <RunLog runs={data.runs} moreRuns={data.moreRuns} emptyText={emptyLog} />
+      </section>
+
+      <section aria-label="Veri içe aktar" className={CARD}>
+        <p className="text-sm">Eski kayıtları portala aktarmadan önce buradan yedek al.</p>
+        <Link
+          href="/ice-aktar"
+          className={cn(buttonVariants({ variant: "outline" }), "h-11 rounded-xl px-4")}
+        >
+          <FileUp aria-hidden />
+          Veri içe aktar
+        </Link>
       </section>
     </div>
   );

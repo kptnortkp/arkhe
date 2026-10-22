@@ -340,12 +340,23 @@ export default async function phase7Cron(browser) {
       "- arkhe-aidat-2025-01.csv: aidat durumu (gönderim günü itibarıyla)",
       "CSV dosyaları telefonda ya da Excel'de açılır.",
       `Yedek dosyasını açmanız gerekmez; bu e-postayı silmeden saklayın. Portalda bir sorun olursa koronun kayıtları bu dosyadan geri getirilir. Dosya şifrelidir ve şifresi bu e-postada yoktur. Gerekirse dosyayı portalı kuran kişi açar; adımlar README'nin "Aylık yedek e-postası" bölümünde.`,
+      "Ses kayıtları ve MIDI dosyaları bu yedeğe dahil değildir; kayıtlar 90 gün sonra zaten silinir.",
       "Raporlar şifresizdir; bu e-postayı koro yönetimi dışında kimseye iletmeyin.",
       "Bu e-posta her ayın 1'inde kendiliğinden gönderilir. Alıcıları koro şefi buradan değiştirir:",
       `${BASE}/yedek`,
     ];
     const missing = lines.filter((l) => !body.split("\n").includes(l));
     check(missing.length === 0, `AC8 body lines present (missing: ${missing.join(" | ")})`);
+    const bodyLines = body.split("\n");
+    const audioLine = bodyLines.indexOf(
+      "Ses kayıtları ve MIDI dosyaları bu yedeğe dahil değildir; kayıtlar 90 gün sonra zaten silinir.",
+    );
+    check(
+      audioLine > 0 &&
+        bodyLines.slice(audioLine + 1).find((l) => l.trim() !== "") ===
+          "Raporlar şifresizdir; bu e-postayı koro yönetimi dışında kimseye iletmeyin.",
+      "AC42 (Phase 9) the email says audio isn't in the backup, right before Raporlar şifresizdir…",
+    );
     check(
       /^arkhe-yedek-\d{4}-\d{2}-\d{2}-\d{4}\.sql\.gz\.enc$/.test(backupName ?? "") &&
         body.includes(`- ${backupName}: şifreli yedek`),

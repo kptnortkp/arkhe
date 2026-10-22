@@ -6,11 +6,14 @@
 //   B Aman Gülüm · Tüm eser, S+A,   due T+1d12h → amber "2 gün kaldı"
 //   C Bogoroditse Devo · Ölçü 1–16, SATB, due T+4h30m → red "5 saat kaldı"
 //   D Sicut Cervus · Tüm eser, SATB, due T−2d12h → red "Gecikti · 2 gün"; S 4/7 · A 3/6 · T 3/4 · B 3/5 = 13/22
-//   E Hallelujah · Ölçü 1–24, S+A, due T−10d → Geçmiş; korist submitted, unread note by the conductor
+//   E Hallelujah · Ölçü 1–24, S+A, due T−10d → Geçmiş; korist submitted, unread note by the conductor;
+//     Ayşe Öztürk's submission has a conductor comment too (her seeded recording is commented, D57)
 //   F Sicut Cervus · Ölçü 25–40, T+B, due T+3d12h → not korist's part
 // yeni@arkhe.local (Arda Tan, tenor) joins at T−1h: after every seeded homework, so expected nowhere.
+// Recordings, notes, the assistant and MIDI files come from media-fixture.mjs at the end.
 
 import { assertFixtureTarget } from "./fixture-guard.mjs";
+import { CLEAR_SEED_QUEUE, seedMedia } from "./media-fixture.mjs";
 
 const H = 3600;
 const D = 24 * H;
@@ -101,7 +104,7 @@ const SUBMISSIONS = [
   ["d", "ceren.polat@arkhe.local", "note", "Kaydın gelmedi, cumartesiye kadar gönderebilirsin."],
   ["e", "korist@arkhe.local", "on", "Girişler çok iyi, 20. ölçüde nefesi erken alıyorsun."],
   ["e", "yk@arkhe.local", "on"],
-  ["e", "ayse.ozturk@arkhe.local", "on"],
+  ["e", "ayse.ozturk@arkhe.local", "on", "Güzel; 8. ölçüde nefesi bölme."],
 ];
 
 /** Deletes and reinserts the demo homework relative to `T` (a Date). */
@@ -123,6 +126,8 @@ export async function seedHomework(client, T = new Date()) {
   }
 
   const statements = [
+    // The cascade below queues the seeded keys; a key may be queued only once.
+    CLEAR_SEED_QUEUE,
     `delete from submissions where assignment_id like '${ID_PATTERN}'`,
     `delete from assignment_parts where assignment_id like '${ID_PATTERN}'`,
     `delete from assignments where id like '${ID_PATTERN}'`,
@@ -186,4 +191,5 @@ export async function seedHomework(client, T = new Date()) {
     });
   }
   await client.batch(statements, "write");
+  await seedMedia(client, T);
 }

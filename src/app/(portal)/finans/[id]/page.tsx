@@ -8,6 +8,7 @@ import { AccountLabel, entryTitle } from "@/components/finance/entry-row";
 import { MoneyAmount } from "@/components/finance/money-amount";
 import { buttonVariants } from "@/components/ui/button";
 import { requireManager } from "@/lib/auth/dal";
+import { entryRecordNo } from "@/lib/import/queries";
 import { eventOptions, getEntry } from "@/lib/finance/queries";
 import { CATEGORY_LABELS, ENTRY_KIND_LABELS } from "@/lib/labels";
 import { parseLink } from "@/lib/links";
@@ -31,7 +32,7 @@ export default async function EntryPage({ params }: PageProps<"/finans/[id]">) {
   await requireManager();
   const { id } = await params;
   if (!z.uuid().safeParse(id).success) notFound();
-  const [e, eventList] = await Promise.all([getEntry(id), eventOptions()]);
+  const [e, eventList, recordNo] = await Promise.all([getEntry(id), eventOptions(), entryRecordNo(id)]);
   if (!e) notFound();
   const voided = Boolean(e.voidedAt);
   const link = e.documentUrl ? parseLink(e.documentUrl) : null;
@@ -133,6 +134,7 @@ export default async function EntryPage({ params }: PageProps<"/finans/[id]">) {
         <p>
           Kaydeden: {e.creatorName} · {formatShortDateTime.format(e.createdAt)}
         </p>
+        {recordNo && <p data-testid="imported-line">İçe aktarıldı · Kayıt no {recordNo}</p>}
         {e.updatedAt && (
           <p data-testid="updated-line">
             Son düzenleme: {e.updaterName} · {formatShortDateTime.format(e.updatedAt)}

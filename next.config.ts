@@ -11,7 +11,7 @@ const securityHeaders = [
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    value: "camera=(), microphone=(self), geolocation=(), payment=(), usb=()",
   },
   ...(isDev
     ? []
@@ -21,6 +21,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   devIndicators: false,
+  // A 1 MB import file plus multipart overhead; every action still validates its own input.
+  experimental: { serverActions: { bodySizeLimit: "1100kb" } },
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },

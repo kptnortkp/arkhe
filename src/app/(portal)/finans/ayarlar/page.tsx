@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { FinanceNav } from "@/components/finance/finance-nav";
 import { OpeningForm, PaymentInfoForm } from "@/components/finance/settings-forms";
 import { requireManager } from "@/lib/auth/dal";
@@ -26,6 +27,15 @@ export default async function FinanceSettingsPage() {
           Kayda başladığın günün kasa ve banka bakiyesi.
           {opening.firstEntryOn &&
             ` Tarih ${formatDayMonth.format(dayInstant(opening.firstEntryOn))} ya da öncesi olmalı; sonrasına alınamaz çünkü o günden kayıt var.`}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Geçmiş kayıtları aktarıyorsan açılış tarihi, kayıtlarının başladığı gün olmalı.{" "}
+          <Link
+            href="/ice-aktar"
+            className="inline-flex min-h-11 items-center font-medium text-foreground underline underline-offset-4"
+          >
+            Veri içe aktar
+          </Link>
         </p>
         <OpeningForm
           date={date}

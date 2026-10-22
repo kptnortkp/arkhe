@@ -2,7 +2,10 @@ import { CircleCheck, Grid3x3, Mic, Plus, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { FilterChip } from "@/components/filter-chip";
 import { ManagerRow, SingerRow } from "@/components/homework/homework-rows";
+import { HomeworkSettings } from "@/components/homework/homework-settings";
 import { RecordingEmailDialog } from "@/components/homework/recording-email-dialog";
+import { ListenLink } from "@/components/review/listen-link";
+import { StorageBanner } from "@/components/storage/storage-banner";
 import { buttonVariants } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth/dal";
 import {
@@ -16,6 +19,9 @@ import {
 } from "@/lib/homework/queries";
 import { VOICE_PART_LABELS } from "@/lib/labels";
 import { isManager } from "@/lib/permissions";
+import { effectiveScope } from "@/lib/review/access";
+import { assistantQueueCount, conductorCounts } from "@/lib/review/queries";
+import { loadScope } from "@/lib/review/scope";
 import { now } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +39,14 @@ export default async function HomeworkPage({ searchParams }: PageProps<"/odevler
     : "guncel";
   const at = now();
   const href = (v: HomeworkView) => (v === "guncel" ? "/odevler" : `/odevler?liste=${v}`);
+
+  const scope = effectiveScope(viewer, await loadScope(user.id));
+  const listen =
+    user.role === "conductor"
+      ? (await conductorCounts()).waiting
+      : scope.length > 0
+        ? await assistantQueueCount(viewer, scope)
+        : null;
 
   if (manager) {
     const [rows, mine, email, counts] = await Promise.all([
@@ -53,6 +67,7 @@ export default async function HomeworkPage({ searchParams }: PageProps<"/odevler
         </div>
         <div className="space-y-1">
           <div className="flex flex-wrap gap-2">
+            {listen !== null && <ListenLink count={listen} />}
             <Link
               href="/odevler/matris"
               className={cn(buttonVariants({ variant: "outline" }), "h-11 rounded-full px-4")}
@@ -60,7 +75,7 @@ export default async function HomeworkPage({ searchParams }: PageProps<"/odevler
               <Grid3x3 />
               Teslim matrisi
             </Link>
-            <RecordingEmailDialog current={email} />
+            <HomeworkSettings email={email} conductor={user.role === "conductor"} />
           </div>
           {email && (
             <p className="text-xs text-muted-foreground">Kayıtlar şu adrese gidiyor: {email}</p>
@@ -80,6 +95,7 @@ export default async function HomeworkPage({ searchParams }: PageProps<"/odevler
             </div>
           </div>
         )}
+        <StorageBanner conductor={user.role === "conductor"} />
         <nav aria-label="Ödev listesi" className="flex gap-2">
           <FilterChip
             href={href("guncel")}
@@ -142,6 +158,11 @@ export default async function HomeworkPage({ searchParams }: PageProps<"/odevler
                 ? `${optional} isteğe bağlı`
                 : "hepsi tamam"}
           </p>
+        )}
+        {listen !== null && (
+          <div className="pt-2">
+            <ListenLink count={listen} />
+          </div>
         )}
       </div>
       <nav aria-label="Ödev listesi" className="flex gap-2">

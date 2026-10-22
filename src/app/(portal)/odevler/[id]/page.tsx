@@ -7,7 +7,10 @@ import { AssignmentMenu } from "@/components/homework/assignment-menu";
 import { DeadlineChip, DueLine, PartList } from "@/components/homework/deadline-chip";
 import { FeedbackSeen } from "@/components/homework/feedback-seen";
 import { Roster, type RosterGroup } from "@/components/homework/roster";
-import { SingerSteps } from "@/components/homework/singer-steps";
+import { MailBlock } from "@/components/homework/singer-steps";
+import { MidiButton } from "@/components/midi/midi-button";
+import { FallbackDetails, ListenersNote } from "@/components/recording/listeners-note";
+import { Recorder } from "@/components/recording/recorder";
 import { SubmitToggle } from "@/components/homework/submit-button";
 import { PartButton } from "@/components/repertoire/part-button";
 import { VOICE_PARTS, type VoicePart } from "@/db/schema";
@@ -24,9 +27,18 @@ import {
   submissionCount,
 } from "@/lib/homework/queries";
 import { isManager } from "@/lib/permissions";
+import { myRecorder, rosterTakes, liveTakeCount } from "@/lib/homework/recordings";
 import { withMyPart } from "@/lib/repertoire";
+import { midiForPart } from "@/lib/repertoire-midi";
+import { listenersFor } from "@/lib/review/scope";
+import { storageConfigured } from "@/lib/storage/driver";
+import { asciiSlug } from "@/lib/storage/filename";
+import { recorderMaxMs } from "@/lib/storage/hooks";
+import { cachedUsage, playbackPausedFor, storageWarning } from "@/lib/storage/quota";
 import { formatShortDate, formatShortDateTime, now } from "@/lib/time";
 
+const stepNumber =
+  "grid size-7 shrink-0 place-items-center rounded-full bg-muted font-heading text-sm font-medium";
 const eyebrow = "font-sans text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase";
 const partParam = (p: VoicePart | null) => (p === "bass" ? "bas" : (p ?? "tumu"));
 
@@ -70,13 +82,22 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
 
   let singer: React.ReactNode = null;
   if (eligible || mine?.submittedAt) {
-    const [email, [withPart]] = await Promise.all([
+    const [email, [withPart], recorder, listeners, maxMs, warning, midi, usage] = await Promise.all([
       getRecordingEmail(),
       withMyPart([{ id: a.pieceId }], viewer.voicePart),
+      myRecorder(a.id, viewer.id),
+      listenersFor({ id: viewer.id, voicePart: viewer.voicePart }),
+      recorderMaxMs(),
+      storageWarning(),
+      midiForPart(a.pieceId, viewer.voicePart),
+      cachedUsage(),
     ]);
     const subject = viewer.voicePart ? homeworkSubject(a, viewer.voicePart, viewer.name) : "";
     const mailto = email ? mailtoHref(email, subject, homeworkBody(a, a.dueAt, viewer.name)) : null;
     const submitted = Boolean(mine?.submittedAt);
+    const take = recorder.take;
+    const storageReady = storageConfigured();
+    const blocked = warning.uploadsPaused || !storageReady;
     const toggle = (
       <SubmitToggle
         id={a.id}
@@ -92,32 +113,106 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
         manualBy={mine?.method === "manual" ? mine.markedByName : null}
       />
     );
+    const partLink = (
+      <PartButton
+        myPart={withPart.myPart}
+        voicePart={viewer.voicePart}
+        pieceId={a.pieceId}
+        title={a.pieceTitle}
+        hero={!midi}
+        asLink={Boolean(midi)}
+      />
+    );
+    const showTransparency = !recorder.locked && !take?.audioDeletedAt;
+    const recorderBlock = (
+      <div className="space-y-4">
+        <Recorder
+          assignmentId={a.id}
+          userId={viewer.id}
+          maxMs={maxMs}
+          fileBase={asciiSlug([a.pieceTitle, barsLabel(a.barFrom, a.barTo), viewer.name], "kayit")}
+          uploadsPaused={warning.uploadsPaused}
+          storageReady={storageReady}
+          playbackPaused={playbackPausedFor(usage)}
+          take={
+            take
+              ? {
+                  id: take.id,
+                  durationMs: take.durationMs,
+                  uploadedAt: take.uploadedAt.toISOString(),
+                  replacedEarlier: take.replacedEarlier,
+                  audioDeletedAt: take.audioDeletedAt?.toISOString() ?? null,
+                  deleteOn: take.deleteOn,
+                }
+              : null
+          }
+          submittedAt={mine?.submittedAt?.toISOString() ?? null}
+          manual={mine?.method === "manual"}
+          locked={recorder.locked}
+          uploadsUsed={recorder.uploadsUsed}
+          canUpload={recorder.canUpload}
+          canDelete={recorder.canDelete}
+        />
+        {showTransparency && <ListenersNote names={listeners} />}
+        {!recorder.locked && (
+          <FallbackDetails open={blocked}>
+            <MailBlock mailto={mailto} subject={subject} email={email} />
+            {toggle}
+          </FallbackDetails>
+        )}
+      </div>
+    );
     singer = (
-      <section className="space-y-4 rounded-2xl border bg-card p-4" aria-labelledby="teslim">
+      <section
+        id="kayit"
+        className="scroll-mt-20 space-y-4 rounded-2xl border bg-card p-4"
+        aria-labelledby="teslim"
+        data-testid="singer-card"
+      >
         <h2 id="teslim" className="text-xl font-medium">
-          Ödevini teslim et
+          {submitted ? "Teslimin" : "Ödevini teslim et"}
         </h2>
         {!expected && !submitted && (
           <p className="text-sm text-muted-foreground">
             Sen katılmadan önce verildi; istersen teslim edebilirsin.
           </p>
         )}
-        <SingerSteps
-          submitted={submitted}
-          partButton={
-            <PartButton
-              myPart={withPart.myPart}
-              voicePart={viewer.voicePart}
-              pieceId={a.pieceId}
-              title={a.pieceTitle}
-              hero
-            />
-          }
-          mailto={mailto}
-          subject={subject}
-          email={email}
-          toggle={toggle}
-        />
+        {submitted ? (
+          <>
+            <span id="kayit-baslik" className="sr-only">
+              Kaydın
+            </span>
+            {recorderBlock}
+          </>
+        ) : (
+          <ol className="space-y-5">
+            <li className="flex gap-3">
+              <span className={stepNumber}>1</span>
+              <div className="min-w-0 flex-1 space-y-2">
+                <p className="font-medium">Partisyonunu dinle</p>
+                {midi && (
+                  <MidiButton
+                    midiId={midi.id}
+                    title="MIDI'yi çal"
+                    myPart={viewer.voicePart}
+                    variant="step"
+                    compact
+                  />
+                )}
+                {partLink}
+              </div>
+            </li>
+            <li className="flex gap-3">
+              <span className={stepNumber}>2</span>
+              <div className="min-w-0 flex-1 space-y-3">
+                <p id="kayit-baslik" className="font-medium">
+                  Kaydını yap
+                </p>
+                {recorderBlock}
+              </div>
+            </li>
+          </ol>
+        )}
       </section>
     );
   }
@@ -129,7 +224,7 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
       data-testid="feedback"
     >
       <h2 id="not" className={eyebrow}>
-        {mine.feedbackByRole === "conductor" ? "Şefin notu" : "Geri bildirim"}
+        {mine.feedbackByRole === "conductor" ? "Şefin yorumu" : "Geri bildirim"}
       </h2>
       <p className="text-sm whitespace-pre-line">{mine.feedback}</p>
       <p className="text-xs text-muted-foreground">
@@ -143,9 +238,10 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
 
   let rosterBlock: React.ReactNode = null;
   let submittedTotal = 0;
+  let liveTakes = 0;
   if (manager) {
-    const entries = await rosterFor(a, at);
-    submittedTotal = await submissionCount(a.id);
+    const [entries, takes] = await Promise.all([rosterFor(a, at), rosterTakes(a.id)]);
+    [submittedTotal, liveTakes] = await Promise.all([submissionCount(a.id), liveTakeCount(a.id)]);
     const onlyMissing = sp.filtre === "eksik";
     const counted = entries.filter((e) => !e.left);
     const done = counted.filter((e) => e.state === "done" || e.state === "late").length;
@@ -182,6 +278,7 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
             joinedLater: !e.expected,
             left: e.left,
             feedback: e.feedback,
+            take: takes.get(e.userId) ?? null,
           })),
       };
     });
@@ -204,7 +301,7 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
             count={missingCount}
           />
         </nav>
-        <Roster assignmentId={a.id} groups={groups} />
+        <Roster assignmentId={a.id} groups={groups} canComment={user.role === "conductor"} />
       </section>
     );
   }
@@ -221,7 +318,9 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
       <header className="space-y-3">
         <div className="flex items-start justify-between gap-3">
           <p className={`${eyebrow} pt-2`}>Ödev · {barsLabel(a.barFrom, a.barTo)}</p>
-          {manager && <AssignmentMenu id={a.id} title={title} submitted={submittedTotal} />}
+          {manager && (
+            <AssignmentMenu id={a.id} title={title} submitted={submittedTotal} takes={liveTakes} />
+          )}
         </div>
         <h1 className="text-3xl leading-tight font-medium">{a.pieceTitle}</h1>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
@@ -229,14 +328,25 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
           {headerBadge && <DeadlineChip badge={headerBadge} />}
         </div>
         <DueLine dueAt={a.dueAt} className="block text-sm" />
-        <Link
-          href={`/repertuvar/${a.pieceId}?partisyon=${partParam(viewer.voicePart)}`}
-          className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-          data-testid="piece-link"
-        >
-          <Library className="size-4" />
-          Esere git
-        </Link>
+        <div className="flex flex-wrap items-center gap-x-5">
+          <Link
+            href={`/repertuvar/${a.pieceId}?partisyon=${partParam(viewer.voicePart)}`}
+            className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+            data-testid="piece-link"
+          >
+            <Library className="size-4" />
+            Esere git
+          </Link>
+          {singer && !mine?.submittedAt && (
+            <a
+              href="#kayit"
+              className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline"
+              data-testid="jump-record"
+            >
+              Kaydını yap ↓
+            </a>
+          )}
+        </div>
       </header>
 
       {a.description && (

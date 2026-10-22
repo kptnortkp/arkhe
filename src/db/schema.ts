@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   type AnySQLiteColumn,
   check,
+  foreignKey,
   index,
   integer,
   primaryKey,
@@ -18,6 +19,29 @@ import {
   INCOME_CATEGORIES,
   OVERRIDE_KINDS,
 } from "../lib/finance/categories";
+import { TICKET_EVENT_KINDS, TICKET_STATUSES, TICKET_URGENCIES } from "../lib/board/labels";
+import {
+  MIDI_MAX_BYTES,
+  RECORDING_EXTENSIONS,
+  RECORDING_MAX_BYTES,
+  RECORDING_TYPES,
+} from "../lib/storage/limits";
+
+export {
+  TICKET_EVENT_KINDS,
+  TICKET_STATUSES,
+  TICKET_URGENCIES,
+  type TicketEventKind,
+  type TicketStatus,
+  type TicketUrgency,
+} from "../lib/board/labels";
+export {
+  MIDI_MAX_BYTES,
+  RECORDING_EXTENSIONS,
+  RECORDING_MAX_BYTES,
+  RECORDING_TYPES,
+  type RecordingType,
+} from "../lib/storage/limits";
 
 export const ROLES = ["conductor", "board", "member"] as const;
 export const VOICE_PARTS = ["soprano", "alto", "tenor", "bass"] as const;
@@ -707,5 +731,710 @@ export const financeEntries = sqliteTable(
     index("fe_payment_group_idx")
       .on(t.paymentGroupId)
       .where(sql`payment_group_id is not null`),
+  ],
+);
+
+// One row; the high-water mark keeps #numbers unique for ever, even after a delete or a restore.
+export const boardTicketSeq = sqliteTable(
+  "board_ticket_seq",
+  {
+    id: integer("id").primaryKey(),
+    lastNumber: integer("last_number").notNull(),
+  },
+  () => [
+    check("board_ticket_seq_single", sql`id = 1`),
+    check("board_ticket_seq_last", sql`typeof(last_number) = 'integer' and last_number >= 0`),
+  ],
+);
+
+export const boardTickets = sqliteTable(
+  "board_tickets",
+  {
+    id: id(),
+    number: integer("number").notNull(),
+    title: text("title").notNull(),
+    description: text("description"),
+    status: text("status", { enum: TICKET_STATUSES }).notNull().default("todo"),
+    urgency: text("urgency", { enum: TICKET_URGENCIES }).notNull().default("medium"),
+    assigneeId: text("assignee_id").references(() => users.id, { onDelete: "restrict" }),
+    // Plain Europe/Istanbul calendar day.
+    dueOn: text("due_on"),
+    doneAt: integer("done_at", { mode: "timestamp" }),
+    // Optimistic lock for edits; bumped by every write to this row, moves included.
+    revision: integer("revision").notNull().default(0),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    createdAt: createdAt(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(now),
+    updatedBy: text("updated_by").references(() => users.id, { onDelete: "restrict" }),
+  },
+  (t) => [
+    uniqueIndex("board_tickets_number_idx").on(t.number),
+    index("board_tickets_status_idx").on(t.status, t.doneAt),
+    index("board_tickets_assignee_idx").on(t.assigneeId, t.status),
+    check("board_tickets_number_check", sql`typeof(number) = 'integer' and number >= 1`),
+    check("board_tickets_status_check", sql`status in (${inList(TICKET_STATUSES)})`),
+    check("board_tickets_urgency_check", sql`urgency in (${inList(TICKET_URGENCIES)})`),
+    check(
+      "board_tickets_title_length",
+      sql`length(trim(title)) between 3 and 120 and length(title) <= 120`,
+    ),
+    check("board_tickets_description_length", optText("description", 4000)),
+    check(
+      "board_tickets_due_format",
+      sql`due_on is null or (${day("due_on")} and date(due_on) is due_on)`,
+    ),
+    check("board_tickets_done_at", sql`(status = 'done') = (done_at is not null)`),
+    check("board_tickets_revision_check", sql`typeof(revision) = 'integer' and revision >= 0`),
+  ],
+);
+
+// The ticket's thread: system entries (who changed what) and comments, oldest first by id.
+export const boardTicketEvents = sqliteTable(
+  "board_ticket_events",
+  {
+    // AUTOINCREMENT: ids never repeat, so "seen up to id N" is exact.
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    ticketId: text("ticket_id")
+      .notNull()
+      .references(() => boardTickets.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: TICKET_EVENT_KINDS }).notNull(),
+    actorId: text("actor_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    // Comment text; null for system entries.
+    body: text("body"),
+    // Per-mount key of the comment form, so a replayed submit can't post twice.
+    clientKey: text("client_key"),
+    // status/urgency codes or due days; null means "none" (— or Atanmadı).
+    fromValue: text("from_value"),
+    toValue: text("to_value"),
+    fromUserId: text("from_user_id").references(() => users.id, { onDelete: "restrict" }),
+    toUserId: text("to_user_id").references(() => users.id, { onDelete: "restrict" }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("board_ticket_events_ticket_idx").on(t.ticketId),
+    index("board_ticket_events_comments_idx")
+      .on(t.ticketId)
+      .where(sql`kind = 'comment'`),
+    uniqueIndex("board_ticket_events_client_key_idx")
+      .on(t.clientKey)
+      .where(sql`client_key is not null`),
+    check("board_ticket_events_kind_check", sql`kind in (${inList(TICKET_EVENT_KINDS)})`),
+    check(
+      "board_ticket_events_body",
+      sql`(kind = 'comment') = (body is not null) and (body is null or (length(trim(body)) >= 1 and length(body) <= 2000))`,
+    ),
+    check("board_ticket_events_client_key", sql`client_key is null or kind = 'comment'`),
+    check(
+      "board_ticket_events_users",
+      sql`kind = 'assignee' or (from_user_id is null and to_user_id is null)`,
+    ),
+    check(
+      "board_ticket_events_values",
+      sql`coalesce(case kind
+        when 'status' then from_value in (${inList(TICKET_STATUSES)}) and to_value in (${inList(TICKET_STATUSES)}) and from_value <> to_value
+        when 'urgency' then from_value in (${inList(TICKET_URGENCIES)}) and to_value in (${inList(TICKET_URGENCIES)}) and from_value <> to_value
+        when 'due' then (from_value is null or date(from_value) is from_value) and (to_value is null or date(to_value) is to_value) and from_value is not to_value
+        when 'assignee' then from_value is null and to_value is null and from_user_id is not to_user_id
+        else from_value is null and to_value is null end, 0)`,
+    ),
+  ],
+);
+
+// Per manager: the last thread entry and ticket revision they saw on the detail page.
+export const boardTicketReads = sqliteTable(
+  "board_ticket_reads",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    ticketId: text("ticket_id")
+      .notNull()
+      .references(() => boardTickets.id, { onDelete: "cascade" }),
+    seenEventId: integer("seen_event_id").notNull(),
+    seenRevision: integer("seen_revision").notNull(),
+    seenAt: integer("seen_at", { mode: "timestamp" }).notNull().default(now),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.ticketId] }),
+    // The cascade from board_tickets looks rows up by ticket alone.
+    index("board_ticket_reads_ticket_idx").on(t.ticketId),
+    check(
+      "board_ticket_reads_seen",
+      sql`typeof(seen_event_id) = 'integer' and seen_event_id >= 0 and typeof(seen_revision) = 'integer' and seen_revision >= 0`,
+    ),
+  ],
+);
+
+const monthOk = (column: string) =>
+  sql.raw(
+    `${column} glob '[0-9][0-9][0-9][0-9]-[0-1][0-9]' and strftime('%Y-%m', ${column} || '-01') is ${column}`,
+  );
+
+// Triggers in 0008 forbid overlaps; a drizzle "__new_budgets" rebuild would silently drop them.
+export const budgets = sqliteTable(
+  "budgets",
+  {
+    id: id(),
+    name: text("name").notNull(),
+    startMonth: text("start_month").notNull(),
+    // Exclusive; always start_month + 12 months, stored so range queries stay indexable.
+    endMonth: text("end_month").notNull(),
+    note: text("note"),
+    approvedAt: integer("approved_at", { mode: "timestamp" }),
+    approvedBy: text("approved_by").references(() => users.id, { onDelete: "restrict" }),
+    // Optimistic lock for plan saves.
+    revision: integer("revision").notNull().default(0),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    createdAt: createdAt(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }),
+    updatedBy: text("updated_by").references(() => users.id, { onDelete: "restrict" }),
+  },
+  (t) => [
+    uniqueIndex("budgets_name_idx").on(t.name),
+    uniqueIndex("budgets_start_idx").on(t.startMonth),
+    check("budgets_name_length", sql`length(trim(name)) between 1 and 40 and length(name) <= 40`),
+    check("budgets_start_format", monthOk("start_month")),
+    check(
+      "budgets_end_month",
+      sql`end_month is strftime('%Y-%m', start_month || '-01', '+12 months')`,
+    ),
+    check("budgets_note_length", optText("note", 500)),
+    check("budgets_approved_pair", sql`(approved_at is null) = (approved_by is null)`),
+    check("budgets_updated_pair", sql`(updated_at is null) = (updated_by is null)`),
+    check("budgets_revision_check", sql`typeof(revision) = 'integer' and revision >= 0`),
+  ],
+);
+
+// One row per planned category; a missing row means 0 ("not planned").
+export const budgetLines = sqliteTable(
+  "budget_lines",
+  {
+    budgetId: text("budget_id")
+      .notNull()
+      .references(() => budgets.id, { onDelete: "cascade" }),
+    category: text("category", { enum: CATEGORIES }).notNull(),
+    amountKurus: integer("amount_kurus").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.budgetId, t.category] }),
+    check("budget_lines_category_check", sql`category in (${inList(CATEGORIES)})`),
+    check("budget_lines_amount", kurus("amount_kurus")),
+  ],
+);
+
+// One row per "Planı değiştir" save on an approved budget.
+export const budgetRevisions = sqliteTable(
+  "budget_revisions",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    budgetId: text("budget_id")
+      .notNull()
+      .references(() => budgets.id, { onDelete: "cascade" }),
+    reason: text("reason").notNull(),
+    actorId: text("actor_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("budget_revisions_budget_idx").on(t.budgetId),
+    check(
+      "budget_revisions_reason_length",
+      sql`length(trim(reason)) between 5 and 200 and length(reason) <= 200`,
+    ),
+  ],
+);
+
+export const budgetRevisionLines = sqliteTable(
+  "budget_revision_lines",
+  {
+    revisionId: integer("revision_id")
+      .notNull()
+      .references(() => budgetRevisions.id, { onDelete: "cascade" }),
+    category: text("category", { enum: CATEGORIES }).notNull(),
+    fromKurus: integer("from_kurus").notNull(),
+    toKurus: integer("to_kurus").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.revisionId, t.category] }),
+    check("budget_revision_lines_category_check", sql`category in (${inList(CATEGORIES)})`),
+    check(
+      "budget_revision_lines_amounts",
+      sql`typeof(from_kurus) = 'integer' and typeof(to_kurus) = 'integer' and from_kurus between 0 and 1000000000 and to_kurus between 0 and 1000000000 and from_kurus <> to_kurus`,
+    ),
+  ],
+);
+
+export const IMPORT_KINDS = [
+  "members",
+  "terms",
+  "attendance",
+  "entries",
+  "dues_periods",
+  "dues_payments",
+] as const;
+export const IMPORT_STATUSES = ["imported", "undone"] as const;
+export const IMPORT_TARGETS = [
+  "user",
+  "term",
+  "rehearsal",
+  "finance_entry",
+  "dues_period",
+  "dues_override",
+  "sponsor",
+] as const;
+export const IMPORT_ACTIONS = ["create", "update"] as const;
+export const KAYIT_SCOPES = ["entries", "dues_payments"] as const;
+export type ImportKind = (typeof IMPORT_KINDS)[number];
+export type ImportTarget = (typeof IMPORT_TARGETS)[number];
+export type ImportAction = (typeof IMPORT_ACTIONS)[number];
+export type KayitScope = (typeof KAYIT_SCOPES)[number];
+
+// One row per committed file; never the file itself. The integer id is the commit order (undo stack).
+export const importBatches = sqliteTable(
+  "import_batches",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    kind: text("kind", { enum: IMPORT_KINDS }).notNull(),
+    status: text("status", { enum: IMPORT_STATUSES }).notNull().default("imported"),
+    fileName: text("file_name").notNull(),
+    fileSize: integer("file_size").notNull(),
+    fileSha256: text("file_sha256").notNull(),
+    rowCount: integer("row_count").notNull(),
+    addedCount: integer("added_count").notNull(),
+    updatedCount: integer("updated_count").notNull(),
+    unchangedCount: integer("unchanged_count").notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    createdAt: createdAt(),
+    undoneAt: integer("undone_at", { mode: "timestamp" }),
+    undoneBy: text("undone_by").references(() => users.id, { onDelete: "restrict" }),
+  },
+  (t) => [
+    index("import_batches_kind_idx").on(t.kind, t.id),
+    index("import_batches_sha_idx").on(t.fileSha256),
+    check("import_batches_kind_check", sql`kind in (${inList(IMPORT_KINDS)})`),
+    check("import_batches_status_check", sql`status in (${inList(IMPORT_STATUSES)})`),
+    check(
+      "import_batches_undo",
+      sql`(status = 'undone') = (undone_at is not null) and (undone_at is null) = (undone_by is null) and (undone_at is null or undone_at >= created_at)`,
+    ),
+    // char(47) and char(92) are / and \: no path may sneak into the logged name.
+    check(
+      "import_batches_file_name",
+      sql`length(trim(file_name)) between 1 and 120 and length(file_name) <= 120 and file_name not glob ('*[' || char(1, 9, 10, 13, 47, 92) || ']*')`,
+    ),
+    check(
+      "import_batches_file_size",
+      sql`typeof(file_size) = 'integer' and file_size between 1 and 1048576`,
+    ),
+    check(
+      "import_batches_sha",
+      sql`length(file_sha256) = 64 and file_sha256 not glob '*[^0-9a-f]*'`,
+    ),
+    check(
+      "import_batches_counts",
+      sql`typeof(row_count) = 'integer' and typeof(added_count) = 'integer' and typeof(updated_count) = 'integer' and typeof(unchanged_count) = 'integer' and row_count between 1 and 5000 and added_count >= 0 and updated_count >= 0 and unchanged_count >= 0 and added_count + updated_count + unchanged_count = row_count and added_count + updated_count >= 1`,
+    ),
+  ],
+);
+
+const itemTargetColumns = {
+  user: "user_id",
+  term: "term_id",
+  rehearsal: "rehearsal_id",
+  finance_entry: "finance_entry_id",
+  dues_period: "dues_period_id",
+  dues_override: "override_period_id",
+  sponsor: "sponsor_id",
+} as const satisfies Record<ImportTarget, string>;
+// Restrict FKs never go null; set-null ones go null when the row was deleted by hand since.
+const neverNull = new Set<ImportTarget>(["user", "finance_entry", "sponsor"]);
+const itemTargetCheck = sql.raw(
+  `coalesce(case target ${IMPORT_TARGETS.map((target) => {
+    const own = itemTargetColumns[target];
+    const others = Object.values(itemTargetColumns)
+      .filter((c) => c !== own)
+      .map((c) => `${c} is null`)
+      .join(" and ");
+    return `when '${target}' then ${others}${neverNull.has(target) ? ` and ${own} is not null` : ""}`;
+  }).join(" ")} end, 0)`,
+);
+
+// What a batch wrote: the undo list and the "İçe aktarıldı" marker. Deleted by the undo.
+export const importItems = sqliteTable(
+  "import_items",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    batchId: integer("batch_id")
+      .notNull()
+      .references(() => importBatches.id, { onDelete: "cascade" }),
+    target: text("target", { enum: IMPORT_TARGETS }).notNull(),
+    action: text("action", { enum: IMPORT_ACTIONS }).notNull(),
+    userId: text("user_id").references(() => users.id, { onDelete: "restrict" }),
+    termId: text("term_id").references(() => terms.id, { onDelete: "set null" }),
+    rehearsalId: text("rehearsal_id").references(() => rehearsals.id, { onDelete: "set null" }),
+    financeEntryId: text("finance_entry_id").references(() => financeEntries.id, {
+      onDelete: "restrict",
+    }),
+    duesPeriodId: text("dues_period_id").references(() => duesPeriods.id, {
+      onDelete: "set null",
+    }),
+    overridePeriodId: text("override_period_id"),
+    overrideUserId: text("override_user_id"),
+    sponsorId: text("sponsor_id").references(() => sponsors.id, { onDelete: "restrict" }),
+    kayitScope: text("kayit_scope", { enum: KAYIT_SCOPES }),
+    kayitNo: text("kayit_no"),
+    // User updates: the values to restore.
+    beforeJson: text("before_json"),
+    // The row as written; undo refuses when the live row no longer matches it.
+    afterJson: text("after_json"),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.overridePeriodId, t.overrideUserId],
+      foreignColumns: [duesOverrides.duesPeriodId, duesOverrides.userId],
+      name: "import_items_override_fk",
+    }).onDelete("set null"),
+    index("import_items_batch_idx").on(t.batchId, t.target),
+    uniqueIndex("import_items_kayit_idx")
+      .on(t.kayitScope, t.kayitNo)
+      .where(sql`kayit_no is not null`),
+    index("import_items_user_idx")
+      .on(t.userId)
+      .where(sql`user_id is not null`),
+    uniqueIndex("import_items_term_idx")
+      .on(t.termId)
+      .where(sql`term_id is not null`),
+    uniqueIndex("import_items_rehearsal_idx")
+      .on(t.rehearsalId)
+      .where(sql`rehearsal_id is not null`),
+    uniqueIndex("import_items_entry_idx")
+      .on(t.financeEntryId)
+      .where(sql`finance_entry_id is not null`),
+    uniqueIndex("import_items_period_idx")
+      .on(t.duesPeriodId)
+      .where(sql`dues_period_id is not null`),
+    uniqueIndex("import_items_override_idx")
+      .on(t.overridePeriodId, t.overrideUserId)
+      .where(sql`override_period_id is not null`),
+    uniqueIndex("import_items_sponsor_idx")
+      .on(t.sponsorId)
+      .where(sql`sponsor_id is not null`),
+    check("import_items_target_check", sql`target in (${inList(IMPORT_TARGETS)})`),
+    check("import_items_action_check", sql`action in (${inList(IMPORT_ACTIONS)})`),
+    check("import_items_one_target", itemTargetCheck),
+    check(
+      "import_items_override_pair",
+      sql`(override_period_id is null) = (override_user_id is null)`,
+    ),
+    check("import_items_update_is_user", sql`action = 'create' or target = 'user'`),
+    check(
+      "import_items_kayit",
+      sql`(kayit_no is null) = (kayit_scope is null) and (kayit_scope is null or kayit_scope in (${inList(KAYIT_SCOPES)})) and (kayit_no is null or (length(kayit_no) between 1 and 40 and kayit_no not glob '*[^A-Za-z0-9._/-]*')) and (kayit_no is null or target in ('finance_entry', 'dues_override')) and (target <> 'finance_entry' or kayit_no is not null)`,
+    ),
+    check(
+      "import_items_json",
+      sql`(action = 'update') = (before_json is not null) and (before_json is null or (json_valid(before_json) and length(before_json) <= 4000)) and (after_json is null or (json_valid(after_json) and length(after_json) <= 4000)) and (target not in ('user', 'rehearsal', 'dues_period', 'dues_override', 'sponsor') or after_json is not null)`,
+    ),
+  ],
+);
+
+// ------------------------------------------------- Phase 9: recordings, assistant review, MIDI files
+
+export const RECORDING_DELETE_REASONS = [
+  "replaced",
+  "withdrawn",
+  "conductor",
+  "retention",
+  "early",
+  "missing",
+] as const;
+export const STORAGE_AREAS = ["recording", "midi"] as const;
+export const STORAGE_EVENT_KINDS = ["put", "get"] as const;
+export const DELETION_STATES = ["pending", "done"] as const;
+export const STORAGE_ERROR_KINDS = [
+  "unavailable",
+  "suspended",
+  "rate_limited",
+  "auth",
+  "fault",
+  "unknown",
+] as const;
+export const SWEEP_REASONS = ["cron", "early"] as const;
+export const SWEEP_STATUSES = ["ok", "partial", "failed"] as const;
+export type RecordingDeleteReason = (typeof RECORDING_DELETE_REASONS)[number];
+export type StorageArea = (typeof STORAGE_AREAS)[number];
+
+const uuidPart = (expr: string) =>
+  sql.raw(`length(${expr}) = 36 and ${expr} not glob '*[^0-9a-f-]*'`);
+const recordingExt = sql.raw(
+  `case content_type ${RECORDING_TYPES.map((t) => `when '${t}' then '${RECORDING_EXTENSIONS[t]}'`).join(" ")} end`,
+);
+const bytes = (column: string, max: number) =>
+  sql.raw(`typeof(${column}) = 'integer' and ${column} between 1 and ${max}`);
+
+// One row per upload, never deleted by the app (only by the cascade from assignments): the current
+// take, earlier takes, and the metadata of audio that is gone. Triggers in 0010 queue the file.
+// Triggers in 0010 queue files on audio delete and row delete; a drizzle "__new_recordings" rebuild would silently drop them.
+export const recordings = sqliteTable(
+  "recordings",
+  {
+    // The client's X-Upload-Id (idempotent retries); the storage key is a separate server uuid.
+    id: text("id").primaryKey(),
+    assignmentId: text("assignment_id")
+      .notNull()
+      .references(() => assignments.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    // The take this one replaced (Değiştir); null for a first upload or an upload after Sil.
+    replacesId: text("replaces_id").references((): AnySQLiteColumn => recordings.id),
+    // Server-only: never selected for a page, never sent to a browser.
+    storageKey: text("storage_key").notNull(),
+    contentType: text("content_type", { enum: RECORDING_TYPES }).notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    // Client-reported, clamped; display only.
+    durationMs: integer("duration_ms"),
+    uploadedAt: integer("uploaded_at", { mode: "timestamp" }).notNull().default(now),
+    // Null = the current take of (assignment, singer).
+    replacedAt: integer("replaced_at", { mode: "timestamp" }),
+    // First conductor comment while this take was current; editing doesn't move it.
+    commentedAt: integer("commented_at", { mode: "timestamp" }),
+    // Istanbul day the sweep deletes the audio: commented +90 d, else uploaded +120 d (set by the app).
+    deleteOn: text("delete_on").notNull(),
+    audioDeletedAt: integer("audio_deleted_at", { mode: "timestamp" }),
+    deletedReason: text("deleted_reason", { enum: RECORDING_DELETE_REASONS }),
+  },
+  (t) => [
+    uniqueIndex("recordings_current_idx")
+      .on(t.assignmentId, t.userId)
+      .where(sql`replaced_at is null`),
+    index("recordings_slot_idx").on(t.assignmentId, t.userId, t.uploadedAt),
+    index("recordings_user_idx").on(t.userId),
+    uniqueIndex("recordings_replaces_idx")
+      .on(t.replacesId)
+      .where(sql`replaces_id is not null`),
+    uniqueIndex("recordings_storage_key_idx").on(t.storageKey),
+    // Sweep, storage gauge and review queues only look at live audio.
+    index("recordings_live_idx")
+      .on(t.deleteOn, t.sizeBytes)
+      .where(sql`audio_deleted_at is null`),
+    index("recordings_commented_idx")
+      .on(t.commentedAt)
+      .where(sql`audio_deleted_at is null and commented_at is not null`),
+    check("recordings_id_check", uuidPart("id")),
+    check("recordings_content_type_check", sql`content_type in (${inList(RECORDING_TYPES)})`),
+    check(
+      "recordings_storage_key_check",
+      sql`substr(storage_key, 1, 11) = 'recordings/' and ${uuidPart("substr(storage_key, 12, 36)")} and substr(storage_key, 48) = '.' || ${recordingExt}`,
+    ),
+    check("recordings_size_check", bytes("size_bytes", RECORDING_MAX_BYTES)),
+    check(
+      "recordings_duration_check",
+      sql`duration_ms is null or (typeof(duration_ms) = 'integer' and duration_ms between 0 and 600000)`,
+    ),
+    check("recordings_replaces_self", sql`replaces_id is null or replaces_id <> id`),
+    check(
+      "recordings_replaced",
+      sql`replaced_at is null or (replaced_at >= uploaded_at and audio_deleted_at is not null and commented_at is null)`,
+    ),
+    check("recordings_commented", sql`commented_at is null or commented_at >= uploaded_at`),
+    check(
+      "recordings_delete_on",
+      sql`${day("delete_on")} and date(delete_on) is delete_on and delete_on > date(uploaded_at, 'unixepoch')`,
+    ),
+    check(
+      "recordings_deleted",
+      sql`(audio_deleted_at is null) = (deleted_reason is null) and (deleted_reason is null or deleted_reason in (${inList(RECORDING_DELETE_REASONS)})) and (audio_deleted_at is null or audio_deleted_at >= uploaded_at)`,
+    ),
+  ],
+);
+
+// The conductor's appointment: one row per (assistant, voice part in scope); "Tüm partisyonlar" = all
+// four rows. No rows = not an assistant. Ignored while the user is inactive or the conductor.
+export const listeningAssistants = sqliteTable(
+  "listening_assistants",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    voicePart: text("voice_part", { enum: VOICE_PARTS }).notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.voicePart] }),
+    // "Who can listen to me": the singer's part -> assistants.
+    index("listening_assistants_part_idx").on(t.voicePart, t.userId),
+    check("listening_assistants_voice_check", sql`voice_part in (${inList(VOICE_PARTS)})`),
+  ],
+);
+
+// Private to the conductor and the note's author. Kept when the take is replaced; recording_id is
+// the take it was written on ("Önceki kayda yazıldı").
+export const assistantNotes = sqliteTable(
+  "assistant_notes",
+  {
+    assignmentId: text("assignment_id")
+      .notNull()
+      .references(() => assignments.id, { onDelete: "cascade" }),
+    singerId: text("singer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    assistantId: text("assistant_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    // No action: recording rows only go with their assignment, which takes the note too.
+    recordingId: text("recording_id")
+      .notNull()
+      .references(() => recordings.id),
+    body: text("body").notNull(),
+    createdAt: createdAt(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(now),
+  },
+  (t) => [
+    primaryKey({ columns: [t.assignmentId, t.singerId, t.assistantId] }),
+    index("assistant_notes_assistant_idx").on(t.assistantId, t.updatedAt),
+    index("assistant_notes_singer_idx").on(t.singerId),
+    index("assistant_notes_recording_idx").on(t.recordingId),
+    check("assistant_notes_not_own", sql`assistant_id <> singer_id`),
+    check(
+      "assistant_notes_body",
+      sql`length(trim(body)) between 1 and 1000 and length(body) <= 1000`,
+    ),
+    check("assistant_notes_updated", sql`updated_at >= created_at`),
+  ],
+);
+
+// Null voice_part = Tutti (as in piece_links). Hard-deleted; a trigger in 0010 queues the file.
+// Triggers in 0010 queue files on audio delete and row delete; a drizzle "__new_midi_files" rebuild would silently drop them.
+export const midiFiles = sqliteTable(
+  "midi_files",
+  {
+    id: text("id").primaryKey(),
+    pieceId: text("piece_id")
+      .notNull()
+      .references(() => pieces.id, { onDelete: "cascade" }),
+    voicePart: text("voice_part", { enum: VOICE_PARTS }),
+    label: text("label"),
+    storageKey: text("storage_key").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("midi_files_piece_idx").on(t.pieceId, t.voicePart),
+    uniqueIndex("midi_files_storage_key_idx").on(t.storageKey),
+    check("midi_files_id_check", uuidPart("id")),
+    check(
+      "midi_files_voice_part_check",
+      sql`voice_part is null or voice_part in (${inList(VOICE_PARTS)})`,
+    ),
+    check(
+      "midi_files_label_length",
+      sql`label is null or (length(trim(label)) between 1 and 60 and length(label) <= 60)`,
+    ),
+    check(
+      "midi_files_storage_key_check",
+      sql`substr(storage_key, 1, 5) = 'midi/' and ${uuidPart("substr(storage_key, 6, 36)")} and substr(storage_key, 42) = '.mid'`,
+    ),
+    check("midi_files_size_check", bytes("size_bytes", MIDI_MAX_BYTES)),
+  ],
+);
+
+// Every stored key that isn't live. Filled by the 0010 triggers, and by uploads: a hold row before
+// the put (not_before = now + 1 h) that the upload's transaction deletes when the key becomes live.
+export const storageDeletions = sqliteTable(
+  "storage_deletions",
+  {
+    storageKey: text("storage_key").primaryKey(),
+    area: text("area", { enum: STORAGE_AREAS }).notNull(),
+    // Still occupies the store until done: counted by the Depolama meter.
+    sizeBytes: integer("size_bytes").notNull(),
+    state: text("state", { enum: DELETION_STATES }).notNull().default("pending"),
+    requestedAt: integer("requested_at", { mode: "timestamp" }).notNull().default(now),
+    // Upload hold: the sweep leaves the key alone until then.
+    notBefore: integer("not_before", { mode: "timestamp" }),
+    attempts: integer("attempts").notNull().default(0),
+    lastAttemptAt: integer("last_attempt_at", { mode: "timestamp" }),
+    lastError: text("last_error", { enum: STORAGE_ERROR_KINDS }),
+    doneAt: integer("done_at", { mode: "timestamp" }),
+  },
+  (t) => [
+    index("storage_deletions_pending_idx")
+      .on(t.requestedAt)
+      .where(sql`state = 'pending'`),
+    index("storage_deletions_done_idx")
+      .on(t.doneAt)
+      .where(sql`state = 'done'`),
+    check("storage_deletions_area_check", sql`area in (${inList(STORAGE_AREAS)})`),
+    check("storage_deletions_state_check", sql`state in (${inList(DELETION_STATES)})`),
+    check(
+      "storage_deletions_key_check",
+      sql`(area = 'recording' and substr(storage_key, 1, 11) = 'recordings/' and ${uuidPart("substr(storage_key, 12, 36)")} and substr(storage_key, 48) in ('.m4a', '.mp3', '.aac', '.webm', '.ogg', '.wav')) or (area = 'midi' and substr(storage_key, 1, 5) = 'midi/' and ${uuidPart("substr(storage_key, 6, 36)")} and substr(storage_key, 42) = '.mid')`,
+    ),
+    check("storage_deletions_size_check", bytes("size_bytes", RECORDING_MAX_BYTES)),
+    // No order check against requested_at: the triggers use the DB clock, the app its own.
+    check("storage_deletions_done", sql`(state = 'done') = (done_at is not null)`),
+    check(
+      "storage_deletions_attempts",
+      sql`typeof(attempts) = 'integer' and attempts >= 0 and (attempts = 0) = (last_attempt_at is null) and (last_error is null or (last_error in (${inList(STORAGE_ERROR_KINDS)}) and attempts >= 1))`,
+    ),
+    check("storage_deletions_not_before", sql`not_before is null or state = 'pending'`),
+  ],
+);
+
+// Our own count of Blob operations (the gauge's rolling 30 days). No user, no key. Pruned by the sweep.
+// 0011 adds `area` with a column CHECK (area is null or in STORAGE_AREAS), written by hand in the SQL.
+export const storageEvents = sqliteTable(
+  "storage_events",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    kind: text("kind", { enum: STORAGE_EVENT_KINDS }).notNull(),
+    /** 0011: null on older rows (read as "recording"). MIDI gets count toward transfer only. */
+    area: text("area", { enum: STORAGE_AREAS }),
+    bytes: integer("bytes").notNull(),
+    at: integer("at", { mode: "timestamp" }).notNull().default(now),
+  },
+  (t) => [
+    index("storage_events_kind_at_idx").on(t.kind, t.at, t.bytes),
+    check("storage_events_kind_check", sql`kind in (${inList(STORAGE_EVENT_KINDS)})`),
+    check("storage_events_bytes_check", bytes("bytes", RECORDING_MAX_BYTES)),
+  ],
+);
+
+// One row per finished sweep (daily cron or early clean): "Son temizlik: <tarih> · <n> dosya silindi".
+export const storageSweeps = sqliteTable(
+  "storage_sweeps",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    reason: text("reason", { enum: SWEEP_REASONS }).notNull(),
+    status: text("status", { enum: SWEEP_STATUSES }).notNull(),
+    startedAt: integer("started_at", { mode: "timestamp" }).notNull(),
+    finishedAt: integer("finished_at", { mode: "timestamp" }).notNull(),
+    expired: integer("expired").notNull(),
+    deleted: integer("deleted").notNull(),
+    failed: integer("failed").notNull(),
+  },
+  () => [
+    check("storage_sweeps_reason_check", sql`reason in (${inList(SWEEP_REASONS)})`),
+    check("storage_sweeps_status_check", sql`status in (${inList(SWEEP_STATUSES)})`),
+    check("storage_sweeps_time", sql`finished_at >= started_at`),
+    check(
+      "storage_sweeps_counts",
+      sql`typeof(expired) = 'integer' and typeof(deleted) = 'integer' and typeof(failed) = 'integer' and expired >= 0 and deleted >= 0 and failed >= 0`,
+    ),
   ],
 );

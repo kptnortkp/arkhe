@@ -172,7 +172,7 @@ export default async function phase5(browser, shots) {
   );
   check(
     (await yk.locator("nav[aria-label='Finans bölümleri'] a").allTextContents()).join(",") ===
-      "Özet,Hareketler,Aidat,Etkinlikler,Sponsorlar,Rapor,Ayarlar",
+      "Özet,Hareketler,Aidat,Etkinlikler,Sponsorlar,Rapor,Bütçe,Ayarlar",
     "AC2 the finance sub-nav chips",
   );
 

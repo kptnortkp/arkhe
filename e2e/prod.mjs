@@ -3,7 +3,9 @@
 // installability, demo refusal, env check). Usage: npm run e2e:prod
 import { execFileSync, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { gzipSync } from "node:zlib";
+import { wavBytes } from "../scripts/media-fixture.mjs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,6 +17,7 @@ const BAD_PORT = 3102;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 const NEXT = path.join(ROOT, "node_modules/.bin/next");
 const BOARD_EMAIL = "e2e-yk@example.org";
+const MEMBER_EMAIL = "e2e-member@example.org";
 const ADMIN_EMAIL = "admin@e2e-prod.test";
 const ADMIN_PASSWORD = "e2e-prod-admin-2026";
 const DEMO_EMAIL = "korist@arkhe.local";
@@ -57,6 +60,8 @@ const run = (cmd, args, extra) =>
 
 function removeDb() {
   for (const suffix of ["", "-wal", "-shm"]) rmSync(PROD_DB + suffix, { force: true });
+  // The local file store of this database (src/lib/storage/root.mjs).
+  rmSync(path.join(ROOT, "data/uploads-e2e-prod"), { recursive: true, force: true });
 }
 
 function startServer(port, extra) {
@@ -384,6 +389,12 @@ try {
     sql: "update users set email = ? where email = 'yk@arkhe.local'",
     args: [BOARD_EMAIL],
   });
+  // Phase 8: a member that can log in (demo addresses are refused in production).
+  await db.execute({
+    sql: `update users set email = ? where id = (select id from users where role = 'member'
+            and is_active = 1 and email <> ? order by email limit 1)`,
+    args: [MEMBER_EMAIL, DEMO_EMAIL],
+  });
   const adminOut = run("npx", ["tsx", "scripts/create-admin.ts", "E2E Admin", ADMIN_EMAIL]);
   const inviteUrl = /(http:\/\/\S+\/davet\/\S+)/.exec(adminOut)?.[1];
   check(
@@ -511,6 +522,129 @@ try {
   );
   const rehearsalId = rehearsalRows[0]?.id;
   await cspCheck(page.request, `${BASE}/calismalar/${rehearsalId}/canli`, "/calismalar/<id>/canli");
+
+  // Phase 8: the board and budget pages build, carry the CSP and refuse a member.
+  for (const p of ["/yonetim", "/yonetim/1", "/finans/butce"]) {
+    await cspCheck(page.request, `${BASE}${p}`, p);
+  }
+  const member = await newPage(browser, { mobile: true });
+  await loginWith(member, MEMBER_EMAIL, DEMO_PASSWORD);
+  await member.waitForURL(`${BASE}/`).catch(() => {});
+  const landed = [];
+  for (const p of ["/yonetim", "/yonetim/1", "/yonetim/arsiv", "/finans/butce", "/finans/butce/yeni"]) {
+    await member.goto(`${BASE}${p}`);
+    await member.waitForURL(`${BASE}/`, { timeout: 10_000 }).catch(() => {});
+    landed.push(new URL(member.url()).pathname);
+  }
+  check(
+    landed.every((p) => p === "/"),
+    `Phase8 AC45 production: /yonetim and /finans/butce redirect a member to / (${landed})`,
+  );
+  const { rows: budgetRows } = await db.execute("select id from budgets limit 1");
+  const memberCsv = await member.request.get(`${BASE}/finans/butce/${budgetRows[0].id}/csv`);
+  check(memberCsv.status() === 403, `Phase8 AC24 production: the budget CSV answers a member 403 (${memberCsv.status()})`);
+
+  // Phase 8b: the import pages refuse a member; the AC19 fault cookie is inert in production.
+  const importLanded = [];
+  for (const p of ["/ice-aktar", "/ice-aktar/uyeler", "/ice-aktar/gecmis"]) {
+    await member.goto(`${BASE}${p}`);
+    await member.waitForURL(`${BASE}/`, { timeout: 10_000 }).catch(() => {});
+    importLanded.push(new URL(member.url()).pathname);
+  }
+  const importCsv = await member.request.get(`${BASE}/ice-aktar/uye-listesi`);
+  check(
+    importLanded.every((p) => p === "/") && importCsv.status() === 403,
+    `Phase8b AC45 production: /ice-aktar redirects a member and the member list answers 403 (${importLanded}, ${importCsv.status()})`,
+  );
+  await member.context().close();
+  await cspCheck(page.request, `${BASE}/ice-aktar/donemler`, "/ice-aktar/donemler");
+  await page.context().addCookies([{ name: "arkhe_e2e_import_fault", value: "1", url: BASE }]);
+  await page.goto(`${BASE}/ice-aktar/donemler`);
+  await page.locator("[data-testid=import-result][data-ready]").waitFor({ state: "attached" });
+  await page.getByRole("tab", { name: "Metni yapıştır" }).click();
+  await page.getByLabel("CSV metni").fill("ad;baslangic;bitis\nE2E Prod Dönemi;2021-09-01;2022-01-31\n");
+  await page.getByRole("button", { name: "Kontrol et" }).click();
+  await page.locator("[data-testid=import-result][data-kind=clean]").waitFor();
+  await page.getByRole("button", { name: /^İçe aktar \(/ }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "İçe aktar" }).click();
+  await page.locator("[data-testid=import-result]:not([data-kind=clean])").waitFor();
+  const imported = await page.locator("[data-testid=import-result]").getAttribute("data-kind");
+  const { rows: prodTerms } = await db.execute("select count(*) n from terms where name = 'E2E Prod Dönemi'");
+  check(
+    imported === "done" && Number(prodTerms[0].n) === 1,
+    `Phase8b AC19/45 production ignores the fault cookie: the import succeeds in full (${imported})`,
+  );
+  await page.context().clearCookies({ name: "arkhe_e2e_import_fault" });
+
+  // Phase 9: recordings and MIDI on the production build.
+  console.log("# phase 9");
+  const chunkDir = path.join(ROOT, ".next/static/chunks");
+  const chunks = readdirSync(chunkDir, { recursive: true }).filter((f) => String(f).endsWith(".js"));
+  const playerChunks = chunks.filter((f) =>
+    readFileSync(path.join(chunkDir, String(f)), "utf8").includes("arkhe-midi-player"),
+  );
+  const gz = playerChunks.map((f) => gzipSync(readFileSync(path.join(chunkDir, String(f)))).length);
+  check(
+    playerChunks.length === 1 && gz[0] <= 60 * 1024,
+    `Phase9 AC52 the MIDI player chunk is ≤ 60 KB gzipped (${playerChunks.map((f, i) => `${path.basename(String(f))}=${gz[i]} B`)})`,
+  );
+  const { rows: avePiece } = await db.execute("select id from pieces where title = 'Ave Verum Corpus'");
+  const HW_A = "00000000-0000-4000-8000-00000000000a";
+  const initial = [];
+  for (const p of [`/repertuvar/${avePiece[0].id}`, `/odevler/${HW_A}`]) {
+    const html = await (await page.request.get(`${BASE}${p}`)).text();
+    const name = playerChunks[0] ? path.basename(String(playerChunks[0])) : "\u0000";
+    initial.push(`${p}:${html.includes("arkhe-midi-player") || html.includes(name) ? "referenced" : "clean"}`);
+  }
+  check(
+    initial.every((x) => x.endsWith(":clean")),
+    `Phase9 AC52 the player chunk isn't in the initial HTML of the piece and homework pages (${initial})`,
+  );
+  // The chunk arrives on the first Çal tap, not before.
+  const chunkRequests = [];
+  const onRequest = (r) => playerChunks[0] && r.url().endsWith(path.basename(String(playerChunks[0]))) && chunkRequests.push(r.url());
+  page.on("request", onRequest);
+  await page.goto(`${BASE}/repertuvar/${avePiece[0].id}?partisyon=tumu`);
+  await page.waitForLoadState("networkidle").catch(() => {});
+  const beforeTap = chunkRequests.length;
+  await page.getByRole("button", { name: "Çal: MIDI · Tutti" }).click();
+  await page.locator("[data-midi-player][data-state=playing]").waitFor({ timeout: 15_000 }).catch(() => {});
+  check(
+    beforeTap === 0 && chunkRequests.length === 1 && (await page.locator("[data-midi-player][data-state=playing]").count()) === 1,
+    `Phase9 AC51/52 production loads the player chunk on the tap and plays (${beforeTap} → ${chunkRequests.length})`,
+  );
+  page.off("request", onRequest);
+  const p9 = await page.request.get(`${BASE}/odevler/${HW_A}`);
+  const p9csp = p9.headers()["content-security-policy"] ?? "";
+  check(
+    (p9.headers()["permissions-policy"] ?? "").includes("microphone=(self)") &&
+      /media-src 'self' blob:/.test(p9csp) &&
+      !/unsafe-eval/.test(p9csp),
+    "Phase9 AC5 production: microphone=(self), media-src 'self' blob:, no unsafe-eval",
+  );
+  await page.context().addCookies([
+    { name: "arkhe_e2e_recorder_limit", value: "3", url: BASE },
+    { name: "arkhe_e2e_storage_fault", value: "put", url: BASE },
+  ]);
+  await page.goto(`${BASE}/odevler/${HW_A}`);
+  const maxMs = await page.locator("[data-recorder]").getAttribute("data-max-ms");
+  check(maxMs === "600000", `Phase9 AC16/59 production ignores the recorder hook (data-max-ms=${maxMs})`);
+  const upload = await page.request.post(`${BASE}/api/dosya/kayit?odev=${HW_A}`, {
+    headers: { Origin: BASE, "X-Upload-Id": crypto.randomUUID(), "X-Recording-Duration-Ms": "1000" },
+    data: wavBytes({ seconds: 1 }),
+    failOnStatusCode: false,
+  });
+  check(upload.status() === 201, `Phase9 AC47/59 production ignores the storage fault cookie (${upload.status()})`);
+  await page.context().clearCookies({ name: "arkhe_e2e_recorder_limit" });
+  await page.context().clearCookies({ name: "arkhe_e2e_storage_fault" });
+  const asistanTry = await newPage(browser, { mobile: true });
+  await loginWith(asistanTry, "asistan@arkhe.local", DEMO_PASSWORD);
+  await asistanTry.getByText("E-posta ya da şifre hatalı.").waitFor({ timeout: 10_000 }).catch(() => {});
+  check(
+    (await asistanTry.getByText("E-posta ya da şifre hatalı.").count()) === 1,
+    "Phase9 AC59 asistan@arkhe.local is refused in production",
+  );
+  await asistanTry.context().close();
 
   // AC22: the flash cookie is Secure too (set by Düzelt, which redirects).
   const { rows: entryRows } = await db.execute(

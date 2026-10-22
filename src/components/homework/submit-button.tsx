@@ -10,42 +10,6 @@ import type { DeadlineBadge } from "@/lib/homework/deadline";
 import { cn } from "@/lib/utils";
 import { DeadlineChip } from "./deadline-chip";
 
-/** Row variant: one tap, toast with "Geri al" (the row leaves view when it moves groups). */
-export function SubmitRowButton({ id, title }: { id: string; title: string }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-
-  function undo() {
-    startTransition(async () => {
-      const result = await undoSubmission(id);
-      if (result.error) toast.error(result.error);
-      else toast.success("Teslim geri alındı.");
-      router.refresh();
-    });
-  }
-
-  return (
-    <Button
-      variant="outline"
-      className="h-11 w-[124px] shrink-0 gap-1.5 rounded-full px-3"
-      disabled={pending}
-      data-testid="submit-row"
-      onClick={() =>
-        startTransition(async () => {
-          const result = await submitAssignment(id);
-          if (result.error) toast.error(result.error);
-          else toast.success("Teslim edildi.", { action: { label: "Geri al", onClick: undo } });
-          router.refresh();
-        })
-      }
-    >
-      <Check />
-      Teslim ettim
-      <span className="sr-only">: {title}</span>
-    </Button>
-  );
-}
-
 /** Detail variant: the state flips in place; one stable element keeps focus. */
 export function SubmitToggle({
   id,

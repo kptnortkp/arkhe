@@ -59,3 +59,12 @@ export function csvAmount(kurus: number) {
   const abs = Math.abs(kurus);
   return `${sign}${Math.floor(abs / 100)},${String(abs % 100).padStart(2, "0")}`;
 }
+
+/** Plan editor amounts: blank, "0" and "0,00" mean "not planned" (0); anything else as parseAmount. */
+export function parsePlanAmount(raw: string): ParsedAmount {
+  const parsed = parseAmount(raw);
+  if (!parsed.ok && (parsed.error === AMOUNT_EMPTY || parsed.error === AMOUNT_ZERO)) {
+    return { ok: true, kurus: 0 };
+  }
+  return parsed;
+}

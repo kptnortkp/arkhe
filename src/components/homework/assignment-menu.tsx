@@ -20,10 +20,12 @@ export function AssignmentMenu({
   id,
   title,
   submitted,
+  takes = 0,
 }: {
   id: string;
   title: string;
   submitted: number;
+  takes?: number;
 }) {
   const router = useRouter();
   const [pending, run] = useRunAction();
@@ -69,9 +71,11 @@ export function AssignmentMenu({
         onOpenChange={setConfirm}
         title={`"${title}" silinsin mi?`}
         description={
-          submitted
-            ? `${submitted} teslim kaydı ve notlar da silinir. Bu işlem geri alınamaz.`
-            : "Bu işlem geri alınamaz."
+          submitted && takes
+            ? `${submitted} teslim kaydı, ${takes} ses kaydı ve notlar da silinir. Bu işlem geri alınamaz.`
+            : submitted
+              ? `${submitted} teslim kaydı ve notlar da silinir. Bu işlem geri alınamaz.`
+              : "Bu işlem geri alınamaz."
         }
         pending={pending}
         actions={[

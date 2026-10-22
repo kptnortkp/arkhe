@@ -1,7 +1,9 @@
-import { createClient } from "@libsql/client";
 import { chromium } from "playwright-core";
+import { seedBoard, seedBudgets } from "../scripts/board-fixture.mjs";
 import { seedFinance } from "../scripts/finance-fixture.mjs";
 import { seedHomework } from "../scripts/homework-fixture.mjs";
+import { clearE2eMedia, reconcileLocalUploads } from "../scripts/media-fixture.mjs";
+import { createLibsqlClient } from "../src/db/local-client.mjs";
 
 export const BASE = process.env.E2E_BASE_URL ?? "http://127.0.0.1:3100";
 export const DEMO_PASSWORD = "arkhe-demo-2026";
@@ -12,7 +14,8 @@ if (!DB_URL.startsWith("file:")) throw new Error(`e2e refuses a non-file databas
 if (!/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(BASE)) {
   throw new Error(`e2e refuses a non-loopback base URL: ${BASE}`);
 }
-export const db = createClient({ url: DB_URL });
+// The dev server writes the same file; every pooled connection waits for its lock (ms).
+export const db = createLibsqlClient({ url: DB_URL, timeout: 5000 });
 
 const results = [];
 export const consoleErrors = [];
@@ -62,7 +65,32 @@ export async function newPage(
       : { viewport: { width: 1280, height: 900 } };
   const context = await browser.newContext({ ...device, ...extra });
   await watchCsp(context);
-  return watchConsole(await context.newPage());
+  return watchConsole(settleOnGoto(await context.newPage()));
+}
+
+/**
+ * `goto` also waits until the page is settled: no streaming fallback (aria-busy) left in main and
+ * React has hydrated it. A caller that passes `waitUntil` (a timing) gets plain Playwright.
+ */
+export function settleOnGoto(page) {
+  const goto = page.goto.bind(page);
+  page.goto = async (url, options) => {
+    const res = await goto(url, options);
+    if (options?.waitUntil) return res;
+    await page
+      .waitForFunction(
+        () => {
+          if (document.querySelector("main div[aria-busy=true]")) return false;
+          const el = document.querySelector("main form, main button, main a");
+          return !el || Object.keys(el).some((k) => k.startsWith("__react"));
+        },
+        null,
+        { timeout: 15_000 },
+      )
+      .catch(() => {});
+    return res;
+  };
+  return page;
 }
 
 /** Collects console errors and CSP refusals of one page. */
@@ -104,14 +132,33 @@ export async function loginAs(browser, email, options) {
 
 /** Removes everything e2e runs create; e2e data always uses @e2e.test emails or an "E2E" prefix. */
 export async function cleanup() {
+  // Imported rehearsals and terms go with their batches; the items would block seedFinance (restrict).
+  await db.execute(
+    "delete from rehearsals where id in (select rehearsal_id from import_items where rehearsal_id is not null)",
+  );
+  await db.execute(
+    "delete from terms where id in (select term_id from import_items where term_id is not null)",
+  );
+  await db.execute("delete from import_batches");
   // First: finance rows reference users with restrict, and the ledger is re-anchored to now.
   await seedFinance(db, new Date());
+  // Board and budget rows reference users with restrict: reseed before the e2e users go.
+  await seedBoard(db, new Date());
+  await seedBudgets(db, new Date());
   await db.execute("delete from login_attempts");
   // The dev DB never holds real backup state: every phase-7 test starts unconfigured.
   await db.execute("delete from backup_runs");
   await db.execute("delete from app_settings where key = 'backup_recipients'");
   await db.execute("delete from rehearsals where title like 'E2E%'");
   await db.execute("delete from terms where name like 'E2E%'");
+  // Seeded rehearsals from today on start unopened and unmarked: one left live by an earlier run (or
+  // by hand) would win the member's home hero over a test's own live rehearsal.
+  const todayStart = Math.floor(Date.parse(`${istanbulDate()}T00:00:00+03:00`) / 1000);
+  const seededAhead = `select id from rehearsals where starts_at >= ${todayStart}`;
+  await db.execute(`delete from attendance where rehearsal_id in (${seededAhead})`);
+  await db.execute(
+    `update rehearsals set opened_at = null, closed_at = null where id in (${seededAhead})`,
+  );
   const e2eHomework =
     "select id from assignments where piece_id in (select id from pieces where title like 'E2E%') or description like 'E2E%'";
   await db.execute(`delete from submissions where assignment_id in (${e2eHomework})`);
@@ -121,6 +168,8 @@ export async function cleanup() {
     "delete from piece_links where piece_id in (select id from pieces where title like 'E2E%')",
   );
   await db.execute("delete from pieces where title like 'E2E%'");
+  // Notes, takes, appointments and MIDI rows that point at @e2e.test users go before the users.
+  await clearE2eMedia(db);
   await db.execute(
     "delete from attendance where user_id in (select id from users where email like '%@e2e.test')",
   );
@@ -128,8 +177,20 @@ export async function cleanup() {
     "delete from submissions where user_id in (select id from users where email like '%@e2e.test')",
   );
   await db.execute("delete from users where email like '%@e2e.test'");
-  // Re-anchors the demo homework (and recording email, yeni@) to now.
+  // Import fixtures and former members use the fictional sample domains.
+  const sampleUsers =
+    "select id from users where email like '%@ornek.com' or email like '%@eski.invalid'";
+  await db.execute(`delete from attendance where user_id in (${sampleUsers})`);
+  await db.execute(`delete from submissions where user_id in (${sampleUsers})`);
+  await db.execute(`delete from users where id in (${sampleUsers})`);
+  // Re-anchors the demo homework (and recording email, yeni@) to now; ends with the media seed.
   await seedHomework(db, new Date());
+  // Storage bookkeeping last; the files are reconciled against the live rows (data/uploads*).
+  await db.batch(
+    ["delete from storage_deletions", "delete from storage_events", "delete from storage_sweeps"],
+    "write",
+  );
+  await reconcileLocalUploads(db);
 }
 
 export function summary() {

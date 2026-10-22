@@ -19,27 +19,36 @@ export function RecordingEmailDialog({
   current,
   label = "Kayıt e-postası",
   variant = "ghost",
+  open: controlled,
+  onOpenChange,
 }: {
   current: string | null;
   label?: string;
   variant?: "ghost" | "outline";
+  /** Controlled from the `Ayarlar` menu: no trigger button of its own. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [own, setOwn] = useState(false);
+  const open = controlled ?? own;
+  const setOpen = onOpenChange ?? setOwn;
   const [state, action, pending] = useActionState(setRecordingEmail, {});
 
   useEffect(() => {
     if (!state.success) return;
     toast.success(state.success);
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- close after a confirmed save
     setOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per action result
   }, [state]);
 
   return (
     <>
-      <Button variant={variant} className="h-11 rounded-full px-4" onClick={() => setOpen(true)}>
-        <Mail />
-        {label}
-      </Button>
+      {controlled === undefined && (
+        <Button variant={variant} className="h-11 rounded-full px-4" onClick={() => setOpen(true)}>
+          <Mail />
+          {label}
+        </Button>
+      )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
           <form action={action} className="space-y-4" noValidate>

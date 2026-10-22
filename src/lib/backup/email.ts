@@ -1,4 +1,5 @@
 // Every word of the backup emails lives here (ux.md §10). Plural address; one paragraph per line.
+import { budgetEmailLine, type BudgetStatus } from "@/lib/finance/budget";
 import { formatKurus, formatNet } from "@/lib/money";
 import { formatAuditDateTime } from "@/lib/time";
 import { README_SECTION } from "./constants";
@@ -34,13 +35,29 @@ export function attachmentNames(month: string, sentAtIstanbul: { date: string; t
   } satisfies AttachmentNames;
 }
 
+/** The optional sixth attachment: the budget covering the report month (Phase 8, D39). */
+export function budgetAttachmentName(month: string) {
+  return `arkhe-butce-${month}.csv`;
+}
+
+export type BudgetMailLine = {
+  name: string;
+  status: BudgetStatus;
+  incomePct: number | null;
+  expensePct: number | null;
+  filename: string;
+};
+
 export function monthlyEmail(input: {
   month: string;
   manual: { name: string; at: Date } | null;
   summary: MonthSummary;
   files: AttachmentNames;
   pageUrl: string;
+  // Absent: the body is byte-identical to Phase 7.
+  budget?: BudgetMailLine | null;
 }) {
+  const b = input.budget;
   const label = monthLabel(input.month);
   const s = input.summary;
   const subject = `Arkhe aylık rapor ve yedek · ${label}${input.manual ? " (elle gönderildi)" : ""}`;
@@ -58,17 +75,21 @@ export function monthlyEmail(input: {
     `Çalışma: ${s.rehearsals} · Ortalama devam: ${pct(s.attendancePercent)}`,
     `Ödev: ${s.assignments} · Zamanında teslim: ${pct(s.onTimePercent)}`,
     `Gelir: ${formatKurus(s.income)} · Gider: ${formatKurus(s.expense)} · Net: ${formatNet(s.net)}`,
+    ...(b ? [budgetEmailLine(b)] : []),
     "",
     "Ekler:",
     `- ${input.files.attendance}: kişi bazında devam`,
     `- ${input.files.homework}: ödev teslimleri`,
     `- ${input.files.ledger}: kasa hareketleri`,
     `- ${input.files.dues}: aidat durumu (gönderim günü itibarıyla)`,
+    ...(b ? [`- ${b.filename}: bütçe planı ve gerçekleşen`] : []),
     `- ${input.files.backup}: şifreli yedek`,
     "",
     "CSV dosyaları telefonda ya da Excel'de açılır.",
     "",
     `Yedek dosyasını açmanız gerekmez; bu e-postayı silmeden saklayın. Portalda bir sorun olursa koronun kayıtları bu dosyadan geri getirilir. Dosya şifrelidir ve şifresi bu e-postada yoktur. Gerekirse dosyayı portalı kuran kişi açar; adımlar README'nin "${README_SECTION}" bölümünde.`,
+    "",
+    "Ses kayıtları ve MIDI dosyaları bu yedeğe dahil değildir; kayıtlar 90 gün sonra zaten silinir.",
     "",
     "Raporlar şifresizdir; bu e-postayı koro yönetimi dışında kimseye iletmeyin.",
     "",

@@ -1,6 +1,6 @@
 import { LogOut, UserRound } from "lucide-react";
 import Link from "next/link";
-import { logout } from "@/app/actions/auth";
+import { LogoutForm } from "@/components/shell/logout-form";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { initials } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -25,7 +25,7 @@ export function SidebarUserActions() {
         <UserRound className="size-[18px]" strokeWidth={1.8} />
         Profilim
       </Link>
-      <form action={logout}>
+      <LogoutForm>
         <button
           type="submit"
           className="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
@@ -33,7 +33,7 @@ export function SidebarUserActions() {
           <LogOut className="size-[18px]" strokeWidth={1.8} />
           Çıkış yap
         </button>
-      </form>
+      </LogoutForm>
     </div>
   );
 }

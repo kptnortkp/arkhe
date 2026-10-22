@@ -23,11 +23,14 @@
     "db:check": "tsx --env-file-if-exists=.env scripts/db-check.ts",
     "db:decrypt": "tsx scripts/db-decrypt.ts",
     "db:restore": "tsx scripts/db-restore.ts",
-    "brand:assets": "tsx scripts/brand-assets.ts"
+    "brand:assets": "tsx scripts/brand-assets.ts",
+    "docs:import": "tsx scripts/import-docs.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
     "@libsql/client": "^0.18.0",
+    "@tonejs/midi": "2.0.28",
+    "@vercel/blob": "2.8.2",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.0",
     "drizzle-orm": "^0.45.4",

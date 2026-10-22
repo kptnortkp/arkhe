@@ -1,0 +1,6 @@
+﻿kayit_no;islem;eposta;donem;tutar;tarih;hesap;aciklama
+O-20240905-202409-1;odeme;ayse.demir@ornek.com;Eylül 2024;300;2024-09-05;banka;
+O-20240908-202409-1;odeme;mehmet.kaya@ornek.com;Eylül 2024;150;2024-09-08;kasa;
+O-20241002-202409-1;odeme;can.yildiz@ornek.com;Eylül 2024;300;2024-10-02;banka;3 aylık ödeme
+O-20241002-202410-1;odeme;can.yildiz@ornek.com;Ekim 2024;300;2024-10-02;banka;3 aylık ödeme
+M-202409-1;muaf;zeynep.ak@eski.invalid;Eylül 2024;;;;Geçmiş dönem borcu, yönetim kararıyla silindi

@@ -157,7 +157,17 @@ export default async function phase7Restore(browser) {
     const { createClient } = await import("@libsql/client");
     const restored = createClient({ url: `file:${drillDb}` });
     const got = await counts(restored);
+    // Phase 9 AC 42: the dump carries assistant notes and recording metadata (never audio).
+    const media = async (c) =>
+      (await c.execute("select (select count(*) from assistant_notes) as n, (select count(*) from recordings) as r")).rows[0];
+    const [mediaLive, mediaRestored] = [await media(db), await media(restored)];
     restored.close();
+    check(
+      Number(mediaRestored.n) > 0 &&
+        Number(mediaRestored.n) === Number(mediaLive.n) &&
+        Number(mediaRestored.r) === Number(mediaLive.r),
+      `AC42 (Phase 9) the decrypted dump holds the assistant-note and recording rows (${mediaRestored.n}, ${mediaRestored.r})`,
+    );
     check(
       JSON.stringify(got) === JSON.stringify(live),
       `AC30 row counts match the live DB at send time (${JSON.stringify(got)})`,

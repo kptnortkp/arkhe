@@ -10,7 +10,13 @@ npm run db:reset   # creates data/arkhe.db, migrates and seeds demo data (dev se
 npm run dev        # http://127.0.0.1:3100
 ```
 
-Demo logins (local only; refused by a production build): `sef@arkhe.local`, `yk@arkhe.local`, `korist@arkhe.local`, password `arkhe-demo-2026`.
+Demo logins (local only; refused by a production build): `sef@arkhe.local`, `yk@arkhe.local`, `korist@arkhe.local`, `asistan@arkhe.local` (listening assistant for Soprano + Alto), password `arkhe-demo-2026`.
+
+Recordings and MIDI files live in `data/uploads/` locally (`data/uploads-e2e-prod/` for `npm run e2e:prod`; one folder per database). `npm run db:reset` and every e2e run reset the demo recordings, assistant notes, the assistant appointments, the storage counters and Ave Verum Corpus' MIDI files, and delete every file there that no row references.
+
+Every `npm run e2e` and `npm run db:reset` wipes all finance, board (`/yonetim`) and budget (`/finans/butce`) rows in the local DB and reinserts the demo ones: tickets or budgets typed by hand locally don't survive a test run. The fixtures refuse remote databases and `NODE_ENV=production`.
+
+`npm run e2e` ve `npm run db:reset` yerel veritabanındaki içe aktarma, yönetim kurulu panosu ve bütçe kayıtlarını siler; `npm run e2e` ayrıca bugün ve sonrasındaki çalışmaların yoklama ve mazeret kayıtlarını siler.
 
 | Command                                              | What it does                                                                                        |
 | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
@@ -21,6 +27,7 @@ Demo logins (local only; refused by a production build): `sef@arkhe.local`, `yk@
 | `npm run db:backup`                                  | Plain-SQL dump to `data/backups/<UTC timestamp>.sql`.                                               |
 | `npm run db:check`                                   | Foreign keys, orphans, `migrations=N/N`, `quick_check` (file DBs), no demo accounts (remote DBs).   |
 | `npm run create-admin -- "Ad Soyad" email`           | Creates or promotes a conductor and prints a one-time password link (24 h).                         |
+| `npm run docs:import` (`-- --check`)                 | Regenerates the import templates in `docs/ice-aktarma/` from `src/lib/import/defs`; `--check` writes nothing and fails on a stale file or on a file the generator no longer writes. Run it after editing `src/lib/import/defs` or `docs.ts`. |
 | `npm run db:decrypt -- <file.sql.gz.enc>`            | Decrypts a monthly backup attachment to `data/backups/<name>.sql` (prompts for the passphrase).     |
 | `npm run db:restore -- <file.sql> <target.db>`       | Restores a plain-SQL dump into a new local SQLite file; refuses to overwrite anything.              |
 
@@ -96,6 +103,10 @@ Everything here is free. No step needs a card or a paid plan; if a provider asks
    - **Schema or data:** there are no down-migrations. Restore the backup `db:migrate` wrote just before the migration (steps above). Then, in Vercel → Deployments, open the deployment whose code matches that schema and use **Redeploy** (not Promote), so it is rebuilt with the new `DATABASE_URL`/`DATABASE_AUTH_TOKEN`. **Never Promote a deployment created before a database switch.**
    - **Service worker kill switch:** if a bad `public/sw.js` ever pins phones to broken assets, set `const KILL = true;` in `public/sw.js` and deploy. On the next visit each phone installs it, deletes every cache, unregisters the worker and reloads. Later, set `KILL = false`, bump `VERSION` and deploy again to bring offline support back. Bump `VERSION` on every change to `sw.js`.
 
+### Go-live check: bulk import on the Turso driver
+
+Every import run so far used a local `file:` database. Before the board imports real history, run the import once against a local `sqld` (`turso dev`, free and open source): start it, point a shell at it with `DATABASE_URL=http://127.0.0.1:8080`, run `drizzle-kit migrate`, then the six sample files (check, commit, undo) and one in-process `commitFile` call with `faultAt` set (the cookie hook is off on non-file databases); that commit must roll back completely. Time a 5000-row `uyeler` commit there; it must finish well inside the host's 60 s limit.
+
 ### Free-tier limits that matter
 
 Re-read both providers' current free-plan terms and limits **before go-live**; they change.
@@ -164,6 +175,7 @@ rm -f data/restore-drill.db data/restore-drill.db-wal data/restore-drill.db-shm 
 
 ### Notes
 
+- **Ses kayıtları ve MIDI dosyaları bu yedeğe dahil değildir; kayıtlar 90 gün sonra zaten silinir.** Şifreli yedek, asistan notlarını ve şefin yorumlarını da içerir; ses ve MIDI dosyalarını içermez. MIDI files exist only in the portal's file store: keep the originals on Drive.
 - **Turso's free point-in-time restore reaches back 1 day only.** For anything noticed later, the monthly email is the backup.
 - Vercel Hobby cron fires once a day somewhere between 08:00 and 09:00 Istanbul and runs only on the production deployment. Gmail's daily sending limit (~500) is far above our use.
 - The CSVs are not encrypted. Add only board members' addresses; every recipient change emails the old and the new list.
@@ -175,6 +187,19 @@ The run log on `/yedek` shows `Gmail girişi reddedildi. Uygulama şifresini kon
 1. Sign in to the choir Gmail in a browser, open Security → Recent security activity and confirm the sign-in ("Yes, it was me"). Press `Şimdi gönder` again.
 2. Revoke the App Password, create a new one, update `SMTP_PASS` in Vercel and redeploy.
 3. Only then, a free fallback provider with no code change: set `SMTP_HOST` and `SMTP_PORT` (465 uses TLS, any other port STARTTLS) and that provider's `SMTP_USER`/`SMTP_PASS`. Options: **Brevo's free plan** (`smtp-relay.brevo.com`, port `587`) or a free **Yandex** mailbox with an app password (`smtp.yandex.com`, port `465`). The provider then carries the plain CSVs and the encrypted backup, so the board should agree first. Free plan only, never enter a card; check the provider's current free terms at setup time.
+
+---
+
+## Ses kayıtları ve MIDI dosyaları (dosya deposu)
+
+Kayıtlar yalnızca ödev geri bildirimi için tutulur ve 90 gün sonra silinir.
+
+- **Local (dev, e2e):** files under `data/uploads/` (never served by Next). Nothing to configure.
+- **Production:** a **private** Vercel Blob store (free on Hobby). Vercel → Storage → Create → Blob, access **Private**, region closest to the functions; connect it to the project for **Production only** and redeploy. Vercel adds `BLOB_STORE_ID` and authenticates with OIDC, so no token is pasted anywhere. On the Render fallback, create a read-write token for the store and set `BLOB_READ_WRITE_TOKEN` instead.
+- Without either variable the portal still starts; uploads answer `Kayıt yükleme henüz açılmadı.` and `/odevler/depolama` shows `Dosya deposu bağlı değil.`
+- **Browsing the Blob store in the Vercel dashboard costs operations** (it lists the store). Look sparingly; `/odevler/depolama` shows the portal's own counters. After a production restore, compare the dashboard once: files uploaded after the backup are orphans the portal no longer knows.
+- Retention: audio goes 90 days after the conductor's first comment, or 120 days after upload without one (Istanbul days). The daily cron (the backup's) runs the sweep after the backup step; its result is the `Son temizlik` line on `/odevler/depolama`.
+- Uploads stop at 95% of the free storage or upload operations, playback at 100% of the transfer/read estimate, so Blob never blocks the store.
 
 ---
 

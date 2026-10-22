@@ -30,6 +30,70 @@ async function main() {
     : 0;
   if (applied < expected) problems.push(`migrations missing: ${applied} of ${expected} applied`);
 
+  // drizzle-kit doesn't track triggers: a future table rebuild would drop these silently.
+  const tables = new Set(
+    (await client.execute("select name from sqlite_master where type = 'table'")).rows.map((r) =>
+      String(r[0]),
+    ),
+  );
+  if (tables.has("budgets")) {
+    const triggers = await client.execute(
+      "select count(*) from sqlite_master where type = 'trigger' and name in ('budgets_no_overlap_insert', 'budgets_no_overlap_update')",
+    );
+    if (Number(triggers.rows[0][0]) !== 2) problems.push("budget overlap triggers missing");
+  }
+  if (tables.has("board_tickets") && tables.has("board_ticket_seq")) {
+    const behind = await client.execute(
+      "select count(*) from board_tickets where number > coalesce((select last_number from board_ticket_seq where id = 1), number)",
+    );
+    if (Number(behind.rows[0][0]) > 0) problems.push("ticket number counter behind data");
+  }
+
+  if (tables.has("import_items") && tables.has("import_batches")) {
+    const stale = await client.execute(
+      "select count(*) from import_items i join import_batches b on b.id = i.batch_id where b.status = 'undone'",
+    );
+    if (Number(stale.rows[0][0]) > 0) problems.push("undone import batches still have items");
+    const empty = await client.execute(
+      "select count(*) from import_batches b where b.status = 'imported' and not exists (select 1 from import_items i where i.batch_id = b.id)",
+    );
+    if (Number(empty.rows[0][0]) > 0) problems.push("live import batches without items");
+  }
+
+  if (tables.has("recordings")) {
+    const checks: [string, string, number][] = [
+      [
+        "select count(*) from sqlite_master where type = 'trigger' and name in ('recordings_queue_on_audio_delete', 'recordings_queue_on_delete', 'recordings_audio_final', 'midi_files_queue_on_delete')",
+        "recording triggers missing",
+        4,
+      ],
+      [
+        "select count(*) from recordings r left join submissions s on s.assignment_id = r.assignment_id and s.user_id = r.user_id where r.replaced_at is null and s.submitted_at is null",
+        "current recordings without a submission",
+        0,
+      ],
+      [
+        "select count(*) from recordings r left join submissions s on s.assignment_id = r.assignment_id and s.user_id = r.user_id where r.commented_at is not null and s.feedback is null",
+        "commented recordings without a comment",
+        0,
+      ],
+      [
+        "select count(*) from storage_deletions d where d.state = 'pending' and (exists (select 1 from recordings r where r.storage_key = d.storage_key and r.audio_deleted_at is null) or exists (select 1 from midi_files m where m.storage_key = d.storage_key))",
+        "live storage keys queued for deletion",
+        0,
+      ],
+      [
+        "select count(*) from storage_deletions d where d.state = 'done' and (exists (select 1 from recordings r where r.storage_key = d.storage_key and r.audio_deleted_at is null) or exists (select 1 from midi_files m where m.storage_key = d.storage_key))",
+        "live storage keys already deleted",
+        0,
+      ],
+    ];
+    for (const [query, problem, want] of checks) {
+      const n = Number((await client.execute(query)).rows[0][0]);
+      if (n !== want) problems.push(problem);
+    }
+  }
+
   let integrity = "skipped";
   if (local) {
     const quick = await client.execute("pragma quick_check");

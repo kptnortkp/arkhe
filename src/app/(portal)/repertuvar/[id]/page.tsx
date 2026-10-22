@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { FilterChip } from "@/components/filter-chip";
+import { MidiButton } from "@/components/midi/midi-button";
+import { MidiList } from "@/components/midi/midi-list";
 import { BackLink } from "@/components/repertoire/back-link";
 import { LinkRow, PreviewGroup, type LinkRowData } from "@/components/repertoire/link-row";
 import { PartButton } from "@/components/repertoire/part-button";
@@ -19,6 +21,7 @@ import { managerBadge } from "@/lib/homework/deadline";
 import { barsLabel } from "@/lib/homework/mail";
 import { openHomeworkForPiece } from "@/lib/homework/queries";
 import { getPiece, programRank } from "@/lib/repertoire";
+import { midiForExactPart, midiForPiece } from "@/lib/repertoire-midi";
 import { now } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
@@ -84,6 +87,11 @@ export default async function PiecePage({ params, searchParams }: PageProps<"/re
   const hiddenParts =
     links.some((l) => l.kind === "part") && !visible.some((l) => l.kind === "part");
 
+  const [heroMidi, midiRows] = await Promise.all([
+    mine ? midiForExactPart(piece.id, mine) : null,
+    midiForPiece(piece.id, filter ?? "all"),
+  ]);
+
   const chipHref = (value: string | null) =>
     value === null ? `/repertuvar/${piece.id}` : `/repertuvar/${piece.id}?partisyon=${value}`;
 
@@ -120,7 +128,24 @@ export default async function PiecePage({ params, searchParams }: PageProps<"/re
         <MetaChips {...piece} />
       </header>
 
-      <PartButton myPart={myPart} voicePart={mine} pieceId={piece.id} title={piece.title} hero />
+      {heroMidi && mine ? (
+        <div className="space-y-2" data-testid="midi-hero">
+          <MidiButton
+            midiId={heroMidi.id}
+            title={`Partisyonumu çal (${VOICE_PART_LABELS[mine]})`}
+            myPart={mine}
+            variant="hero"
+            ready={sp.cal === "1"}
+          />
+          {myPart && myPart.links.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Drive&apos;daki partisyon kaydı aşağıda, “Partisyon kayıtları” bölümünde.
+            </p>
+          )}
+        </div>
+      ) : (
+        <PartButton myPart={myPart} voicePart={mine} pieceId={piece.id} title={piece.title} hero />
+      )}
 
       {homework.length > 0 && (
         <section aria-labelledby="odevler" className="space-y-2" data-testid="piece-homework">
@@ -174,6 +199,8 @@ export default async function PiecePage({ params, searchParams }: PageProps<"/re
           )}
         </nav>
       )}
+
+      <MidiList rows={midiRows} myPart={mine} />
 
       {links.length === 0 && !folder ? (
         <div className="staff-lines space-y-3 rounded-2xl border border-dashed bg-card px-6 pt-10 pb-12 text-center">

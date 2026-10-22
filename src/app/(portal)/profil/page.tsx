@@ -1,6 +1,6 @@
-import { ChartColumn, ChevronRight, DatabaseBackup, LogOut, Wallet } from "lucide-react";
+import { ChartColumn, ChevronRight, DatabaseBackup, FileUp, LogOut, Wallet } from "lucide-react";
 import Link from "next/link";
-import { logout } from "@/app/actions/auth";
+import { LogoutForm } from "@/components/shell/logout-form";
 import { UserAvatar } from "@/components/shell/user-menu";
 import { Button } from "@/components/ui/button";
 import { VoicePartBadge } from "@/components/voice-part-badge";
@@ -54,6 +54,7 @@ export default async function ProfilePage() {
               ["/finans", "Finans", "Kasa, aidat, raporlar", Wallet],
               ["/raporlar", "Raporlar", "Devam ve uyarılar", ChartColumn],
               ["/yedek", "Yedekleme", "Aylık rapor ve yedek e-postası", DatabaseBackup],
+              ["/ice-aktar", "Veri içe aktar", "Eski kayıtları toplu aktar", FileUp],
             ] as const
           ).map(([href, label, hint, Icon]) => (
             <Link
@@ -72,7 +73,7 @@ export default async function ProfilePage() {
         </nav>
       )}
 
-      <form action={logout} className="border-t pt-6">
+      <LogoutForm className="border-t pt-6">
         <Button
           type="submit"
           variant="ghost"
@@ -81,7 +82,7 @@ export default async function ProfilePage() {
           <LogOut />
           Çıkış yap
         </Button>
-      </form>
+      </LogoutForm>
     </div>
   );
 }

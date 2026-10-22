@@ -12,11 +12,18 @@ import {
   submissions,
   VOICE_PARTS,
 } from "@/db/schema";
+import { writeTx } from "@/db/write-tx";
 import { assertManager, assertUser } from "@/lib/auth/dal";
 import { isEligible } from "@/lib/homework/eligibility";
 import { RECORDING_EMAIL_RE } from "@/lib/homework/mail";
 import { loadViewer } from "@/lib/homework/queries";
-import { istanbulDateOf, istanbulToUtc, now } from "@/lib/time";
+import { withdrawTake } from "@/lib/homework/withdraw";
+import { canWriteFeedback } from "@/lib/review/access";
+import { errorTag } from "@/lib/review/log";
+import { drainKeys } from "@/lib/storage/ledger";
+import { COMMENTED_KEEP_DAYS, UNCOMMENTED_KEEP_DAYS } from "@/lib/storage/limits";
+import { MSG } from "@/lib/storage/messages";
+import { addDays, istanbulDateOf, istanbulToUtc, now } from "@/lib/time";
 import { fieldErrorsOf, formValues, optionalText, type FormState } from "@/lib/validation";
 
 const FORBIDDEN = "Bu işlem için yetkin yok.";
@@ -202,12 +209,21 @@ export async function updateAssignment(
 export async function deleteAssignment(id: string): Promise<FormState> {
   if (!(await assertManager())) return { error: FORBIDDEN };
   if (!idSchema.safeParse(id).success) return { error: NOT_FOUND };
-  const deleted = await db.transaction(async (tx) => {
+  const { deleted, keys } = await writeTx(async (tx) => {
+    // Recordings and assistant notes cascade; the 0010 triggers queue every live audio key.
+    const live = await tx.all<{ k: string }>(
+      sql`select storage_key as k from recordings where assignment_id = ${id} and audio_deleted_at is null`,
+    );
     await tx.delete(submissions).where(eq(submissions.assignmentId, id));
     await tx.delete(assignmentParts).where(eq(assignmentParts.assignmentId, id));
-    return tx.delete(assignments).where(eq(assignments.id, id)).returning({ id: assignments.id });
+    const deleted = await tx
+      .delete(assignments)
+      .where(eq(assignments.id, id))
+      .returning({ id: assignments.id });
+    return { deleted, keys: live.map((r) => r.k) };
   });
   if (deleted.length === 0) return { error: NOT_FOUND };
+  await drainKeys(keys);
   revalidateHomework();
   return { success: "Ödev silindi." };
 }
@@ -241,28 +257,14 @@ export async function submitAssignment(id: string): Promise<FormState> {
   return { success: "Teslim edildi." };
 }
 
+/** Fallback `Geri al`; with a take in the slot it is the same as the recorder's `Sil` (D47). */
 export async function undoSubmission(id: string): Promise<FormState> {
   const actor = await assertUser();
   if (!actor) return { error: FORBIDDEN };
   if (!idSchema.safeParse(id).success) return { error: NOT_FOUND };
-  const deleted = await db
-    .delete(submissions)
-    .where(
-      and(
-        eq(submissions.assignmentId, id),
-        eq(submissions.userId, actor.id),
-        isNull(submissions.feedback),
-        isNotNull(submissions.submittedAt),
-      ),
-    )
-    .returning({ id: submissions.userId });
-  if (deleted.length === 0) {
-    const [row] = await db
-      .select({ feedback: submissions.feedback, submittedAt: submissions.submittedAt })
-      .from(submissions)
-      .where(and(eq(submissions.assignmentId, id), eq(submissions.userId, actor.id)));
-    if (row?.feedback && row.submittedAt) return { error: FEEDBACK_LOCK };
-  }
+  const result = await withdrawTake(id, actor.id, { requireTake: false });
+  // Phase 4's copy for this button; the recorder's own `Sil` says the D8 sentence.
+  if (result.error) return { error: FEEDBACK_LOCK };
   revalidateHomework();
   return { success: "Teslim geri alındı." };
 }
@@ -305,18 +307,37 @@ export async function setSubmissionFor(
         setWhere: isNull(submissions.submittedAt),
       });
   } else {
-    await db.batch([
-      db
+    const refused = await writeTx(async (tx) => {
+      const [take] = await tx.all<{ id: string; gone: number }>(sql`
+        select id, audio_deleted_at is not null as gone from recordings
+        where assignment_id = ${assignmentId} and user_id = ${userId} and replaced_at is null`);
+      // D47: the singer's audio isn't the manager's to discard by unmarking.
+      if (take && !take.gone) return true;
+      if (take) {
+        await tx.run(sql`
+          update recordings set replaced_at = ${Math.floor(now().getTime() / 1000)}, commented_at = null
+          where id = ${take.id}`);
+      }
+      await tx
         .update(submissions)
         .set({ submittedAt: null, method: null, markedBy: null })
-        .where(and(where, isNotNull(submissions.feedback))),
-      db.delete(submissions).where(and(where, isNull(submissions.feedback))),
-    ]);
+        .where(and(where, isNotNull(submissions.feedback)));
+      await tx.delete(submissions).where(and(where, isNull(submissions.feedback)));
+      return false;
+    });
+    if (refused) return { error: MSG.unmarkRefused };
   }
   revalidateHomework();
   return { success: submitted ? "Teslim işaretlendi." : "Teslim kaldırıldı." };
 }
 
+const recordingIdField = z.union([z.literal(""), z.uuid()]);
+
+/**
+ * The conductor's comment is submissions.feedback (D2), conductor-only (D3). The form carries the
+ * take that was on screen; if the singer replaced it meanwhile nothing is written (D49). The first
+ * comment sets the take's commented_at and deletion day; deleting the comment clears them (D54).
+ */
 export async function saveFeedback(
   assignmentId: string,
   userId: string,
@@ -325,45 +346,84 @@ export async function saveFeedback(
 ): Promise<FormState> {
   const actor = await assertManager();
   if (!actor) return { error: FORBIDDEN };
+  if (!canWriteFeedback(actor.role)) return { error: MSG.feedbackConductorOnly };
   if (!idSchema.safeParse(assignmentId).success || !idSchema.safeParse(userId).success) {
     return { error: NOT_FOUND };
   }
   const parsed = z
-    .object({ feedback: optionalText(1000) })
-    .safeParse({ feedback: formData.get("feedback") ?? "" });
+    .object({ feedback: optionalText(1000), recordingId: recordingIdField })
+    .safeParse({
+      feedback: formData.get("feedback") ?? "",
+      recordingId: formData.get("recordingId") ?? "",
+    });
   if (!parsed.success) return fieldErrorsOf(parsed.error, formData);
   const feedback = parsed.data.feedback?.replace(/\r\n?/g, "\n") ?? null;
+  const onScreen = parsed.data.recordingId || null;
   const error = await targetAllowed(assignmentId, userId);
   if (error) return { error };
   const where = and(eq(submissions.assignmentId, assignmentId), eq(submissions.userId, userId));
 
-  if (feedback) {
-    const [current] = await db
-      .select({ feedback: submissions.feedback })
-      .from(submissions)
-      .where(where);
-    // Re-saving the same text must not bring back the "Yeni not" dot.
-    if (current?.feedback !== feedback) {
-      await db
-        .insert(submissions)
-        .values({ assignmentId, userId, feedback, feedbackBy: actor.id, feedbackAt: now() })
-        .onConflictDoUpdate({
-          target: [submissions.assignmentId, submissions.userId],
-          set: { feedback, feedbackBy: actor.id, feedbackAt: now(), feedbackSeenAt: null },
-        });
-    }
-    revalidateHomework();
-    return { success: "Not kaydedildi." };
+  let outcome: "stale" | "updated" | "sent" | "deleted";
+  try {
+    outcome = await writeFeedback(actor.id);
+  } catch (error) {
+    // Name and code only: drizzle's error repeats the params, the comment text among them.
+    console.error("feedback save failed", errorTag(error));
+    return { error: MSG.generic, values: formValues(formData) };
   }
-  await db.batch([
-    db
-      .update(submissions)
-      .set({ feedback: null, feedbackBy: null, feedbackAt: null, feedbackSeenAt: null })
-      .where(and(where, isNotNull(submissions.submittedAt))),
-    db.delete(submissions).where(and(where, isNull(submissions.submittedAt))),
-  ]);
+  function writeFeedback(actorId: string) {
+    return writeTx(async (tx) => {
+      const at = now();
+      const [take] = await tx.all<{ id: string; uploaded_at: number }>(sql`
+      select id, uploaded_at from recordings
+      where assignment_id = ${assignmentId} and user_id = ${userId} and replaced_at is null`);
+      if ((take?.id ?? null) !== onScreen) return "stale" as const;
+      const [current] = await tx
+        .select({ feedback: submissions.feedback })
+        .from(submissions)
+        .where(where);
+      const before = current?.feedback ?? null;
+      if (feedback) {
+        // Re-saving the same text must not bring back the "Yeni not" dot.
+        if (before === feedback) return "updated" as const;
+        await tx
+          .insert(submissions)
+          .values({ assignmentId, userId, feedback, feedbackBy: actorId, feedbackAt: at })
+          .onConflictDoUpdate({
+            target: [submissions.assignmentId, submissions.userId],
+            set: { feedback, feedbackBy: actorId, feedbackAt: at, feedbackSeenAt: null },
+          });
+        if (before === null && take) {
+          await tx.run(sql`
+          update recordings set commented_at = ${Math.floor(at.getTime() / 1000)},
+            delete_on = ${addDays(istanbulDateOf(at), COMMENTED_KEEP_DAYS)}
+          where id = ${take.id} and commented_at is null`);
+        }
+        return before === null ? ("sent" as const) : ("updated" as const);
+      }
+      await tx
+        .update(submissions)
+        .set({ feedback: null, feedbackBy: null, feedbackAt: null, feedbackSeenAt: null })
+        .where(and(where, isNotNull(submissions.submittedAt)));
+      await tx.delete(submissions).where(and(where, isNull(submissions.submittedAt)));
+      if (take) {
+        // TL1 (D54 amended): back to upload day + 120, but never before tomorrow, so deleting a
+        // comment to rewrite it can't lose the audio to the next morning's sweep.
+        const uploadDay = istanbulDateOf(new Date(Number(take.uploaded_at) * 1000));
+        const byUpload = addDays(uploadDay, UNCOMMENTED_KEEP_DAYS);
+        const tomorrow = addDays(istanbulDateOf(at), 1);
+        await tx.run(sql`
+        update recordings set commented_at = null,
+          delete_on = ${byUpload > tomorrow ? byUpload : tomorrow}
+        where id = ${take.id}`);
+      }
+      return "deleted" as const;
+    });
+  }
+  if (outcome === "stale") return { error: MSG.staleForComment, values: formValues(formData) };
   revalidateHomework();
-  return { success: "Not silindi." };
+  if (outcome === "deleted") return { success: MSG.commentDeleted };
+  return { success: outcome === "sent" ? MSG.commentSent : MSG.commentUpdated };
 }
 
 /** Called from the client once the note is on screen; a prefetch never marks a note read. */

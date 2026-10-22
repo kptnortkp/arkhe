@@ -1,9 +1,14 @@
 import "server-only";
+import type { ResultSet } from "@libsql/client";
+import type { BaseSQLiteDatabase } from "drizzle-orm/sqlite-core";
 import { db } from "./index";
+import type * as schema from "./schema";
 
 export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+/** Anything that builds queries: the db, a drizzle transaction, or the import's batch handle. */
+export type Q = BaseSQLiteDatabase<"async", ResultSet, typeof schema>;
 
-function isBusy(error: unknown) {
+export function isBusy(error: unknown) {
   for (let e = error; e; e = (e as { cause?: unknown }).cause) {
     const code = (e as { code?: string }).code ?? "";
     const msg = e instanceof Error ? e.message : "";
