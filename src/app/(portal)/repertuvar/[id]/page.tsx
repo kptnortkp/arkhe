@@ -84,6 +84,7 @@ export default async function PiecePage({ params, searchParams }: PageProps<"/re
     };
   };
   const folder = piece.driveFolderUrl ? parseLink(piece.driveFolderUrl) : null;
+  const folderLabel = folder?.provider === "drive-folder" ? "Drive klasörü" : "Drive dosyası";
   const hiddenParts =
     links.some((l) => l.kind === "part") && !visible.some((l) => l.kind === "part");
 
@@ -260,14 +261,14 @@ export default async function PiecePage({ params, searchParams }: PageProps<"/re
                   id="group-folder"
                   className="font-sans text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase"
                 >
-                  Drive klasörü
+                  {folderLabel}
                 </h2>
                 <ul className="overflow-hidden rounded-2xl border bg-card">
                   <LinkRow
                     link={{
                       id: "folder",
-                      kind: "folder",
-                      label: "Drive klasörü",
+                      kind: folder.provider === "drive-folder" ? "folder" : "other",
+                      label: folderLabel,
                       voicePart: null,
                       host: hostLabel(folder),
                       url: folder.url,

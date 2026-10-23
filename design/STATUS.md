@@ -1,6 +1,6 @@
 # Status (tech lead)
 
-Updated: 2026-10-22 (Phases 8b, 9 and 10 accepted).
+Updated: 2026-10-22 (Phases 7–10 LIVE).
 
 ## Done
 - Phase 0–1: scaffold, brand refresh (vector ARKHE logo, Jost, navy-violet), auth, members, profile. Team review done, P1s fixed.
@@ -33,6 +33,8 @@ Updated: 2026-10-22 (Phases 8b, 9 and 10 accepted).
   - **Not yet live:** Phases 7–9 ship in one push when the user says so; `db:migrate` must show 12/12 and a private Blob store must be connected first.
 
 - Phase 10 (Web Push notifications): spec written 2026-10-22 (`design/phase-10/po-spec.md`, 55 ACs; `po-decisions.md` D64–D90). User chose timing option A (morning digest from the existing daily cron, no external scheduler). Built and **ACCEPTED** by the tech lead the same day at the user's request (`design/phase-10/review-po.md`): migrations 0012–0013, `npm run e2e` 1572/1573 with the one failure fixed, `e2e:prod` 79/79. Ships with 7–9; Turso must show 14/14.
+
+- **Phases 7–10 LIVE since 2026-10-22 ~19:21 UTC** (push `c2bbc60..83a12b0`). Functions in `arn1` (Stockholm, verified via `x-vercel-id`), Turso migrations 14/14 (rehearsed on a copy first), CRON_SECRET + VAPID + private Blob (Stockholm) set, Turso tokens rotated. **Not yet set:** Gmail App Password + `BACKUP_PASSPHRASE` (monthly email off until then; `/yedek` shows Eksik).
 
 ## Next steps (in order)
 1. **Go-live of Phases 7 + 8 + 8b (the user's):** `design/phase-7/review-po.md` §4, with the changes in `design/phase-8/review-po.md` §4.

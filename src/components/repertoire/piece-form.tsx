@@ -163,15 +163,15 @@ export function PieceForm({
       </fieldset>
 
       <Field
-        label="Drive klasörü"
+        label="Drive bağlantısı"
         name="driveFolderUrl"
         type="url"
         inputMode="url"
         autoComplete="off"
         defaultValue={v.driveFolderUrl}
         errors={errors.driveFolderUrl}
-        placeholder="https://drive.google.com/drive/folders/…"
-        hint="Tek tek eklenmeyen dosyalar için eserin klasörü."
+        placeholder="https://drive.google.com/…"
+        hint="Eserin Drive klasörü ya da tek bir Drive dosyası."
       />
 
       <div className="space-y-2">

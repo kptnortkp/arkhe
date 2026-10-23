@@ -12,6 +12,13 @@ export const DUPLICATE_IN_PASTE = "Bu bağlantı listede iki kez var.";
 
 export type LinkProvider = "drive-file" | "drive-folder" | "docs" | "youtube" | "external";
 
+/** What a piece's own Drive link may point at: a folder, a file or a Google Docs file. */
+export const DRIVE_PROVIDERS: ReadonlySet<LinkProvider> = new Set([
+  "drive-folder",
+  "drive-file",
+  "docs",
+]);
+
 export type ParsedLink = {
   /** Normalised value: what we store and what "Aç" opens. */
   url: string;

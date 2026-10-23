@@ -20,6 +20,7 @@ import { cleanLine } from "@/lib/text";
 import {
   BULK_MAX_LINES,
   DUPLICATE_IN_PASTE,
+  DRIVE_PROVIDERS,
   DUPLICATE_LINK,
   INVALID_LINK,
   LABEL_MAX,
@@ -97,8 +98,8 @@ const pieceSchema = z.object({
         ctx.addIssue({ code: "custom", message: INVALID_LINK });
         return z.NEVER;
       }
-      if (parsed.provider !== "drive-folder") {
-        ctx.addIssue({ code: "custom", message: "Bu bir Drive klasörü bağlantısı değil." });
+      if (!DRIVE_PROVIDERS.has(parsed.provider)) {
+        ctx.addIssue({ code: "custom", message: "Bu bir Google Drive bağlantısı değil." });
         return z.NEVER;
       }
       return parsed.url;

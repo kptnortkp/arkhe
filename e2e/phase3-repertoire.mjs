@@ -465,10 +465,32 @@ async function manage(browser, ids, shots) {
   check(dur.rows[0].duration_sec === 245, "AC11 '4.05' is saved as 4:05");
 
   // AC13 folder field
-  await sef.fill("input[name=driveFolderUrl]", "https://drive.google.com/file/d/notAFolder/view");
+  await sef.fill("input[name=driveFolderUrl]", "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
   await sef.click("form:has(input[name=title]) button[type=submit]");
-  await sef.waitForSelector("text=Bu bir Drive klasörü bağlantısı değil.");
-  check(true, "AC13 a non-folder Drive klasörü is rejected");
+  await sef.waitForSelector("text=Bu bir Google Drive bağlantısı değil.");
+  check(true, "AC13 a non-Drive link is rejected as the piece's Drive link");
+  await sef.goto(`${BASE}/repertuvar/${e2e}/duzenle`);
+  await sef.fill(
+    "input[name=driveFolderUrl]",
+    "https://drive.google.com/file/d/1ksbZrWlLz1xV-NhEhkk_bWuD-7g5zBAK/view?usp=drivesdk",
+  );
+  await sef.click("form:has(input[name=title]) button[type=submit]");
+  await sef.waitForSelector("text=Kaydedildi.");
+  const fileLink = await db.execute({
+    sql: "select drive_folder_url from pieces where id = ?",
+    args: [e2e],
+  });
+  check(
+    fileLink.rows[0].drive_folder_url ===
+      "https://drive.google.com/file/d/1ksbZrWlLz1xV-NhEhkk_bWuD-7g5zBAK/view",
+    "AC13 a Drive file link is accepted and normalised",
+  );
+  await sef.goto(`${BASE}/repertuvar/${e2e}`);
+  check(
+    (await sef.getByRole("heading", { name: "Drive dosyası" }).count()) === 1,
+    "AC13 the piece page labels a file link 'Drive dosyası'",
+  );
+  await db.execute({ sql: "update pieces set drive_folder_url = null where id = ?", args: [e2e] });
   await sef.goto(`${BASE}/repertuvar/${e2e}/duzenle`);
 
   // AC12 normalisation
