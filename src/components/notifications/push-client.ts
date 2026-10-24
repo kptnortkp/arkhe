@@ -12,6 +12,7 @@ const SYNC_KEY = "arkhe-push-sync";
 const SYNC_EVERY_MS = 24 * 60 * 60 * 1000;
 // The worker registers in production only; a missing one must not hang the page.
 const READY_TIMEOUT_MS = 8000;
+const DETECT_TIMEOUT_MS = READY_TIMEOUT_MS + 2000;
 
 // 40×24 px; the off track is dark enough to read as a control on the light card (3:1).
 export const SWITCH_CLASS =
@@ -46,7 +47,14 @@ export async function currentSubscription() {
   return reg ? reg.pushManager.getSubscription() : null;
 }
 
+/** iOS before 16.4 has no Web Push at all, so "add to home screen" would not help there. */
+function iosTooOld() {
+  const m = /OS (\d+)_(\d+)/.exec(navigator.userAgent);
+  return m !== null && (Number(m[1]) < 16 || (Number(m[1]) === 16 && Number(m[2]) < 4));
+}
+
 export async function detectState(): Promise<Exclude<DeviceState, "loading">> {
+  if (isIos() && iosTooOld()) return "ios-old";
   if (isIos() && !isStandalone()) return "ios-install";
   if (!pushSupported()) return isIos() ? "ios-old" : "unsupported";
   if (Notification.permission === "denied") return "denied";
@@ -163,7 +171,17 @@ export async function dropBrowserSubscription() {
 export function useDeviceState() {
   const [state, setState] = useState<DeviceState>("loading");
   const refresh = useCallback(() => {
-    void detectState().then(setState);
+    // Never stays on "kontrol ediliyor": a throwing or hanging probe falls back to unsupported.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const fallback = new Promise<"unsupported">((resolve) => {
+      timer = setTimeout(() => resolve("unsupported"), DETECT_TIMEOUT_MS);
+    });
+    void Promise.race([detectState(), fallback])
+      .catch((): DeviceState => "unsupported")
+      .then((next) => {
+        clearTimeout(timer);
+        setState(next);
+      });
   }, []);
   useEffect(() => {
     refresh();

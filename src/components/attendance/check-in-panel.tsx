@@ -2,9 +2,21 @@
 
 import { Check, CircleCheck, MessageSquareText } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import {
+  useActionState,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  useTransition,
+} from "react";
 import { toast } from "sonner";
-import { checkIn, submitExcuse, withdrawExcuse } from "@/app/(portal)/calismalar/actions";
+import {
+  checkIn,
+  checkInForm,
+  submitExcuse,
+  withdrawExcuse,
+} from "@/app/(portal)/calismalar/actions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -29,6 +41,8 @@ export type CheckInPanelProps = {
   recordedAt: string | null;
   onStage?: boolean;
 };
+
+const noop = () => () => {};
 
 const timeFormat = new Intl.DateTimeFormat("tr-TR", {
   hour: "2-digit",
@@ -86,8 +100,14 @@ export function CheckInPanel(props: CheckInPanelProps) {
             <p className={cn("text-sm", muted)}>
               Şefin ekranındaki 4 haneli kodu gir ya da QR&apos;ı telefon kamerasıyla okut.
             </p>
+            {/* A link until hydrated: without JS (or on a too-old browser) it opens the code page. */}
             <Button
-              onClick={() => setCodeOpen(true)}
+              nativeButton={false}
+              render={<a href={`/yoklama/kod/${rehearsalId}`} />}
+              onClick={(e) => {
+                e.preventDefault();
+                setCodeOpen(true);
+              }}
               className="h-14 w-full rounded-2xl bg-gold text-base font-semibold text-gold-foreground hover:bg-gold/90 sm:w-auto sm:px-8"
             >
               <Check />
@@ -238,6 +258,11 @@ export function CodeEntry({
   const [error, setError] = useState(initialError ?? "");
   const [pending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
+  const hydrated = useSyncExternalStore(
+    noop,
+    () => true,
+    () => false,
+  );
 
   function submit(value: string) {
     startTransition(async () => {
@@ -256,13 +281,16 @@ export function CodeEntry({
   }
 
   return (
+    // Without JS the form posts to checkInForm; once hydrated, onSubmit takes over.
     <form
+      action={checkInForm}
       onSubmit={(e) => {
         e.preventDefault();
         if (code.length === 4) submit(code);
       }}
       className="space-y-3"
     >
+      <input type="hidden" name="rehearsalId" value={rehearsalId} />
       <label htmlFor="checkin-code" className="sr-only">
         Yoklama kodu
       </label>
@@ -295,7 +323,7 @@ export function CodeEntry({
       )}
       <Button
         type="submit"
-        disabled={pending || code.length !== 4}
+        disabled={pending || (hydrated && code.length !== 4)}
         className="h-11 w-full rounded-xl"
       >
         {pending ? "Kontrol ediliyor…" : "Gönder"}

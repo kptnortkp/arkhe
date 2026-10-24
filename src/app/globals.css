@@ -276,3 +276,47 @@
     width: 0%;
   }
 }
+
+/* Set by the inline probe in the root layout. Plain, unlayered CSS: browsers older than Safari 15.4
+   drop every @layer rule, so these must not depend on Tailwind utilities. */
+.legacy-only {
+  display: none;
+}
+.legacy-browser .legacy-only {
+  display: block;
+}
+.legacy-browser .legacy-hide {
+  display: none !important;
+}
+
+.legacy-banner {
+  padding: 0.625rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+  font-size: 0.875rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.legacy-note {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background-color: var(--card);
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+
+/* JavaScript off: React can't swap streamed Suspense content in, so show it instead of the skeleton.
+   In the base layer so its !important outranks preflight's [hidden] rule. */
+@layer base {
+  html:not(.js) div[hidden][id^="S:"] {
+    display: block !important;
+    padding: 1.5rem 1rem 7rem;
+  }
+  html:not(.js) main div[aria-busy="true"],
+  html:not(.js) main:has(> div[aria-busy="true"]:only-child) {
+    display: none !important;
+  }
+}

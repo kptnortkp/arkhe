@@ -7,7 +7,15 @@ import { checkIn, type CheckInResult } from "@/app/(portal)/calismalar/actions";
 import { STATUS_LABELS } from "@/lib/labels";
 import { CodeEntry } from "./check-in-panel";
 
-export function QrCheckIn({ rehearsalId, code }: { rehearsalId: string; code: string | null }) {
+export function QrCheckIn({
+  rehearsalId,
+  code,
+  error,
+}: {
+  rehearsalId: string;
+  code: string | null;
+  error?: string;
+}) {
   const router = useRouter();
   const started = useRef(false);
   const [result, setResult] = useState<CheckInResult | null>(null);
@@ -57,7 +65,12 @@ export function QrCheckIn({ rehearsalId, code }: { rehearsalId: string; code: st
             : "QR'daki kod yenilenmiş olabilir. Ekrandaki kodu gir."
           : "Şefin ekranındaki 4 haneli kodu gir."}
       </p>
-      <CodeEntry rehearsalId={rehearsalId} method="code" onSuccess={() => setManualDone(true)} />
+      <CodeEntry
+        rehearsalId={rehearsalId}
+        method="code"
+        initialError={error}
+        onSuccess={() => setManualDone(true)}
+      />
     </div>
   );
 }

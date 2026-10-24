@@ -1,5 +1,6 @@
 import { getPushSettings } from "@/lib/push/settings";
 import { formatter } from "@/lib/time";
+import { PUSH_UNSUPPORTED } from "./push-copy";
 import { PushPanel } from "./push-panel";
 
 const dayParts = formatter({ weekday: "short", day: "numeric", month: "short" });
@@ -23,22 +24,27 @@ export async function NotificationsSection({ userId }: { userId: string }) {
       <h2 id="bildirimler-title" className="text-xl font-medium">
         Bildirimler
       </h2>
+      <p className="legacy-only legacy-note" data-testid="push-legacy">
+        {PUSH_UNSUPPORTED}
+      </p>
       {settings.publicKey ? (
-        <PushPanel
-          publicKey={settings.publicKey}
-          userId={userId}
-          devices={settings.devices.map((d) => ({
-            id: d.id,
-            label: d.label,
-            added: gun(d.createdAt),
-            current: d.current,
-          }))}
-          prefs={settings.groups}
-          quiet={settings.quiet}
-          manager={settings.manager}
-        />
+        <div className="legacy-hide space-y-4">
+          <PushPanel
+            publicKey={settings.publicKey}
+            userId={userId}
+            devices={settings.devices.map((d) => ({
+              id: d.id,
+              label: d.label,
+              added: gun(d.createdAt),
+              current: d.current,
+            }))}
+            prefs={settings.groups}
+            quiet={settings.quiet}
+            manager={settings.manager}
+          />
+        </div>
       ) : (
-        <p className="rounded-2xl border bg-card p-4 text-sm text-muted-foreground">
+        <p className="legacy-hide rounded-2xl border bg-card p-4 text-sm text-muted-foreground">
           Bildirimler henüz açılmadı.
         </p>
       )}

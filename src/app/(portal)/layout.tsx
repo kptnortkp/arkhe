@@ -26,60 +26,66 @@ export default async function PortalLayout({ children }: LayoutProps<"/">) {
   const badges = { homework, board, review };
 
   return (
-    <div className="flex min-h-dvh">
-      <a
-        href="#icerik"
-        className="sr-only z-50 rounded-xl bg-primary px-4 py-2 text-primary-foreground focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
-      >
-        İçeriğe geç
-      </a>
-      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r bg-sidebar px-4 py-6 md:flex">
-        <Link href="/" className="px-3" aria-label="Ana sayfa">
-          {/* At 1× the subtitle is a 3.7 px smudge: wordmark there, full lockup from 2dppx. */}
-          <ArkheWordmark
-            density="small"
-            className="h-auto w-44 [@media(min-resolution:2dppx)]:hidden"
-          />
-          <ArkheLockup className="hidden w-44 [@media(min-resolution:2dppx)]:block" />
-        </Link>
-        <div className="mt-8 flex-1">
-          <SidebarNav canManage={canManage} badges={badges} />
-        </div>
-        <SidebarUserActions />
-        <div className="mt-3 flex items-center gap-3 border-t px-2 pt-4">
-          <UserAvatar name={user.name} />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{user.name}</p>
-            <p className="truncate text-xs text-muted-foreground">{ROLE_LABELS[user.role]}</p>
-          </div>
-        </div>
-      </aside>
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex items-center justify-between border-b bg-background/85 px-4 py-3 backdrop-blur-lg md:hidden">
-          <Link
-            href="/"
-            aria-label="Ana sayfa"
-            className="-my-3 inline-flex min-h-11 items-center rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            <ArkheWordmark className="h-5" density="small" />
-          </Link>
-          <Link href="/profil" className="flex items-center gap-2" aria-label="Profilim">
-            {user.voicePart && <VoicePartBadge part={user.voicePart} />}
-            <UserAvatar name={user.name} className="size-8" />
-          </Link>
-        </header>
-        <main
-          id="icerik"
-          className="mx-auto w-full max-w-5xl flex-1 px-4 pt-6 pb-28 md:px-10 md:pt-10 md:pb-12"
+    <>
+      <p role="note" className="legacy-only legacy-banner" data-testid="legacy-banner">
+        Tarayıcın eski olduğu için bazı özellikler bu cihazda çalışmayabilir. Mümkünse telefonunu
+        güncelle.
+      </p>
+      <div className="flex min-h-dvh">
+        <a
+          href="#icerik"
+          className="sr-only z-50 rounded-xl bg-primary px-4 py-2 text-primary-foreground focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
         >
-          {children}
-        </main>
-      </div>
+          İçeriğe geç
+        </a>
+        <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r bg-sidebar px-4 py-6 md:flex">
+          <Link href="/" className="px-3" aria-label="Ana sayfa">
+            {/* At 1× the subtitle is a 3.7 px smudge: wordmark there, full lockup from 2dppx. */}
+            <ArkheWordmark
+              density="small"
+              className="h-auto w-44 [@media(min-resolution:2dppx)]:hidden"
+            />
+            <ArkheLockup className="hidden w-44 [@media(min-resolution:2dppx)]:block" />
+          </Link>
+          <div className="mt-8 flex-1">
+            <SidebarNav canManage={canManage} badges={badges} />
+          </div>
+          <SidebarUserActions />
+          <div className="mt-3 flex items-center gap-3 border-t px-2 pt-4">
+            <UserAvatar name={user.name} />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{user.name}</p>
+              <p className="truncate text-xs text-muted-foreground">{ROLE_LABELS[user.role]}</p>
+            </div>
+          </div>
+        </aside>
 
-      <BottomNav canManage={canManage} badges={badges} />
-      {flash && <FlashToast key={flash} message={flash} />}
-      <PushSync userId={user.id} />
-    </div>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="sticky top-0 z-30 flex items-center justify-between border-b bg-background/85 px-4 py-3 backdrop-blur-lg md:hidden">
+            <Link
+              href="/"
+              aria-label="Ana sayfa"
+              className="-my-3 inline-flex min-h-11 items-center rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <ArkheWordmark className="h-5" density="small" />
+            </Link>
+            <Link href="/profil" className="flex items-center gap-2" aria-label="Profilim">
+              {user.voicePart && <VoicePartBadge part={user.voicePart} />}
+              <UserAvatar name={user.name} className="size-8" />
+            </Link>
+          </header>
+          <main
+            id="icerik"
+            className="mx-auto w-full max-w-5xl flex-1 px-4 pt-6 pb-28 md:px-10 md:pt-10 md:pb-12"
+          >
+            {children}
+          </main>
+        </div>
+
+        <BottomNav canManage={canManage} badges={badges} />
+        {flash && <FlashToast key={flash} message={flash} />}
+        <PushSync userId={user.id} />
+      </div>
+    </>
   );
 }

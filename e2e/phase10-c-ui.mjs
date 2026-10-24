@@ -395,7 +395,7 @@ async function suite(browser, shots) {
       name: "ios-old",
       stub: { mode: "ios-old", standalone: true },
       ctx: { userAgent: IPHONE_UA },
-      text: "Bildirim için iOS 16.4 ya da daha yeni bir sürüm gerekiyor.",
+      text: "Bu cihaz bildirimleri desteklemiyor. iPhone'da iOS 16.4 ve üstü gerekir.",
     },
     {
       name: "denied",

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { QUIET_KEY, QUIET_LABEL } from "@/lib/push/groups";
+import { PUSH_UNSUPPORTED } from "./push-copy";
 import {
   disablePush,
   enablePush,
@@ -27,7 +28,7 @@ const STATE_TEXT: Partial<Record<DeviceState, string>> = {
     "Bu tarayıcı bildirim göstermiyor. Android'de Chrome'u, iPhone'da ana ekrana eklenmiş Arkhe'yi kullan.",
   "ios-install":
     "iPhone'da bildirim almak için önce Arkhe'yi ana ekrana ekle, sonra ana ekrandaki Arkhe'yi açıp buraya gel.",
-  "ios-old": "Bildirim için iOS 16.4 ya da daha yeni bir sürüm gerekiyor.",
+  "ios-old": PUSH_UNSUPPORTED,
   default:
     "Yoklama, çalışma değişikliği ve ödevler için telefonuna haber verelim. Bildirim gelmese de her şey portalda durur.",
   denied:

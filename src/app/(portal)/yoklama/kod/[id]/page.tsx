@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { QrCheckIn } from "@/components/attendance/qr-check-in";
+import { checkInErrorMessage } from "@/lib/attendance/check-in-errors";
 import { autoCloseStale } from "@/lib/attendance/close";
 import { getRehearsal, myMarks, phaseOf, rehearsalTitle } from "@/lib/attendance/rehearsals";
 import { requireUser } from "@/lib/auth/dal";
@@ -17,7 +18,7 @@ export default async function QrLandingPage({
 }: PageProps<"/yoklama/kod/[id]">) {
   const user = await requireUser();
   const { id } = await params;
-  const { c } = await searchParams;
+  const { c, hata } = await searchParams;
   if (!z.uuid().safeParse(id).success) notFound();
   await autoCloseStale();
   const r = await getRehearsal(id);
@@ -50,7 +51,7 @@ export default async function QrLandingPage({
             {phase === "cancelled" ? "Bu çalışma iptal edildi." : "Yoklama henüz açılmadı."}
           </p>
         ) : (
-          <QrCheckIn rehearsalId={id} code={code} />
+          <QrCheckIn rehearsalId={id} code={code} error={checkInErrorMessage(hata)} />
         )}
       </div>
       <Link href="/" className="text-sm font-medium text-primary hover:underline">

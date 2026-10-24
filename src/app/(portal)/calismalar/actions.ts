@@ -8,6 +8,7 @@ import { db } from "@/db";
 import { attendance, rehearsalParts, rehearsalSecrets, rehearsals, terms } from "@/db/schema";
 import { closeRehearsal } from "@/lib/attendance/close";
 import { newSecretRow, verifyCode } from "@/lib/attendance/code";
+import { checkInErrorKey } from "@/lib/attendance/check-in-errors";
 import { getRehearsal, listSeriesAfter, phaseOf } from "@/lib/attendance/rehearsals";
 import { isExpected, loadRosterUsers, rosterOf } from "@/lib/attendance/roster";
 import {
@@ -402,6 +403,16 @@ export async function checkIn(
   if (after)
     return { ok: false, managerMarked: true, error: "Yoklamayı alan kişi seni zaten işaretledi." };
   return { ok: false, error: "Yoklama kapandı. Geldiysen yoklamayı alan kişiye söyle." };
+}
+
+/** CodeEntry's form post without JavaScript: the same checks, the result comes back as a redirect. */
+export async function checkInForm(formData: FormData) {
+  const rehearsalId = String(formData.get("rehearsalId") ?? "");
+  const code = String(formData.get("code") ?? "").replace(/\D/g, "");
+  const result = await checkIn(rehearsalId, code, "code");
+  if (!idSchema.safeParse(rehearsalId).success) redirect("/");
+  const key = result.ok ? null : checkInErrorKey(result.error);
+  redirect(`/yoklama/kod/${rehearsalId}${key ? `?hata=${key}` : ""}`);
 }
 
 async function currentMark(rehearsalId: string, userId: string) {
