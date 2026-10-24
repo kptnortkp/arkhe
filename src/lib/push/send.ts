@@ -47,11 +47,34 @@ async function simulate(target: Target, ctx: PushContext): Promise<SendResult> {
   return result;
 }
 
+type Vapid = { publicKey: string; privateKey: string; subject: string };
+
+// Apple refuses a burst of freshly signed tokens, and web-push signs one per message: reuse one per service.
+const VAPID_REUSE_MS = 30 * 60_000;
+const vapidTokens = new Map<string, { authorization: string; until: number }>();
+
+function vapidAuthorization(endpoint: string, vapid: Vapid) {
+  const audience = new URL(endpoint).origin;
+  const key = `${audience} ${vapid.publicKey} ${vapid.subject}`;
+  const now = Date.now();
+  const hit = vapidTokens.get(key);
+  if (hit && hit.until > now) return hit.authorization;
+  const { Authorization } = webpush.getVapidHeaders(
+    audience,
+    vapid.subject,
+    vapid.publicKey,
+    vapid.privateKey,
+    "aes128gcm",
+  );
+  vapidTokens.set(key, { authorization: Authorization, until: now + VAPID_REUSE_MS });
+  return Authorization;
+}
+
 async function real(
   target: Target,
   body: string,
   meta: SendMeta,
-  vapid: { publicKey: string; privateKey: string; subject: string },
+  vapid: Vapid,
 ): Promise<SendResult> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   // web-push's timeout is a socket idle timeout; this is the hard cap per send.
@@ -63,7 +86,7 @@ async function real(
       { endpoint: target.endpoint, keys: { p256dh: target.p256dh, auth: target.auth } },
       body,
       {
-        vapidDetails: vapid,
+        headers: { Authorization: vapidAuthorization(target.endpoint, vapid) },
         TTL: meta.ttl,
         urgency: meta.urgency,
         topic: meta.topic || undefined,
@@ -77,7 +100,19 @@ async function real(
     if (status === 404) return "notfound";
     const code = (e as { code?: string }).code;
     const timedOut =
-      code === "ETIMEDOUT" || code === "ESOCKETTIMEDOUT" || (e as Error)?.message === "Socket timeout";
+      code === "ETIMEDOUT" ||
+      code === "ESOCKETTIMEDOUT" ||
+      (e as Error)?.message === "Socket timeout";
+    if (!timedOut) {
+      // The service's reason only (e.g. Apple's {"reason":…}); never the endpoint or the payload.
+      const reason = String((e as { body?: unknown }).body ?? "").slice(0, 120);
+      console.warn("push send failed", {
+        kind: meta.kind,
+        host: new URL(target.endpoint).hostname,
+        status,
+        reason,
+      });
+    }
     return timedOut ? "slow" : "fail";
   } finally {
     clearTimeout(timer);
