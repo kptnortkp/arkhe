@@ -1,6 +1,13 @@
 // A small Web Audio keyboard: triangle voices, a short envelope, one gain per track, and a
 // lookahead scheduler over score time (seconds), so the tempo factor only stretches the clock.
 
+export function newAudioContext(): AudioContext {
+  const Ctx =
+    window.AudioContext ??
+    (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  return new Ctx();
+}
+
 export type SynthNote = { time: number; duration: number; midi: number; velocity: number; track: number };
 
 const LOOKAHEAD = 0.15;

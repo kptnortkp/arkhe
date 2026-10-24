@@ -5,6 +5,7 @@ import { useState, type ComponentType } from "react";
 import { Button } from "@/components/ui/button";
 import type { VoicePart } from "@/db/schema";
 import type { MidiPlayerState } from "./midi-player";
+import { newAudioContext } from "./synth";
 
 type PlayerModule = typeof import("./midi-player");
 type PlayerProps = Parameters<PlayerModule["MidiPlayer"]>[0];
@@ -14,12 +15,7 @@ let loaded: Promise<PlayerModule> | null = null;
 
 /** Created inside the tap: iOS only starts an AudioContext made during a user gesture. */
 function audioContext() {
-  if (!ctx || ctx.state === "closed") {
-    const Ctx =
-      window.AudioContext ??
-      (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    ctx = new Ctx();
-  }
+  if (!ctx || ctx.state === "closed") ctx = newAudioContext();
   void ctx.resume().catch(() => {});
   return ctx;
 }

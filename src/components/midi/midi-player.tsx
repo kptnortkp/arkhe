@@ -7,7 +7,7 @@ import type { VoicePart } from "@/db/schema";
 import { VOICE_PART_LABELS } from "@/lib/labels";
 import { MSG } from "@/lib/storage/messages";
 import { cn } from "@/lib/utils";
-import { Synth, type SynthNote } from "./synth";
+import { newAudioContext, Synth, type SynthNote } from "./synth";
 
 // The AC 52 bundle check finds this chunk by the marker below.
 export const MIDI_PLAYER_MARKER = "arkhe-midi-player";
@@ -99,6 +99,10 @@ export function MidiPlayer({
   const [refusal, setRefusal] = useState<string | null>(null);
   const synth = useRef<Synth | null>(null);
   const self = useRef({ pause: () => pause() });
+  const audio = useRef(ctx);
+  const data = useRef<Parsed | null>(null);
+  // Set when the page was hidden: iOS can leave the context interrupted after a screen lock.
+  const stale = useRef(false);
 
   function report(s: MidiPlayerState) {
     setState(s);
@@ -112,11 +116,30 @@ export function MidiPlayer({
     releasePlayback(self.current);
   };
 
+  /** Runs inside the tap, so iOS lets the new context start. */
+  function rebuild(old: Synth) {
+    const p = data.current;
+    if (!p) return old;
+    const state = audio.current.state as AudioContextState | "interrupted";
+    if (!stale.current && state !== "interrupted" && state !== "closed") return old;
+    stale.current = false;
+    const position = old.position();
+    old.dispose();
+    void audio.current.close().catch(() => {});
+    audio.current = newAudioContext();
+    const next = new Synth(audio.current, p.notes, p.tracks.length, p.duration);
+    next.setRate(old.rate, ended);
+    next.seek(position, ended);
+    muted.forEach((m, i) => next.mute(i, m));
+    synth.current = next;
+    return next;
+  }
+
   function play() {
-    const s = synth.current;
-    if (!s) return;
+    if (!synth.current) return;
+    const s = rebuild(synth.current);
     claimPlayback(self.current);
-    void ctx.resume().catch(() => {});
+    void audio.current.resume().catch(() => {});
     const nav = navigator as AudioSessionNavigator;
     if (nav.audioSession) nav.audioSession.type = "playback";
     s.play(ended);
@@ -149,7 +172,8 @@ export function MidiPlayer({
       .get(midiId)!
       .then((p) => {
         if (!alive) return;
-        synth.current = new Synth(ctx, p.notes, p.tracks.length, p.duration);
+        synth.current = new Synth(audio.current, p.notes, p.tracks.length, p.duration);
+        data.current = p;
         setParsed(p);
         setMuted(p.tracks.map(() => false));
         play();
@@ -175,24 +199,47 @@ export function MidiPlayer({
     const t = setInterval(() => setPosition(synth.current?.position() ?? 0), 250);
     const hide = () => document.visibilityState === "hidden" && pause();
     document.addEventListener("visibilitychange", hide);
-    // Audio stops when the phone locks, so keep the screen on while playing.
-    let wake: WakeLockSentinel | null = null;
-    let done = false;
-    navigator.wakeLock
-      ?.request("screen")
-      .then((lock) => {
-        if (done) void lock.release();
-        else wake = lock;
-      })
-      .catch(() => {});
     return () => {
-      done = true;
-      void wake?.release().catch(() => {});
       clearInterval(t);
       document.removeEventListener("visibilitychange", hide);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- pause reads refs only
   }, [state]);
+
+  // Audio stops when the phone locks, so the screen stays on while the player is open.
+  useEffect(() => {
+    let wake: WakeLockSentinel | null = null;
+    let asking = false;
+    let alive = true;
+    const hold = () => {
+      if (wake || asking || document.visibilityState !== "visible" || !navigator.wakeLock) return;
+      asking = true;
+      navigator.wakeLock
+        .request("screen")
+        .then((lock) => {
+          if (!alive) return void lock.release();
+          wake = lock;
+          lock.addEventListener("release", () => {
+            if (wake === lock) wake = null;
+          });
+        })
+        .catch(() => {})
+        .finally(() => {
+          asking = false;
+        });
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") stale.current = true;
+      else hold();
+    };
+    hold();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      alive = false;
+      document.removeEventListener("visibilitychange", onVisibility);
+      void wake?.release().catch(() => {});
+    };
+  }, []);
 
   function setTrackMuted(i: number, m: boolean) {
     synth.current?.mute(i, m);
