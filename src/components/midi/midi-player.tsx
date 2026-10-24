@@ -175,7 +175,19 @@ export function MidiPlayer({
     const t = setInterval(() => setPosition(synth.current?.position() ?? 0), 250);
     const hide = () => document.visibilityState === "hidden" && pause();
     document.addEventListener("visibilitychange", hide);
+    // Audio stops when the phone locks, so keep the screen on while playing.
+    let wake: WakeLockSentinel | null = null;
+    let done = false;
+    navigator.wakeLock
+      ?.request("screen")
+      .then((lock) => {
+        if (done) void lock.release();
+        else wake = lock;
+      })
+      .catch(() => {});
     return () => {
+      done = true;
+      void wake?.release().catch(() => {});
       clearInterval(t);
       document.removeEventListener("visibilitychange", hide);
     };
