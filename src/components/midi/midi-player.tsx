@@ -97,6 +97,7 @@ export function MidiPlayer({
   const [muted, setMuted] = useState<boolean[]>([]);
   const [status, setStatus] = useState("");
   const [refusal, setRefusal] = useState<string | null>(null);
+  const [stuck, setStuck] = useState(false);
   const synth = useRef<Synth | null>(null);
   const self = useRef({ pause: () => pause() });
   const audio = useRef(ctx);
@@ -121,7 +122,7 @@ export function MidiPlayer({
     const p = data.current;
     if (!p) return old;
     const state = audio.current.state as AudioContextState | "interrupted";
-    if (!stale.current && state !== "interrupted" && state !== "closed") return old;
+    if (!stale.current && state === "running") return old;
     stale.current = false;
     const position = old.position();
     old.dispose();
@@ -135,9 +136,11 @@ export function MidiPlayer({
     return next;
   }
 
-  function play() {
+  /** `tap`: called from a tap, where a dead context can be replaced (iOS needs the gesture). */
+  function play(tap = false) {
     if (!synth.current) return;
-    const s = rebuild(synth.current);
+    const s = tap ? rebuild(synth.current) : synth.current;
+    setStuck(false);
     claimPlayback(self.current);
     void audio.current.resume().catch(() => {});
     const nav = navigator as AudioSessionNavigator;
@@ -161,7 +164,7 @@ export function MidiPlayer({
   function toggle() {
     if (!synth.current) return;
     if (synth.current.playing) pause();
-    else play();
+    else play(true);
   }
   useImperativeHandle(controlRef, () => ({ toggle }));
 
@@ -199,7 +202,17 @@ export function MidiPlayer({
     const t = setInterval(() => setPosition(synth.current?.position() ?? 0), 250);
     const hide = () => document.visibilityState === "hidden" && pause();
     document.addEventListener("visibilitychange", hide);
+    // A context iOS won't resume keeps its clock still: say so instead of "playing" in silence.
+    const clockAt = audio.current;
+    const startedAt = clockAt.currentTime;
+    const watch = setTimeout(() => {
+      if (clockAt.currentTime !== startedAt) return;
+      pause();
+      stale.current = true;
+      setStuck(true);
+    }, 1500);
     return () => {
+      clearTimeout(watch);
       clearInterval(t);
       document.removeEventListener("visibilitychange", hide);
     };
@@ -406,6 +419,11 @@ export function MidiPlayer({
         </details>
       ) : (
         voices
+      )}
+      {stuck && (
+        <p className="text-sm text-absent-ink" role="alert">
+          Ses başlatılamadı. Tekrar Çal&apos;a dokun.
+        </p>
       )}
       <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <BellOff className="size-3.5 shrink-0" aria-hidden />
