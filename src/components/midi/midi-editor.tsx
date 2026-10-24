@@ -5,6 +5,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { deleteMidi, uploadMidi } from "@/app/(portal)/repertuvar/midi-actions";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { downloadInApp } from "@/components/download-link";
 import { Field, FormMessage } from "@/components/forms/field";
 import { submitWithoutReset } from "@/components/forms/submit-without-reset";
 import { Button } from "@/components/ui/button";
@@ -223,7 +224,7 @@ export function MidiEditor({ pieceId, files }: { pieceId: string; files: EditorM
                     <DropdownMenuContent align="end" className="min-w-40">
                       <DropdownMenuItem
                         className="min-h-11"
-                        render={<a href={`/api/dosya/midi/${m.id}?indir=1`} />}
+                        render={<a href={`/api/dosya/midi/${m.id}?indir=1`} onClick={downloadInApp} />}
                       >
                         <Download />
                         İndir

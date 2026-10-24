@@ -7,6 +7,7 @@ import { deleteAssistantNote, saveAssistantNote } from "@/app/(portal)/odevler/d
 import { deleteRecordingAsConductor } from "@/app/(portal)/odevler/kayit-actions";
 import { saveFeedback } from "@/app/(portal)/odevler/actions";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { DownloadLink } from "@/components/download-link";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,13 +34,13 @@ export function RecordingAdmin({ recordingId, singer }: { recordingId: string; s
   const [pending, run] = useRunAction();
   return (
     <div className="flex items-center justify-between gap-2">
-      <a
+      <DownloadLink
         href={`/api/dosya/kayit/${recordingId}?indir=1`}
         className={cn(buttonVariants({ variant: "ghost" }), "h-11 px-3")}
       >
         <Download />
         İndir
-      </a>
+      </DownloadLink>
       <Button variant="ghost" className="h-11 px-3 text-absent-ink" onClick={() => setOpen(true)}>
         Kaydı sil
       </Button>

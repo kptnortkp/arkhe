@@ -1,4 +1,5 @@
 import { Download, FileMusic } from "lucide-react";
+import { DownloadLink } from "@/components/download-link";
 import { buttonVariants } from "@/components/ui/button";
 import type { VoicePart } from "@/db/schema";
 import type { MidiRow } from "@/lib/repertoire-midi";
@@ -35,13 +36,13 @@ export function MidiList({ rows, myPart }: { rows: MidiRow[]; myPart: VoicePart 
                 </>
               }
               after={
-                <a
+                <DownloadLink
                   href={`/api/dosya/midi/${m.id}?indir=1`}
                   aria-label={`İndir: ${m.title}`}
                   className={cn(buttonVariants({ variant: "ghost" }), "size-11 shrink-0 rounded-full")}
                 >
                   <Download />
-                </a>
+                </DownloadLink>
               }
             />
           </li>
