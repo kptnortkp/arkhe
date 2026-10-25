@@ -273,18 +273,26 @@ async function browse(browser, ids, shots) {
   );
   await preview("video").click();
   check(
-    (await korist.locator("iframe").count()) === 1,
-    "AC8 opening a second preview closes the first",
+    (await korist.locator("iframe").count()) === 2,
+    "AC8 the score stays open next to the video",
   );
   check(
-    (await korist.locator("iframe").getAttribute("src")) ===
+    (await korist.locator("section[aria-labelledby=group-video] iframe").getAttribute("src")) ===
       "https://www.youtube-nocookie.com/embed/arkheAveV01",
     "AC8 YouTube preview uses youtube-nocookie",
   );
-  await korist
-    .locator("section[aria-labelledby=group-video]")
-    .getByRole("button", { name: /Kapat/ })
-    .click();
+  await preview("part").click();
+  check(
+    (await korist.locator("iframe").count()) === 2 &&
+      (await korist.locator("section[aria-labelledby=group-video] iframe").count()) === 0,
+    "AC8 opening a part recording closes the video but keeps the score",
+  );
+  for (const kind of ["part", "score"]) {
+    await korist
+      .locator(`section[aria-labelledby=group-${kind}]`)
+      .getByRole("button", { name: /Kapat/ })
+      .click();
+  }
   check((await korist.locator("iframe").count()) === 0, "AC8 Kapat removes the iframe");
   await korist.goto(`${BASE}/repertuvar/${sicut}?partisyon=tumu`);
   await preview("video").click();

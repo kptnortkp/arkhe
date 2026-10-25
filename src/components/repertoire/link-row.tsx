@@ -28,12 +28,24 @@ const ICONS = {
   folder: FolderOpen,
 };
 
-const OpenPreview = createContext<[string | null, (id: string | null) => void]>([null, () => {}]);
+type Previews = { open: string[]; toggle: (id: string, media: boolean) => void };
 
-/** Only one preview open at a time: two players on a phone are heavy and play over each other. */
+const OpenPreview = createContext<Previews>({ open: [], toggle: () => {} });
+
+/** Scores stay open next to a video, but only one player at a time: two would play over each other. */
 export function PreviewGroup({ children }: { children: React.ReactNode }) {
-  const state = useState<string | null>(null);
-  return <OpenPreview.Provider value={state}>{children}</OpenPreview.Provider>;
+  const [open, setOpen] = useState<{ id: string; media: boolean }[]>([]);
+  const toggle = (id: string, media: boolean) =>
+    setOpen((prev) =>
+      prev.some((p) => p.id === id)
+        ? prev.filter((p) => p.id !== id)
+        : [...prev.filter((p) => !(media && p.media)), { id, media }],
+    );
+  return (
+    <OpenPreview.Provider value={{ open: open.map((p) => p.id), toggle }}>
+      {children}
+    </OpenPreview.Provider>
+  );
 }
 
 export type LinkRowData = {
@@ -48,17 +60,14 @@ export type LinkRowData = {
 };
 
 export function LinkRow({ link }: { link: LinkRowData }) {
-  const [openId, setOpenId] = useContext(OpenPreview);
+  const previews = useContext(OpenPreview);
   const [loaded, setLoaded] = useState(false);
   const panelId = useId();
-  const open = openId === link.id;
+  const open = previews.open.includes(link.id);
   const Icon = ICONS[link.kind];
+  const media = link.provider === "youtube" || link.kind === "part" || link.kind === "recording";
   const frame =
-    link.kind === "folder"
-      ? "h-96"
-      : link.provider === "youtube" || link.kind === "part" || link.kind === "recording"
-        ? "aspect-video"
-        : "aspect-[3/4] max-h-[75dvh]";
+    link.kind === "folder" ? "h-96" : media ? "aspect-video" : "aspect-[3/4] max-h-[75dvh]";
   const isDrive = link.provider === "drive-file" || link.provider === "drive-folder";
 
   return (
@@ -93,7 +102,7 @@ export function LinkRow({ link }: { link: LinkRowData }) {
             aria-controls={panelId}
             onClick={() => {
               setLoaded(false);
-              setOpenId(open ? null : link.id);
+              previews.toggle(link.id, media);
             }}
           >
             {open ? <EyeOff /> : <Eye />}
