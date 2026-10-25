@@ -189,11 +189,12 @@ export function CheckInPanel(props: CheckInPanelProps) {
     <div className="space-y-3">
       <p className={cn("text-sm", muted)}>Yoklama çalışmadan önce açılacak.</p>
       <Button
-        variant="ghost"
+        variant="outline"
         onClick={() => setExcuseOpen(true)}
         className={cn(
-          "h-11 rounded-full px-4",
-          onStage && "text-stage-foreground hover:bg-white/10 hover:text-stage-foreground",
+          "h-11 rounded-full px-5",
+          onStage &&
+            "border-stage-foreground/40 bg-transparent text-stage-foreground hover:bg-stage-foreground/10 hover:text-stage-foreground",
         )}
       >
         Gelemeyeceğim

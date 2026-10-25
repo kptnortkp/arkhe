@@ -1,5 +1,5 @@
 import { and, count, eq, gt } from "drizzle-orm";
-import { CalendarClock, ChevronLeft, FileUp, MapPin } from "lucide-react";
+import { ArrowLeft, CalendarClock, FileUp, MapPin } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
@@ -64,9 +64,9 @@ export default async function RehearsalPage({ params }: PageProps<"/calismalar/[
       <div className="space-y-3">
         <Link
           href="/calismalar"
-          className="-my-2 inline-flex min-h-11 items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          className="-ml-1 inline-flex min-h-11 items-center gap-1.5 px-1 text-sm text-muted-foreground hover:text-foreground"
         >
-          <ChevronLeft className="size-4" />
+          <ArrowLeft className="size-4" />
           Çalışmalar
         </Link>
         <div className="flex flex-wrap items-center gap-2">

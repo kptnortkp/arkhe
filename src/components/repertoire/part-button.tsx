@@ -5,7 +5,6 @@ import { VOICE_PART_LABELS } from "@/lib/labels";
 import type { MyPart } from "@/lib/repertoire";
 import { cn } from "@/lib/utils";
 import { PartChooser } from "./part-chooser";
-import { PartDot } from "@/components/part-dot";
 
 /** "Partisyonum": 0 files → disabled, 1 → direct link, more → chooser. Hidden without a voice part. */
 export function PartButton({
@@ -15,6 +14,7 @@ export function PartButton({
   title,
   hero = false,
   asLink = false,
+  quiet = false,
 }: {
   myPart: MyPart;
   voicePart: VoicePart | null;
@@ -23,6 +23,8 @@ export function PartButton({
   hero?: boolean;
   /** A text link under the portal MIDI button (D59): the Drive part stays one tap away. */
   asLink?: boolean;
+  /** Outline hero, when another primary action owns the screen. */
+  quiet?: boolean;
 }) {
   if (!myPart || !voicePart) return null;
   if (asLink && myPart.links.length === 0) return null;
@@ -33,25 +35,25 @@ export function PartButton({
     : hero
       ? "h-12 w-full rounded-2xl px-5 text-base md:w-auto"
       : "h-11 w-[116px] shrink-0 justify-center rounded-full px-3 text-sm";
-  const variant = asLink ? "ghost" : hero ? "default" : "outline";
+  const variant = asLink ? "ghost" : hero && !quiet ? "default" : "outline";
 
   if (myPart.links.length === 0) {
     return (
       <button
         type="button"
         disabled
+        aria-label={hero ? undefined : "Partisyon kaydı yok"}
         className={cn(
           buttonVariants({ variant: "outline" }),
           base,
-          "border-dashed bg-transparent whitespace-normal text-muted-foreground disabled:opacity-100",
-          !hero && "text-xs leading-tight",
+          "border-dashed bg-transparent text-muted-foreground disabled:opacity-100",
+          hero ? "whitespace-normal" : "whitespace-nowrap",
         )}
       >
-        {hero ? `${partName} için partisyon kaydı yok` : "Partisyon kaydı yok"}
+        {hero ? `${partName} için partisyon kaydı yok` : "Kayıt yok"}
       </button>
     );
   }
-  const dot = <PartDot part={myPart.tutti ? null : voicePart} />;
   if (myPart.links.length === 1) {
     return (
       <a
@@ -60,7 +62,6 @@ export function PartButton({
         rel="noopener noreferrer"
         className={cn(buttonVariants({ variant }), base, "gap-2")}
       >
-        {!hero && !asLink && dot}
         {text}
         <span className="sr-only">
           {hero || asLink
@@ -80,7 +81,7 @@ export function PartButton({
       description={`${myPart.tutti ? "Tutti" : partName} partisyon kayıtları`}
       links={myPart.links.map((l) => ({ id: l.id, url: l.url, label: l.label ?? partName }))}
       className={cn(buttonVariants({ variant }), base, "gap-2")}
-      dot={hero || asLink ? null : dot}
+      dot={null}
       text={text}
     />
   );

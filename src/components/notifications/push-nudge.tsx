@@ -89,19 +89,24 @@ export function PushNudge({ publicKey, userId }: { publicKey: string; userId: st
             type="button"
             onClick={onEnable}
             disabled={busy}
-            className="h-11 flex-1 rounded-full"
+            className="h-11 flex-1 rounded-full sm:flex-none sm:px-6"
           >
             Bildirimleri aç
           </Button>
         ) : (
           <Link
             href="/profil#bildirimler"
-            className={cn(buttonVariants(), "h-11 flex-1 rounded-full")}
+            className={cn(buttonVariants(), "h-11 flex-1 rounded-full sm:flex-none sm:px-6")}
           >
             Nasıl?
           </Link>
         )}
-        <Button type="button" variant="outline" onClick={hide} className="h-11 flex-1 rounded-full">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={hide}
+          className="h-11 flex-1 rounded-full sm:flex-none sm:px-6"
+        >
           Şimdi değil
         </Button>
       </div>

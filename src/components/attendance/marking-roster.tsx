@@ -357,7 +357,7 @@ function RosterRow({
           : null;
   return (
     <li
-      className="flex flex-col gap-2 px-4 py-3 sm:min-h-16 sm:flex-row sm:items-center sm:gap-3 sm:py-2"
+      className="grid grid-cols-[2.25rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex sm:min-h-16 sm:flex-row sm:gap-3 sm:py-2"
       data-testid="roster-row"
     >
       <span
@@ -389,7 +389,7 @@ function RosterRow({
           )}
         </p>
       </div>
-      <div className="flex w-full items-center gap-1 sm:w-auto">
+      <div className="col-span-2 flex w-full items-center gap-1 sm:w-auto">
         <StatusSegment
           name={row.name}
           value={row.status as AttendanceStatus | null}
@@ -436,7 +436,7 @@ export function StatusSegment({
       role="radiogroup"
       aria-label={`${name} yoklama durumu`}
       onKeyDown={onKeyDown}
-      className="grid flex-1 grid-cols-4 gap-0.5 rounded-xl border bg-card p-0.5 sm:inline-flex sm:flex-none"
+      className="grid min-w-0 flex-1 grid-cols-4 gap-0.5 rounded-xl border bg-card p-0.5 sm:inline-flex sm:flex-none"
     >
       {ATTENDANCE_STATUSES.map((s, i) => {
         const Icon = STATUS_ICONS[s];
@@ -451,7 +451,7 @@ export function StatusSegment({
             tabIndex={i === focusIndex ? 0 : -1}
             onClick={() => onChange(s)}
             className={cn(
-              "inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg px-2 text-xs transition-colors sm:px-2.5 sm:text-sm",
+              "inline-flex h-12 min-w-11 flex-col items-center justify-center gap-0.5 rounded-lg px-1 text-[11px] leading-none transition-colors sm:h-11 sm:flex-row sm:gap-1.5 sm:px-2.5 sm:text-sm",
               selected ? STATUS_STYLES[s].solid : "text-muted-foreground hover:bg-muted",
             )}
           >
