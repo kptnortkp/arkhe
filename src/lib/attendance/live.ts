@@ -1,5 +1,5 @@
 import "server-only";
-import { codeSchedule } from "./code";
+import { sessionCode } from "./code";
 import { getRehearsal } from "./rehearsals";
 import { rosterOf } from "./roster";
 
@@ -37,9 +37,9 @@ export async function liveSnapshot(rehearsalId: string, withCodes: boolean) {
     openedAt: rehearsal.openedAt?.getTime() ?? null,
     closedAt: rehearsal.closedAt?.getTime() ?? null,
     rows,
-    schedule:
+    code:
       withCodes && rehearsal.openedAt && !rehearsal.closedAt
-        ? await codeSchedule(rehearsalId)
+        ? await sessionCode(rehearsalId)
         : null,
   };
 }

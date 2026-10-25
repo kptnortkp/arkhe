@@ -46,7 +46,7 @@ export function useLiveSnapshot(rehearsalId: string, initial: LiveSnapshot, poll
         );
         if (!res.ok) throw new Error(String(res.status));
         const next = (await res.json()) as LiveSnapshot;
-        setSnapshot((prev) => ({ ...next, schedule: next.schedule ?? prev.schedule }));
+        setSnapshot((prev) => ({ ...next, code: next.code ?? prev.code }));
         setOnline(true);
         return next;
       } catch {
@@ -70,10 +70,9 @@ export function useLiveSnapshot(rehearsalId: string, initial: LiveSnapshot, poll
     timer = setTimeout(tick, delay);
     return () => clearTimeout(timer);
   }, [poll, refresh]);
-  // Mark responses carry no code schedule; never let them wipe the one the live screen is using.
+  // Mark responses carry no code; never let them wipe the one the live screen is using.
   const mergeSnapshot = useCallback(
-    (next: LiveSnapshot) =>
-      setSnapshot((prev) => ({ ...next, schedule: next.schedule ?? prev.schedule })),
+    (next: LiveSnapshot) => setSnapshot((prev) => ({ ...next, code: next.code ?? prev.code })),
     [],
   );
   return { snapshot, setSnapshot: mergeSnapshot, refresh, online, setOnline };

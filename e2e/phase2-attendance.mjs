@@ -466,7 +466,7 @@ export default async function phase2(browser, shots) {
     "AC23 its unmarked members become Gelmedi",
   );
 
-  // AC24 + AC7 rotation: offline marks
+  // AC24 + AC7: offline marks; the code stays the same while attendance is open
   const offline = await insertRehearsal({ title: "E2E Offline", startOffsetMin: -5 });
   await sef.goto(`${BASE}/calismalar/${offline}`);
   await sef.getByRole("button", { name: "Yoklamayı başlat" }).click();
@@ -480,7 +480,7 @@ export default async function phase2(browser, shots) {
     "AC24 offline banner and Kaydedilmedi are shown",
   );
   await sef.waitForTimeout(31_000);
-  check((await liveCode(sef)) !== before, "AC7/AC24 the code keeps changing (also offline)");
+  check((await liveCode(sef)) === before, "AC7/AC24 the code stays the same for the whole session");
   await sef.context().setOffline(false);
   await sef.waitForTimeout(12_000);
   check(

@@ -4,7 +4,7 @@ import { ArrowLeft, QrCode } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { closeAttendance } from "@/app/(portal)/calismalar/actions";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -20,43 +20,19 @@ import type { LiveSnapshot } from "@/lib/attendance/live";
 import { cn } from "@/lib/utils";
 import { MarkingRoster, useLiveSnapshot } from "./marking-roster";
 
-const STEP_MS = 30_000;
-
-/** Re-renders only when the 30 s step changes; the countdown bar is a CSS animation. */
 function CodePanel({
-  schedule,
+  code,
   codeOnly,
   qrBase,
   rehearsalId,
   lateFrom,
-  onLow,
 }: {
-  schedule: LiveSnapshot["schedule"];
+  code: string | null;
   codeOnly: boolean;
   qrBase: string;
   rehearsalId: string;
   lateFrom: string;
-  onLow: () => void;
 }) {
-  const [offset] = useState(() => (schedule ? schedule.serverNow - Date.now() : 0));
-  const [tick, setTick] = useState(() => {
-    const t = Date.now() + offset;
-    return { step: Math.floor(t / STEP_MS), elapsed: t % STEP_MS };
-  });
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const t = Date.now() + offset;
-      const step = Math.floor(t / STEP_MS);
-      setTick((prev) => (prev.step === step ? prev : { step, elapsed: t % STEP_MS }));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [offset]);
-  const index = schedule ? tick.step - schedule.firstStep : -1;
-  const code = schedule ? (schedule.codes[index] ?? null) : null;
-  const low = schedule !== null && index > schedule.codes.length - 20;
-  useEffect(() => {
-    if (low) onLow();
-  }, [low, onLow]);
   const qrUrl = code ? `${qrBase}${rehearsalId}?c=${code}` : "";
 
   return (
@@ -72,16 +48,6 @@ function CodePanel({
       >
         {code ?? "––––"}
       </p>
-      <div className="h-1 w-48 overflow-hidden rounded-full bg-stage-foreground/15" aria-hidden>
-        <div
-          key={tick.step}
-          className="bg-brand-gradient h-full rounded-full"
-          style={{
-            animation: `code-countdown ${STEP_MS}ms linear forwards`,
-            animationDelay: `-${tick.elapsed}ms`,
-          }}
-        />
-      </div>
       {qrUrl ? (
         <div className="rounded-2xl bg-white p-3" aria-label="Yoklama QR kodu" role="img">
           <QRCodeSVG
@@ -91,7 +57,7 @@ function CodePanel({
           />
         </div>
       ) : (
-        <p className="text-sm text-stage-foreground/70">Bağlantı yok, kod yenilenemiyor.</p>
+        <p className="text-sm text-stage-foreground/70">Bağlantı yok, kod alınamadı.</p>
       )}
       <div className="space-y-1 text-center text-sm text-stage-foreground/70">
         <p>Telefonunla QR&apos;ı okut ya da Arkhe&apos;de Geldim&apos;e bas, kodu gir.</p>
@@ -117,19 +83,7 @@ export function LiveScreen({
   qrBase: string;
 }) {
   const router = useRouter();
-  const { snapshot, setSnapshot, refresh, online, setOnline } = useLiveSnapshot(
-    rehearsalId,
-    initial,
-    true,
-  );
-  const fetchingCodes = useRef(false);
-  const fetchCodes = useCallback(() => {
-    if (fetchingCodes.current) return;
-    fetchingCodes.current = true;
-    void refresh(true).finally(() => {
-      fetchingCodes.current = false;
-    });
-  }, [refresh]);
+  const { snapshot, setSnapshot, online, setOnline } = useLiveSnapshot(rehearsalId, initial, true);
   const [closeOpen, setCloseOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -163,12 +117,11 @@ export function LiveScreen({
   const unmarked = snapshot.rows.filter((r) => r.onRoster && r.status === null).length;
   const codePanel = (
     <CodePanel
-      schedule={snapshot.schedule}
+      code={snapshot.code}
       codeOnly={codeOnly}
       qrBase={qrBase}
       rehearsalId={rehearsalId}
       lateFrom={lateFrom}
-      onLow={fetchCodes}
     />
   );
 

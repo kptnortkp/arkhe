@@ -1,5 +1,3 @@
-export const CODE_STEP_SECONDS = 30;
-export const CODE_SCHEDULE_STEPS = 240; // two hours of codes for the live screen
 export const LATE_AFTER_MINUTES = 15;
 export const OPEN_BEFORE_MINUTES = 120;
 export const CHECKIN_MAX_WRONG = 5;

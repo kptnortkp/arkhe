@@ -224,9 +224,7 @@ export function CodeDialog({
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Kodu gir</DialogTitle>
-          <DialogDescription>
-            Şefin ekranındaki 4 haneli kod. 30 saniyede bir yenilenir.
-          </DialogDescription>
+          <DialogDescription>Şefin ekranındaki 4 haneli kod.</DialogDescription>
         </DialogHeader>
         <CodeEntry
           rehearsalId={rehearsalId}

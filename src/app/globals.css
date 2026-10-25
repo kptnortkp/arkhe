@@ -268,15 +268,6 @@
   );
 }
 
-@keyframes code-countdown {
-  from {
-    width: 100%;
-  }
-  to {
-    width: 0%;
-  }
-}
-
 /* Set by the inline probe in the root layout. Plain, unlayered CSS: browsers older than Safari 15.4
    drop every @layer rule, so these must not depend on Tailwind utilities. */
 .legacy-only {
