@@ -1,0 +1,57 @@
+# Phase 11 e2e results
+
+Run after the review fixes, 2026-10-24, started 22:18 Istanbul (inside quiet hours, on purpose: see below).
+Dev server http://127.0.0.1:3100 (outbox modes), local data/arkhe.db at migrations 15/15.
+
+## npm run e2e (full): 1746/1746 passed, no browser console errors, no CSP violations
+
+- phase1-auth.mjs 18/18
+- phase2-attendance.mjs 91/91
+- phase3-repertoire.mjs 103/103
+- phase4-homework.mjs 111/111
+- phase5-finance.mjs 118/118
+- phase6-a-brand.mjs 29/29
+- phase6-b-security.mjs 13/13
+- phase6-c-finance.mjs 30/30
+- phase6-z-guards.mjs 9/9
+- phase7-a-cron.mjs 40/40
+- phase7-b-page.mjs 86/86
+- phase7-c-restore.mjs 12/12
+- phase8b-a-format.mjs 112/112
+- phase8b-b-types.mjs 109/109
+- phase8b-c-undo.mjs 38/38
+- phase8-a-board.mjs 156/156
+- phase8-b-budget.mjs 100/100
+- phase8-c-email.mjs 10/10
+- phase9-a-record.mjs 75/75
+- phase9-b-review.mjs 92/92
+- phase9-c-storage.mjs 43/43
+- phase9-d-midi.mjs 40/40
+- phase9-e-db-lock.mjs 4/4
+- phase10-a-platform.mjs 45/45
+- phase10-b-triggers.mjs 49/49
+- phase10-c-ui.mjs 42/42
+- phase10-d-legacy.mjs 28/28
+- phase11-a-score.mjs 52/52
+- phase11-b-omr.mjs 76/76
+- phase11-c-player.mjs 15/15
+
+## npm run e2e:prod: 80/80 passed
+Includes Phase11 AC16 (not configured: notice instead of the form, PDF + manual MIDI upload work, /api/omr/* answers 503).
+
+## npm run lint, npm run typecheck: clean
+
+## Failures found on the way and their causes
+- First full run (started 22:01 Istanbul): 1741/1746.
+  - phase10-a AC50, phase10-b AC39 and AC44: time-of-day bugs in those Phase 10 tests, not flakes. They send at real time, but
+    the recipients had Gece sessiz on (phase10-a: the default; phase10-b: AC38 sets sef@'s gece on and never turned it off),
+    so after 22:00 Istanbul the items were correctly held. Fixed in the tests: gece off for those recipients. Re-run at 22:15: 164/164.
+    The earlier phase10-a AC48/49 failures (combined run, 400s from createAssignment) didn't recur in three later runs,
+    including this one inside quiet hours; those checks pin their own clock.
+  - phase7-a AC32: .env.development now also holds OMR_CALLBACK_SECRET (D98); the assertion lists the third dev value.
+  - phase7-b AC17 (focus on Vazgeç): the check read document.activeElement synchronously right after the dialog appeared;
+    base-ui moves focus once the open transition starts. The test now waits up to 2 s for the focus. Passed in both later runs.
+
+## Manual (not e2e)
+- AC 27 converter: design/phase-11/converter-check.txt.
+- AC 28 real GitHub run, iPhone PDF check: go-live (po-spec §9).

@@ -638,6 +638,33 @@ try {
   check(upload.status() === 201, `Phase9 AC47/59 production ignores the storage fault cookie (${upload.status()})`);
   await page.context().clearCookies({ name: "arkhe_e2e_recorder_limit" });
   await page.context().clearCookies({ name: "arkhe_e2e_storage_fault" });
+
+  // Phase 11 AC 16: without the OMR variables the feature is "kurulmadı"; the PDF still uploads.
+  const omrPiece = crypto.randomUUID();
+  await db.execute({ sql: "insert into pieces (id, title, status) values (?, 'E2E Prod Nota', 'learning')", args: [omrPiece] });
+  const pdf = Buffer.from("%PDF-1.4\n1 0 obj << >> endobj\ntrailer << >>\n%%EOF\n");
+  const scoreUp = await page.request.post(`${BASE}/api/dosya/nota?eser=${omrPiece}`, {
+    headers: { Origin: BASE, "Content-Type": "application/octet-stream" },
+    data: pdf,
+    failOnStatusCode: false,
+  });
+  await page.goto(`${BASE}/repertuvar/${omrPiece}/duzenle`);
+  const omrOff = await page.getByTestId("omr-off").textContent().catch(() => null);
+  const omrJob = crypto.randomUUID();
+  const machineRes = await fetch(`${BASE}/api/omr/${omrJob}/durum`, {
+    method: "POST",
+    headers: { "X-Arkhe-Timestamp": String(Math.floor(Date.now() / 1000)), "X-Arkhe-Signature": "0".repeat(64) },
+    body: "{}",
+  });
+  check(
+    scoreUp.status() === 201 &&
+      omrOff === "Otomatik çeviri kurulmadı. Nota yükleyebilir ve MIDI'yi elle ekleyebilirsin." &&
+      (await page.getByTestId("omr-form").count()) === 0 &&
+      (await page.getByTestId("midi-upload").count()) === 1 &&
+      machineRes.status === 503 &&
+      !existsSync(path.join(ROOT, "data/omr-outbox", `${omrJob}.json`)),
+    `Phase11 AC16 not configured: the notice instead of the form, PDF and manual MIDI upload work, machine endpoints 503 (${scoreUp.status()}, ${machineRes.status})`,
+  );
   const asistanTry = await newPage(browser, { mobile: true });
   await loginWith(asistanTry, "asistan@arkhe.local", DEMO_PASSWORD);
   await asistanTry.getByText("E-posta ya da şifre hatalı.").waitFor({ timeout: 10_000 }).catch(() => {});

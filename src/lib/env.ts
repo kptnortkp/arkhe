@@ -1,5 +1,6 @@
 // Pure checks of the production environment; no server-only import so scripts can reuse it.
 import { missingBackupVars } from "./backup/config";
+import { omrWarning } from "./omr/config";
 import { pushWarning } from "./push/config";
 type Env = Record<string, string | undefined>;
 
@@ -70,5 +71,9 @@ export function bootWarnings(env: Env): string[] {
   }
   const push = pushWarning(env);
   if (push) warnings.push(push);
+  // Phase 11: GITHUB_OMR_TOKEN, GITHUB_OMR_REPO, GITHUB_OMR_WORKFLOW, GITHUB_OMR_REF and
+  // OMR_CALLBACK_SECRET; without them the convert button says "kurulmadı" and nothing fails.
+  const omr = omrWarning(env);
+  if (omr) warnings.push(omr);
   return warnings;
 }

@@ -406,7 +406,11 @@ async function reviewFixes(browser, ids) {
 async function neverBlocks(browser) {
   // AC 8: slow push services never slow the action; the sends happen after the response.
   const users = (await db.execute("select id from users where is_active = 1 and role <> 'conductor' limit 12")).rows;
-  for (const u of users) await addDevice(u.id, "slow");
+  for (const u of users) {
+    await addDevice(u.id, "slow");
+    // Real time: after 22:00 Istanbul, quiet hours would hold these instead of sending.
+    await setPref(u.id, "gece", false);
+  }
   const id = await insertRehearsal({ title: "E2E Push Yavaş", startOffsetMin: 30 });
   const sef = await as(browser, "sef@arkhe.local");
   await goto(sef, `/calismalar/${id}`);

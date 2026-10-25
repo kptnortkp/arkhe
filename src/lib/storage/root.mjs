@@ -24,7 +24,7 @@ export function uploadsRootFor(url, cwd = process.cwd()) {
 }
 
 export const KEY_PATTERN =
-  /^(recordings\/[0-9a-f-]{36}\.(m4a|mp3|aac|webm|ogg|wav)|midi\/[0-9a-f-]{36}\.mid)$/;
+  /^(recordings\/[0-9a-f-]{36}\.(m4a|mp3|aac|webm|ogg|wav)|midi\/[0-9a-f-]{36}\.mid|scores\/[0-9a-f-]{36}\.pdf)$/;
 
 /** Resolves a storage key inside `root`; throws for anything that isn't one of our keys. */
 export function keyPath(root, key) {

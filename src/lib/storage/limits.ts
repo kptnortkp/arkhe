@@ -21,6 +21,8 @@ export const RECORDING_EXTENSIONS = {
 
 export const RECORDING_MAX_BYTES = 4_194_304;
 export const MIDI_MAX_BYTES = 1_048_576;
+/** One score PDF per piece (D94); the same limit as recordings. */
+export const SCORE_MAX_BYTES = 4_194_304;
 /** Uploads per (homework, singer), withdrawn and deleted takes included (D7, D42). */
 export const MAX_UPLOADS_PER_SLOT = 5;
 export const MIDI_MAX_PER_PIECE = 20;
@@ -52,6 +54,9 @@ export const LISTEN_PER_FILE_PER_HOUR = 10;
 export const LISTEN_PER_DAY = { conductor: 300, assistant: 120, member: 40 } as const;
 export const MIDI_PER_HOUR = 600;
 export const MIDI_PER_DAY = 300;
+/** Score PDFs are up to 4 MB, so their caps are lower than MIDI's. */
+export const SCORE_PER_HOUR = 30;
+export const SCORE_PER_DAY = 60;
 /** A missing object younger than this answers 503, older 410 + "missing" (D56). */
 export const MISSING_GRACE_MS = 10 * 60_000;
 /** D50: "Portalda kayıt yok" rows only for homework due in this window. */
@@ -64,6 +69,8 @@ export const DURATION_HEADER = "X-Recording-Duration-Ms";
 
 /** Test-only hooks, honoured only outside production on a file: database (D21, D37). */
 export const STORAGE_FAULT_COOKIE = "arkhe_e2e_storage_fault";
+/** `401|403|404|500|timeout`: what the GitHub dispatch answers (Phase 11, D105). */
+export const OMR_FAULT_COOKIE = "arkhe_e2e_omr_fault";
 export const RECORDER_LIMIT_COOKIE = "arkhe_e2e_recorder_limit";
 
 /** `code` of every failed upload response; the client acts on it, never on the text. */

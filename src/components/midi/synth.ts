@@ -28,16 +28,17 @@ export class Synth {
   constructor(
     private ctx: AudioContext,
     private notes: SynthNote[],
-    tracks: number,
+    gains: number[],
     readonly duration: number,
   ) {
     const comp = ctx.createDynamicsCompressor();
     comp.connect(ctx.destination);
     this.master = ctx.createGain();
-    this.master.gain.value = 0.25;
+    this.master.gain.value = 0.35;
     this.master.connect(comp);
-    this.trackGains = Array.from({ length: tracks }, () => {
+    this.trackGains = gains.map((value) => {
       const g = ctx.createGain();
+      g.gain.value = value;
       g.connect(this.master);
       return g;
     });
@@ -99,9 +100,9 @@ export class Synth {
     if (was) this.play(onEnd);
   }
 
-  mute(track: number, muted: boolean) {
-    const g = this.trackGains[track]?.gain;
-    g?.setTargetAtTime(muted ? 0 : 1, this.ctx.currentTime, 0.02);
+  /** Track gain 0–1; 0 mutes. */
+  level(track: number, gain: number) {
+    this.trackGains[track]?.gain.setTargetAtTime(gain, this.ctx.currentTime, 0.02);
   }
 
   dispose() {
@@ -133,7 +134,8 @@ export class Synth {
     osc.type = "triangle";
     osc.frequency.value = 440 * 2 ** ((n.midi - 69) / 12);
     const gain = this.ctx.createGain();
-    const peak = 0.2 + 0.8 * n.velocity;
+    // Square law, like a keyboard's velocity curve: 64 is about 6 dB under 96; a tiny floor keeps ppp audible.
+    const peak = 0.04 + 0.96 * n.velocity ** 2;
     gain.gain.setValueAtTime(0, at);
     gain.gain.linearRampToValueAtTime(peak, at + 0.01);
     gain.gain.linearRampToValueAtTime(peak * 0.7, at + 0.11);

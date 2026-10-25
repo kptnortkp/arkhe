@@ -22,7 +22,7 @@ export type Usage = {
   /** Every delivery, MIDI included: what the gauge shows and Blob bills. */
   reads: number;
   transferBytes: number;
-  /** Recording deliveries only: the playback stop never counts MIDI (D20). */
+  /** Recording deliveries only: the playback stop never counts MIDI or scores (D20, D94). */
   recordingReads: number;
   recordingTransferBytes: number;
 };
@@ -41,13 +41,14 @@ export async function usage(): Promise<Usage> {
     select
       (select coalesce(sum(size_bytes), 0) from recordings where audio_deleted_at is null)
       + (select coalesce(sum(size_bytes), 0) from midi_files)
+      + (select coalesce(sum(size_bytes), 0) from piece_scores)
       + (select coalesce(sum(size_bytes), 0) from storage_deletions where state = 'pending') as s,
       (select count(*) from storage_events where kind = 'put' and at > ${since}) as u,
       g.r, g.t, g.rr, g.rt
     from (
       select count(*) as r, 2 * coalesce(sum(bytes), 0) as t,
-        coalesce(sum(area is not 'midi'), 0) as rr,
-        2 * coalesce(sum(case when area is not 'midi' then bytes else 0 end), 0) as rt
+        coalesce(sum(area is null or area = 'recording'), 0) as rr,
+        2 * coalesce(sum(case when area is null or area = 'recording' then bytes else 0 end), 0) as rt
       from storage_events where kind = 'get' and at > ${since}
     ) g
   `);

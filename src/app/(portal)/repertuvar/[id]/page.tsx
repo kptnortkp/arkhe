@@ -5,6 +5,7 @@ import { z } from "zod";
 import { FilterChip } from "@/components/filter-chip";
 import { MidiButton } from "@/components/midi/midi-button";
 import { MidiList } from "@/components/midi/midi-list";
+import { ScoreSection } from "@/components/midi/score-row";
 import { BackLink } from "@/components/repertoire/back-link";
 import { LinkRow, PreviewGroup, type LinkRowData } from "@/components/repertoire/link-row";
 import { PartButton } from "@/components/repertoire/part-button";
@@ -21,7 +22,7 @@ import { managerBadge } from "@/lib/homework/deadline";
 import { barsLabel } from "@/lib/homework/mail";
 import { openHomeworkForPiece } from "@/lib/homework/queries";
 import { getPiece, programRank } from "@/lib/repertoire";
-import { midiForExactPart, midiForPiece } from "@/lib/repertoire-midi";
+import { heroMidi, midiForPiece, scoreForPiece } from "@/lib/repertoire-midi";
 import { now } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
@@ -88,9 +89,10 @@ export default async function PiecePage({ params, searchParams }: PageProps<"/re
   const hiddenParts =
     links.some((l) => l.kind === "part") && !visible.some((l) => l.kind === "part");
 
-  const [heroMidi, midiRows] = await Promise.all([
-    mine ? midiForExactPart(piece.id, mine) : null,
+  const [hero, midiRows, score] = await Promise.all([
+    mine ? heroMidi(piece.id, mine) : null,
     midiForPiece(piece.id, filter ?? "all"),
+    scoreForPiece(piece.id),
   ]);
 
   const chipHref = (value: string | null) =>
@@ -129,10 +131,11 @@ export default async function PiecePage({ params, searchParams }: PageProps<"/re
         <MetaChips {...piece} />
       </header>
 
-      {heroMidi && mine ? (
+      {hero && mine ? (
         <div className="space-y-2" data-testid="midi-hero">
           <MidiButton
-            midiId={heroMidi.id}
+            midiId={hero.row.id}
+            emphasize={hero.emphasize}
             title={`Partisyonumu çal (${VOICE_PART_LABELS[mine]})`}
             myPart={mine}
             variant="hero"
@@ -201,20 +204,21 @@ export default async function PiecePage({ params, searchParams }: PageProps<"/re
         </nav>
       )}
 
+      <ScoreSection score={score} />
       <MidiList rows={midiRows} myPart={mine} />
 
       {links.length === 0 && !folder ? (
-        <div className="staff-lines space-y-3 rounded-2xl border border-dashed bg-card px-6 pt-10 pb-12 text-center">
-          <p className="text-sm text-muted-foreground">Bu esere henüz bağlantı eklenmedi.</p>
-          {manager && (
+        manager && (
+          <div className="staff-lines space-y-3 rounded-2xl border border-dashed bg-card px-6 pt-10 pb-12 text-center">
+            <p className="text-sm text-muted-foreground">Bu esere henüz bağlantı eklenmedi.</p>
             <Link
               href={`/repertuvar/${piece.id}/duzenle#baglantilar`}
               className={cn(buttonVariants(), "h-11 rounded-full px-5")}
             >
               Bağlantı ekle
             </Link>
-          )}
-        </div>
+          </div>
+        )
       ) : (
         <PreviewGroup>
           <div className="space-y-6">

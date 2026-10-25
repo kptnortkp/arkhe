@@ -246,7 +246,7 @@ export async function seedMedia(client, T = new Date()) {
 
 /**
  * Deletes every file under the uploads root that no live row references (and no in-flight upload
- * holds). Never touches anything outside <root>/recordings and <root>/midi.
+ * holds). Never touches anything outside <root>/recordings, <root>/midi and <root>/scores.
  */
 export async function reconcileLocalUploads(client) {
   assertFixtureTarget(client);
@@ -256,11 +256,12 @@ export async function reconcileLocalUploads(client) {
       await client.execute(
         `select storage_key from recordings where audio_deleted_at is null
          union all select storage_key from midi_files
+         union all select storage_key from piece_scores
          union all select storage_key from storage_deletions where state = 'pending' and not_before > unixepoch()`,
       )
     ).rows.map((r) => String(r[0])),
   );
-  for (const dir of ["recordings", "midi"]) {
+  for (const dir of ["recordings", "midi", "scores"]) {
     let names = [];
     try {
       names = await readdir(path.join(root, dir));

@@ -1,0 +1,157 @@
+# Phase 11: a score PDF -> Audiveris -> omr/convert.py -> a draft MIDI on the portal.
+# Started only by the portal (workflow_dispatch). Nothing secret arrives as an input; the portal URL is
+# the repo variable PORTAL_URL and every request back is HMAC-signed with OMR_CALLBACK_SECRET (D98).
+# No artifacts: the PDF and the results never stay in GitHub (D109).
+name: omr
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_id:
+        description: Portal job id (uuid)
+        required: true
+        type: string
+      layout:
+        description: Staff layout
+        required: true
+        type: choice
+        options: [satb, kadin_erkek, sa_tb, auto]
+      piano:
+        description: Piano staves at the bottom
+        required: true
+        type: choice
+        options: ["true", "false"]
+        default: "true"
+      tempo:
+        description: Quarter notes per minute (empty or 40-220)
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: omr-${{ inputs.job_id }}
+  cancel-in-progress: false
+
+jobs:
+  convert:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      AUDIVERIS_VERSION: "5.11.0"
+      AUDIVERIS_DEB: Audiveris-5.11.0-ubuntu24.04-x86_64.deb
+      AUDIVERIS_SHA256: "f20113aaa33b3149ec8d6a09b2a7963360e65fafd92d69389987a85bbc3ec7a3"
+      PORTAL_URL: ${{ vars.PORTAL_URL }}
+      JOB_ID: ${{ inputs.job_id }}
+      LAYOUT: ${{ inputs.layout }}
+      PIANO: ${{ inputs.piano }}
+      TEMPO: ${{ inputs.tempo }}
+    steps:
+      - name: Check inputs
+        run: |
+          [[ "$JOB_ID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || { echo "bad job_id"; exit 1; }
+          [[ "$LAYOUT" =~ ^(satb|kadin_erkek|sa_tb|auto)$ ]] || { echo "bad layout"; exit 1; }
+          [[ "$PIANO" =~ ^(true|false)$ ]] || { echo "bad piano"; exit 1; }
+          [[ -z "$TEMPO" || "$TEMPO" =~ ^[0-9]{2,3}$ ]] || { echo "bad tempo"; exit 1; }
+          [[ "$PORTAL_URL" =~ ^https:// ]] || { echo "PORTAL_URL must be https"; exit 1; }
+
+      - name: Check out the converter
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: omr
+
+      # Only portal.py ever sees the secret. It is copied out of the workspace now, before any
+      # untrusted code runs, and its hash (a step output, which later steps can't change) is checked
+      # before each use. It runs on the system interpreter, isolated, standard library only.
+      - name: Pin the portal client
+        id: pin
+        run: |
+          sudo install -D -m 0444 -o root -g root omr/portal.py /opt/arkhe/portal.py
+          echo "sha=$(sha256sum /opt/arkhe/portal.py | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Report running
+        env:
+          PORTAL_SHA: ${{ steps.pin.outputs.sha }}
+          OMR_CALLBACK_SECRET: ${{ secrets.OMR_CALLBACK_SECRET }}
+        run: |
+          echo "${PORTAL_SHA}  /opt/arkhe/portal.py" | sha256sum -c --quiet -
+          /usr/bin/python3 -I -S /opt/arkhe/portal.py running
+
+      - name: Fetch the score
+        env:
+          PORTAL_SHA: ${{ steps.pin.outputs.sha }}
+          OMR_CALLBACK_SECRET: ${{ secrets.OMR_CALLBACK_SECRET }}
+        run: |
+          echo "${PORTAL_SHA}  /opt/arkhe/portal.py" | sha256sum -c --quiet -
+          /usr/bin/python3 -I -S /opt/arkhe/portal.py fetch input.pdf
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: omr/requirements.txt
+
+      - name: Install Python packages
+        run: python -m pip install --disable-pip-version-check --no-input --require-hashes -r omr/requirements.txt
+
+      - name: Count pages
+        run: python omr/pages.py input.pdf failure.json
+
+      - name: Cache Audiveris
+        id: audiveris-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/audiveris
+          key: audiveris-${{ env.AUDIVERIS_VERSION }}-ubuntu24.04-${{ env.AUDIVERIS_SHA256 }}
+
+      - name: Download Audiveris
+        if: steps.audiveris-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/audiveris
+          curl -fsSL --retry 3 -o ~/audiveris/"$AUDIVERIS_DEB" \
+            "https://github.com/Audiveris/audiveris/releases/download/${AUDIVERIS_VERSION}/${AUDIVERIS_DEB}"
+
+      - name: Install Audiveris
+        run: |
+          cd ~/audiveris
+          echo "${AUDIVERIS_SHA256}  ${AUDIVERIS_DEB}" | sha256sum -c -
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ./"$AUDIVERIS_DEB" xvfb
+
+      - name: Run Audiveris
+        run: |
+          mkdir -p out
+          xvfb-run -a /opt/audiveris/bin/Audiveris -batch -export -output out input.pdf || true
+          if ! ls out/*.mxl >/dev/null 2>&1; then
+            echo '{"kind": "no_music"}' > failure.json
+            exit 1
+          fi
+          echo "movements: $(ls out/*.mxl | wc -l)"
+
+      - name: Convert to MIDI
+        run: |
+          shopt -s nullglob
+          scores=(out/*.mxl)
+          python omr/convert.py "${scores[@]}" --layout "$LAYOUT" --piano "$PIANO" --tempo "$TEMPO" \
+            --out result.mid --summary summary.json --failure failure.json
+
+      - name: Post the result
+        env:
+          PORTAL_SHA: ${{ steps.pin.outputs.sha }}
+          OMR_CALLBACK_SECRET: ${{ secrets.OMR_CALLBACK_SECRET }}
+        run: |
+          echo "${PORTAL_SHA}  /opt/arkhe/portal.py" | sha256sum -c --quiet -
+          /usr/bin/python3 -I -S /opt/arkhe/portal.py result result.mid summary.json
+
+      - name: Report the failure
+        if: failure() || cancelled()
+        env:
+          PORTAL_SHA: ${{ steps.pin.outputs.sha }}
+          OMR_CALLBACK_SECRET: ${{ secrets.OMR_CALLBACK_SECRET }}
+        run: |
+          echo "${PORTAL_SHA}  /opt/arkhe/portal.py" | sha256sum -c --quiet -
+          /usr/bin/python3 -I -S /opt/arkhe/portal.py fail failure.json

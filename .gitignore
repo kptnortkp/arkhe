@@ -55,5 +55,9 @@ data/uploads*/
 .claude/*
 !.claude/agents/
 
+# the converter's local virtualenv (README: Otomatik MIDI)
+.venv-omr/
+__pycache__/
+
 # encrypted production dumps written by scripts/deploy-db.ts
 /deploy-backup/

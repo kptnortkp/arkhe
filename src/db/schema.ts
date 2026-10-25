@@ -25,7 +25,9 @@ import {
   RECORDING_EXTENSIONS,
   RECORDING_MAX_BYTES,
   RECORDING_TYPES,
+  SCORE_MAX_BYTES,
 } from "../lib/storage/limits";
+import { OMR_ERROR_KINDS, OMR_JOB_STATES, OMR_LAYOUTS } from "../lib/omr/constants";
 
 export {
   TICKET_EVENT_KINDS,
@@ -40,8 +42,17 @@ export {
   RECORDING_EXTENSIONS,
   RECORDING_MAX_BYTES,
   RECORDING_TYPES,
+  SCORE_MAX_BYTES,
   type RecordingType,
 } from "../lib/storage/limits";
+export {
+  OMR_ERROR_KINDS,
+  OMR_JOB_STATES,
+  OMR_LAYOUTS,
+  type OmrErrorKind,
+  type OmrJobState,
+  type OmrLayout,
+} from "../lib/omr/constants";
 
 export const ROLES = ["conductor", "board", "member"] as const;
 export const VOICE_PARTS = ["soprano", "alto", "tenor", "bass"] as const;
@@ -1157,7 +1168,9 @@ export const RECORDING_DELETE_REASONS = [
   "early",
   "missing",
 ] as const;
-export const STORAGE_AREAS = ["recording", "midi"] as const;
+export const STORAGE_AREAS = ["recording", "midi", "score"] as const;
+export const MIDI_STATUSES = ["draft", "published"] as const;
+export type MidiStatus = (typeof MIDI_STATUSES)[number];
 export const STORAGE_EVENT_KINDS = ["put", "get"] as const;
 export const DELETION_STATES = ["pending", "done"] as const;
 export const STORAGE_ERROR_KINDS = [
@@ -1333,9 +1346,25 @@ export const midiFiles = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
     createdAt: createdAt(),
+    // 0014 adds these with ADD COLUMN; their CHECKs and the published_by foreign key are written by
+    // hand there (declaring them here would make drizzle rebuild the table and drop the trigger).
+    /** True for a converter result (D116): never counted toward MIDI_MAX_PER_PIECE. */
+    auto: integer("auto", { mode: "boolean" }).notNull().default(false),
+    /** Drafts are automatic only and never reach a member (D103). */
+    status: text("status", { enum: MIDI_STATUSES }).notNull().default("published"),
+    /** Automatic files: [{ name, parts }] read from the MIDI itself. */
+    tracksJson: text("tracks_json"),
+    measures: integer("measures"),
+    durationSec: integer("duration_sec"),
+    publishedBy: text("published_by"),
+    publishedAt: integer("published_at", { mode: "timestamp" }),
   },
   (t) => [
     index("midi_files_piece_idx").on(t.pieceId, t.voicePart),
+    // At most one published and one draft automatic file per piece (D116).
+    uniqueIndex("midi_files_auto_idx")
+      .on(t.pieceId, t.status)
+      .where(sql`auto = 1`),
     uniqueIndex("midi_files_storage_key_idx").on(t.storageKey),
     check("midi_files_id_check", uuidPart("id")),
     check(
@@ -1352,6 +1381,10 @@ export const midiFiles = sqliteTable(
     ),
     check("midi_files_size_check", bytes("size_bytes", MIDI_MAX_BYTES)),
   ],
+);
+
+const scoreKey = sql.raw(
+  `substr(storage_key, 1, 7) = 'scores/' and length(substr(storage_key, 8, 36)) = 36 and substr(storage_key, 8, 36) not glob '*[^0-9a-f-]*' and substr(storage_key, 44) = '.pdf'`,
 );
 
 // Every stored key that isn't live. Filled by the 0010 triggers, and by uploads: a hold row before
@@ -1383,7 +1416,7 @@ export const storageDeletions = sqliteTable(
     check("storage_deletions_state_check", sql`state in (${inList(DELETION_STATES)})`),
     check(
       "storage_deletions_key_check",
-      sql`(area = 'recording' and substr(storage_key, 1, 11) = 'recordings/' and ${uuidPart("substr(storage_key, 12, 36)")} and substr(storage_key, 48) in ('.m4a', '.mp3', '.aac', '.webm', '.ogg', '.wav')) or (area = 'midi' and substr(storage_key, 1, 5) = 'midi/' and ${uuidPart("substr(storage_key, 6, 36)")} and substr(storage_key, 42) = '.mid')`,
+      sql`(area = 'recording' and substr(storage_key, 1, 11) = 'recordings/' and ${uuidPart("substr(storage_key, 12, 36)")} and substr(storage_key, 48) in ('.m4a', '.mp3', '.aac', '.webm', '.ogg', '.wav')) or (area = 'midi' and substr(storage_key, 1, 5) = 'midi/' and ${uuidPart("substr(storage_key, 6, 36)")} and substr(storage_key, 42) = '.mid') or (area = 'score' and ${scoreKey})`,
     ),
     check("storage_deletions_size_check", bytes("size_bytes", RECORDING_MAX_BYTES)),
     // No order check against requested_at: the triggers use the DB clock, the app its own.
@@ -1397,13 +1430,14 @@ export const storageDeletions = sqliteTable(
 );
 
 // Our own count of Blob operations (the gauge's rolling 30 days). No user, no key. Pruned by the sweep.
-// 0011 adds `area` with a column CHECK (area is null or in STORAGE_AREAS), written by hand in the SQL.
+// 0011 added `area`; 0014 rebuilt the table so its CHECK lives here and admits `score`.
+// Triggers in 0010 and 0014 insert into storage_deletions: a rebuild of that table must drop and recreate them.
 export const storageEvents = sqliteTable(
   "storage_events",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
     kind: text("kind", { enum: STORAGE_EVENT_KINDS }).notNull(),
-    /** 0011: null on older rows (read as "recording"). MIDI gets count toward transfer only. */
+    /** 0011: null on older rows (read as "recording"). MIDI and score gets count toward transfer only. */
     area: text("area", { enum: STORAGE_AREAS }),
     bytes: integer("bytes").notNull(),
     at: integer("at", { mode: "timestamp" }).notNull().default(now),
@@ -1411,6 +1445,7 @@ export const storageEvents = sqliteTable(
   (t) => [
     index("storage_events_kind_at_idx").on(t.kind, t.at, t.bytes),
     check("storage_events_kind_check", sql`kind in (${inList(STORAGE_EVENT_KINDS)})`),
+    check("storage_events_area_check", sql`area is null or area in (${inList(STORAGE_AREAS)})`),
     check("storage_events_bytes_check", bytes("bytes", RECORDING_MAX_BYTES)),
   ],
 );
@@ -1435,6 +1470,89 @@ export const storageSweeps = sqliteTable(
     check(
       "storage_sweeps_counts",
       sql`typeof(expired) = 'integer' and typeof(deleted) = 'integer' and typeof(failed) = 'integer' and expired >= 0 and deleted >= 0 and failed >= 0`,
+    ),
+  ],
+);
+
+// ------------------------------------------------- Phase 11: score PDF and automatic MIDI
+
+// One PDF per piece (D94). Replacing deletes the row and inserts a new one; the 0014 trigger queues
+// the old key, like midi_files.
+export const pieceScores = sqliteTable(
+  "piece_scores",
+  {
+    // In the file URL: a new upload gets a new id, so a cached response never shows an old PDF.
+    id: text("id").primaryKey(),
+    pieceId: text("piece_id")
+      .notNull()
+      .references(() => pieces.id, { onDelete: "cascade" }),
+    storageKey: text("storage_key").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    uploadedBy: text("uploaded_by").references(() => users.id, { onDelete: "set null" }),
+    uploadedAt: integer("uploaded_at", { mode: "timestamp" }).notNull().default(now),
+  },
+  (t) => [
+    uniqueIndex("piece_scores_piece_idx").on(t.pieceId),
+    uniqueIndex("piece_scores_storage_key_idx").on(t.storageKey),
+    check("piece_scores_id_check", uuidPart("id")),
+    check("piece_scores_storage_key_check", scoreKey),
+    check("piece_scores_size_check", bytes("size_bytes", SCORE_MAX_BYTES)),
+  ],
+);
+
+// One row per conversion (D100). Kept, cascades with the piece; the editor shows the latest.
+export const omrJobs = sqliteTable(
+  "omr_jobs",
+  {
+    id: text("id").primaryKey(),
+    pieceId: text("piece_id")
+      .notNull()
+      .references(() => pieces.id, { onDelete: "cascade" }),
+    state: text("state", { enum: OMR_JOB_STATES }).notNull().default("queued"),
+    errorKind: text("error_kind", { enum: OMR_ERROR_KINDS }),
+    /** layout_mismatch only: voice staves the layout needs and the converter found. */
+    expected: integer("expected"),
+    found: integer("found"),
+    layout: text("layout", { enum: OMR_LAYOUTS }).notNull(),
+    piano: integer("piano", { mode: "boolean" }).notNull(),
+    tempo: integer("tempo"),
+    /** GitHub's run id, digits only; the link is built by the portal. */
+    runId: text("run_id"),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(now),
+    startedAt: integer("started_at", { mode: "timestamp" }),
+    finishedAt: integer("finished_at", { mode: "timestamp" }),
+  },
+  (t) => [
+    // One queued/running job per piece, so parallel submits can't both win (D101).
+    uniqueIndex("omr_jobs_active_idx")
+      .on(t.pieceId)
+      .where(sql`state in ('queued', 'running')`),
+    index("omr_jobs_piece_idx").on(t.pieceId, t.createdAt),
+    index("omr_jobs_created_idx").on(t.createdAt),
+    index("omr_jobs_creator_idx").on(t.createdBy, t.createdAt),
+    check("omr_jobs_id_check", uuidPart("id")),
+    check("omr_jobs_state_check", sql`state in (${inList(OMR_JOB_STATES)})`),
+    check(
+      "omr_jobs_error_check",
+      sql`(state = 'failed') = (error_kind is not null) and (error_kind is null or error_kind in (${inList(OMR_ERROR_KINDS)}))`,
+    ),
+    check(
+      "omr_jobs_mismatch_check",
+      sql`(expected is null) = (found is null) and (expected is null or (error_kind = 'layout_mismatch' and typeof(expected) = 'integer' and typeof(found) = 'integer' and expected between 0 and 40 and found between 0 and 40))`,
+    ),
+    check("omr_jobs_layout_check", sql`layout in (${inList(OMR_LAYOUTS)})`),
+    check(
+      "omr_jobs_tempo_check",
+      sql`tempo is null or (typeof(tempo) = 'integer' and tempo between 40 and 220)`,
+    ),
+    check(
+      "omr_jobs_run_id_check",
+      sql`run_id is null or (length(run_id) between 1 and 20 and run_id not glob '*[^0-9]*')`,
+    ),
+    check(
+      "omr_jobs_finished_check",
+      sql`(state in ('succeeded', 'failed')) = (finished_at is not null)`,
     ),
   ],
 );

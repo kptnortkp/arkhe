@@ -407,6 +407,10 @@ export default async function phase7Page(browser) {
         (await dialog.getByRole("button", { name: "Vazgeç" }).count()) === 1,
       `AC17 the dialog names 2 addresses and ${PREV_LABEL}, lists them, no dirty warning`,
     );
+    // base-ui moves focus into the dialog after its open transition starts, not synchronously.
+    await sef
+      .waitForFunction(() => document.activeElement?.textContent?.trim() === "Vazgeç", null, { timeout: 2000 })
+      .catch(() => {});
     check(
       (await dialog.evaluate((el) => document.activeElement?.closest("[role=alertdialog]") === el)) &&
         (await sef.evaluate(() => document.activeElement?.textContent?.trim())) === "Vazgeç",

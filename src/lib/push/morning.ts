@@ -190,7 +190,7 @@ async function repertoireLines(
       (p.created_at > ${secs(since)} and p.created_at <= ${secs(now)}) as created,
       (select count(*) from piece_links l where l.piece_id = p.id
          and l.created_at > ${secs(since)} and l.created_at <= ${secs(now)})
-      + (select count(*) from midi_files m where m.piece_id = p.id
+      + (select count(*) from midi_files m where m.piece_id = p.id and m.auto = 0
          and m.created_at > ${secs(since)} and m.created_at <= ${secs(now)}) as files
     from pieces p`);
   const changed = rows.filter((r) => Number(r.created) || Number(r.files));

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { consumeAttempt } from "@/lib/auth/rate-limit";
 import { getSessionUser } from "@/lib/auth/session";
 import { VOICE_PART_LABELS } from "@/lib/labels";
+import { isManager } from "@/lib/permissions";
 import { storage } from "@/lib/storage/driver";
 import { midiForDelivery } from "@/lib/storage/files";
 import { downloadName } from "@/lib/storage/filename";
@@ -25,7 +26,7 @@ export async function GET(request: Request, { params }: RouteContext<"/api/dosya
   const { id } = await params;
   if (!z.uuid().safeParse(id).success) return empty(404);
   const midi = await midiForDelivery(id);
-  if (!midi) return empty(404);
+  if (!midi || (midi.draft && !isManager(viewer.role))) return empty(404);
 
   if ((await consumeAttempt(`midi:${viewer.id}`, MIDI_PER_HOUR, 3_600_000)).blocked) {
     return fail(429, MSG.listenRate, "rate");
@@ -61,8 +62,8 @@ export async function GET(request: Request, { params }: RouteContext<"/api/dosya
     headers: fileHeaders({
       type: "audio/midi",
       size,
-      // A file never changes under its id.
-      cache: "private, max-age=604800, immutable",
+      // A file never changes under its id; a draft becomes visible to members on publish, so it isn't cached.
+      cache: midi.draft ? "private, no-store" : "private, max-age=604800, immutable",
       attachment: download ? downloadName([midi.pieceTitle, label], "mid", "midi") : null,
     }),
   });

@@ -21,6 +21,7 @@ export const KINDS = [
   "assistant_queue",
   "conductor_queue",
   "repertoire",
+  "midi_published",
   "ticket_new",
   "ticket_urgent",
   "ticket_assigned",

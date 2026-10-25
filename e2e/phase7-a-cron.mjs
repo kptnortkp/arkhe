@@ -512,8 +512,9 @@ export default async function phase7Cron(browser) {
         JSON.stringify([
           "BACKUP_PASSPHRASE=dev-only-backup-passphrase",
           "CRON_SECRET=dev-only-cron-secret",
+          "OMR_CALLBACK_SECRET=dev-only-omr-callback-secret",
         ]) && /^#.*production/im.test(devEnv),
-      "AC32 .env.development holds exactly the two dev values and a header comment",
+      "AC32 .env.development holds exactly the dev values (Phase 11 adds the OMR secret) and a header comment",
     );
     const ignore = readFileSync(path.join(ROOT, ".gitignore"), "utf8").split("\n");
     check(

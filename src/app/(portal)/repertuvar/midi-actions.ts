@@ -29,11 +29,12 @@ function revalidatePiece(pieceId: string) {
 async function midiOnPiece(pieceId: string) {
   const [r] = await db.all<{ exists: number; n: number }>(sql`
     select exists (select 1 from pieces where id = ${pieceId}) as "exists",
-      (select count(*) from midi_files where piece_id = ${pieceId}) as n`);
+      (select count(*) from midi_files where piece_id = ${pieceId} and auto = 0) as n`);
   return { exists: Boolean(r?.exists), count: Number(r?.n ?? 0) };
 }
 
 /**
+ * The 20-file cap counts manual files only (D116), here and in the transaction's recount.
  * Managers add a MIDI file to a piece (D24, D32): a server action under 8b's 1100 kb body limit,
  * so a 1,048,577-byte file still reaches our own message. `uploadId` (one per form mount) makes a
  * replayed submit a no-op.
@@ -106,7 +107,7 @@ export async function uploadMidi(
     refused = await writeTx(async (tx) => {
       const [p] = await tx.all<{ n: number; ok: number }>(sql`
         select exists (select 1 from pieces where id = ${pieceId}) as ok,
-          (select count(*) from midi_files where piece_id = ${pieceId}) as n`);
+          (select count(*) from midi_files where piece_id = ${pieceId} and auto = 0) as n`);
       if (!p?.ok) return MSG.pieceNotFound;
       if (Number(p.n) >= MIDI_MAX_PER_PIECE) return MSG.midiTooMany;
       const released = await tx

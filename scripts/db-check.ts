@@ -88,6 +88,25 @@ async function main() {
         0,
       ],
     ];
+    if (tables.has("piece_scores")) {
+      checks.push(
+        [
+          "select count(*) from sqlite_master where type = 'trigger' and name = 'piece_scores_queue_on_delete'",
+          "score trigger missing",
+          1,
+        ],
+        [
+          "select count(*) from storage_deletions d where exists (select 1 from piece_scores s where s.storage_key = d.storage_key)",
+          "live score keys queued for deletion",
+          0,
+        ],
+        [
+          "select count(*) from midi_files where status = 'draft' and auto = 0",
+          "manual MIDI drafts",
+          0,
+        ],
+      );
+    }
     for (const [query, problem, want] of checks) {
       const n = Number((await client.execute(query)).rows[0][0]);
       if (n !== want) problems.push(problem);

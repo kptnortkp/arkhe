@@ -150,9 +150,18 @@ export async function midiFiles() {
   }
 }
 
+export async function scoreFiles() {
+  try {
+    return await readdir(path.join(uploadsRoot(), "scores"));
+  } catch {
+    return [];
+  }
+}
+
 export async function fileExists(key) {
   const dir = key.split("/")[0];
   const name = key.split("/")[1];
+  if (dir === "scores") return (await scoreFiles()).includes(name);
   return (dir === "midi" ? await midiFiles() : await recordingFiles()).includes(name);
 }
 

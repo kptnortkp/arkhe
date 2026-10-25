@@ -405,3 +405,29 @@ export function budgetEvent(
       }));
   });
 }
+
+// ---------------------------------------------------------------- repertoire
+
+/** D114: a published automatic MIDI, at once (quiet hours hold it); never the publisher. */
+export function midiPublished(piece: { id: string; title: string }, midiId: string, actorId: string) {
+  return guard("midi_published", async (ctx) => {
+    const people = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.isActive, true), isNull(users.leftAt)));
+    return people
+      .filter((p) => p.id !== actorId)
+      .map((p) => ({
+        userId: p.id,
+        kind: "midi_published" as const,
+        group: "repertuvar" as const,
+        dedupeKey: `midi_published-${midiId}`,
+        title: "Yeni MIDI",
+        body: `${piece.title}: çalışma MIDI'si hazır. Kendi sesini seçip dinleyebilirsin.`,
+        line: `Yeni MIDI: ${piece.title}`,
+        url: `/repertuvar/${piece.id}`,
+        tag: `midi-${piece.id}`,
+        expiresAt: new Date(ctx.now.getTime() + 3 * DAY_MS),
+      }));
+  });
+}

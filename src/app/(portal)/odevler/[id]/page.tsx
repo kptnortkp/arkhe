@@ -29,7 +29,7 @@ import {
 import { isManager } from "@/lib/permissions";
 import { myRecorder, rosterTakes, liveTakeCount } from "@/lib/homework/recordings";
 import { withMyPart } from "@/lib/repertoire";
-import { midiForPart } from "@/lib/repertoire-midi";
+import { homeworkMidi } from "@/lib/repertoire-midi";
 import { listenersFor } from "@/lib/review/scope";
 import { storageConfigured } from "@/lib/storage/driver";
 import { asciiSlug } from "@/lib/storage/filename";
@@ -89,7 +89,7 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
       listenersFor({ id: viewer.id, voicePart: viewer.voicePart }),
       recorderMaxMs(),
       storageWarning(),
-      midiForPart(a.pieceId, viewer.voicePart),
+      homeworkMidi(a.pieceId, viewer.voicePart),
       cachedUsage(),
     ]);
     const subject = viewer.voicePart ? homeworkSubject(a, viewer.voicePart, viewer.name) : "";
@@ -121,6 +121,7 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
         title={a.pieceTitle}
         hero={!midi}
         asLink={Boolean(midi)}
+        quiet
       />
     );
     const showTransparency = !recorder.locked && !take?.audioDeletedAt;
@@ -192,7 +193,8 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
                 <p className="font-medium">Partisyonunu dinle</p>
                 {midi && (
                   <MidiButton
-                    midiId={midi.id}
+                    midiId={midi.row.id}
+                    emphasize={midi.emphasize}
                     title="MIDI'yi çal"
                     myPart={viewer.voicePart}
                     variant="step"

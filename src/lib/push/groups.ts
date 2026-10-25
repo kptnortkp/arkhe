@@ -21,7 +21,7 @@ export const GROUP_LABELS: Record<PushGroup, string> = {
   devamsizlik: "Gelmedi olarak işaretlendiğimde",
   odev: "Ödevler ve şef yorumları",
   dinleme: "Dinleme kuyruğu",
-  repertuvar: "Repertuvar yenilikleri",
+  repertuvar: "Repertuvar ve yeni MIDI'ler",
   yonetim: "Yönetim işleri",
   aidat: "Aidat hatırlatmaları",
   butce: "Bütçe",
@@ -34,7 +34,8 @@ export const DEFAULTS: Record<PushPrefKey, boolean> = {
   devamsizlik: false,
   odev: true,
   dinleme: true,
-  repertuvar: false,
+  // D115 (Phase 11): on by default; people who set the switch keep their choice.
+  repertuvar: true,
   yonetim: true,
   aidat: true,
   butce: true,

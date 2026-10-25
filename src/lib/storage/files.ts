@@ -96,6 +96,8 @@ export type DeliveryMidi = {
   voicePart: VoicePart | null;
   label: string | null;
   pieceTitle: string;
+  /** Drafts go to managers only (D103). */
+  draft: boolean;
 };
 
 export async function midiForDelivery(id: string): Promise<DeliveryMidi | null> {
@@ -106,8 +108,9 @@ export async function midiForDelivery(id: string): Promise<DeliveryMidi | null> 
     voice_part: VoicePart | null;
     label: string | null;
     title: string;
+    status: string;
   }>(sql`
-    select m.id, m.storage_key, m.size_bytes, m.voice_part, m.label, p.title
+    select m.id, m.storage_key, m.size_bytes, m.voice_part, m.label, p.title, m.status
     from midi_files m join pieces p on p.id = m.piece_id where m.id = ${id}`);
   if (!m) return null;
   return {
@@ -117,5 +120,6 @@ export async function midiForDelivery(id: string): Promise<DeliveryMidi | null> 
     voicePart: m.voice_part,
     label: m.label,
     pieceTitle: m.title,
+    draft: m.status === "draft",
   };
 }

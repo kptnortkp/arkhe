@@ -28,6 +28,7 @@ export function MidiButton({
   midiId,
   title,
   myPart,
+  emphasize = false,
   variant = "row",
   compact = false,
   ready = false,
@@ -37,6 +38,8 @@ export function MidiButton({
   midiId: string;
   title: string;
   myPart: VoicePart | null;
+  /** Automatic multi-track file: open with my part in front (`{ses} önde`). */
+  emphasize?: boolean;
   /** row: `Çal` pill; step: homework `MIDI'yi çal`; hero: `Partisyonumu çal (Alto)`. */
   variant?: "row" | "step" | "hero";
   compact?: boolean;
@@ -94,6 +97,7 @@ export function MidiButton({
         ctx={context}
         midiId={midiId}
         myPart={myPart}
+        emphasize={emphasize}
         compact={compact}
         onState={setState}
       />

@@ -23,6 +23,8 @@ export function fileHeaders(opts: {
   size: number | null;
   cache: string;
   attachment: string | null;
+  /** A file name for an inline response too (the PDF viewer shows and saves it). */
+  inlineName?: string;
 }): Record<string, string> {
   return {
     "Content-Type": opts.type,
@@ -32,7 +34,11 @@ export function fileHeaders(opts: {
     "Cross-Origin-Resource-Policy": "same-origin",
     "Cache-Control": opts.cache,
     "Accept-Ranges": "none",
-    "Content-Disposition": opts.attachment ? `attachment; filename="${opts.attachment}"` : "inline",
+    "Content-Disposition": opts.attachment
+      ? `attachment; filename="${opts.attachment}"`
+      : opts.inlineName
+        ? `inline; filename="${opts.inlineName}"`
+        : "inline",
   };
 }
 

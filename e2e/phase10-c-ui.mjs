@@ -21,7 +21,7 @@ const KORIST_GROUPS = [
   "Çalışma ve konser duyuruları",
   "Gelmedi olarak işaretlendiğimde",
   "Ödevler ve şef yorumları",
-  "Repertuvar yenilikleri",
+  "Repertuvar ve yeni MIDI'ler",
 ];
 const QUIET = "Gece sessiz (22:00–08:00)";
 const QUIET_HELP = "Bu saatlerde gelenler sabah 08:00–09:00 arası tek bildirimde gelir.";
@@ -162,8 +162,8 @@ async function suite(browser, shots) {
     .locator("[data-testid=push-pref] [role=switch]")
     .evaluateAll((els) => els.map((el) => el.getAttribute("aria-checked")));
   check(
-    JSON.stringify(defaults) === JSON.stringify(["true", "false", "true", "false", "true"]),
-    `AC16/17 defaults: Çalışma on, Gelmedi off, Ödevler on, Repertuvar off, Gece sessiz on (${defaults})`,
+    JSON.stringify(defaults) === JSON.stringify(["true", "false", "true", "true", "true"]),
+    `AC16/17 defaults (Phase 11 D115: Repertuvar on): Çalışma on, Gelmedi off, Ödevler on, Repertuvar on, Gece sessiz on (${defaults})`,
   );
   const sectionText = (await section(k).textContent()) ?? "";
   check(
@@ -438,7 +438,7 @@ async function suite(browser, shots) {
   const roles = [
     [
       "asistan@arkhe.local",
-      [...KORIST_GROUPS.slice(0, 3), "Dinleme kuyruğu", "Repertuvar yenilikleri"],
+      [...KORIST_GROUPS.slice(0, 3), "Dinleme kuyruğu", "Repertuvar ve yeni MIDI'ler"],
       false,
     ],
     ["yk@arkhe.local", [...KORIST_GROUPS.slice(0, 4), "Yönetim işleri", "Bütçe"], true],
@@ -447,7 +447,7 @@ async function suite(browser, shots) {
       [
         "Çalışma ve konser duyuruları",
         "Dinleme kuyruğu",
-        "Repertuvar yenilikleri",
+        "Repertuvar ve yeni MIDI'ler",
         "Yönetim işleri",
         "Bütçe",
         "Yedek ve depolama uyarıları",

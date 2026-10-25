@@ -34,7 +34,7 @@ import { isManager } from "@/lib/permissions";
 import { loadViewer } from "@/lib/homework/queries";
 import { getVapidPublicKey } from "@/lib/push/settings";
 import { learningPieces, withMyPart } from "@/lib/repertoire";
-import { midiForExactPart } from "@/lib/repertoire-midi";
+import { heroMidi } from "@/lib/repertoire-midi";
 import { formatLongDate, formatTime, istanbulDateOf, istanbulToUtc, now } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
@@ -101,7 +101,7 @@ export default async function HomePage() {
     user.voicePart
       ? (
           await Promise.all(
-            pieces.map(async (p) => ((await midiForExactPart(p.id, user.voicePart!)) ? p.id : null)),
+            pieces.map(async (p) => ((await heroMidi(p.id, user.voicePart!)) ? p.id : null)),
           )
         ).filter(Boolean)
       : [],

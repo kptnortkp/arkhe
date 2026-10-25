@@ -249,6 +249,8 @@ async function board(browser) {
     "AC38/39 an urgent ticket assigned to sef at 23:30 gives only Acil iş, urgency high, at once",
   );
   await yk.context().clearCookies({ name: "arkhe_e2e_clock" });
+  // The rest of the suite sends at real time; after 22:00 Istanbul sef's quiet hours would hold it.
+  await setPref(sefId, "gece", false);
 
   // AC 39: assignment by edit; AC 40 comment; AC 41 move.
   const n = await numberOf("E2E Push yüksek");

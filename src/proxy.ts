@@ -58,8 +58,9 @@ export function proxy(request: NextRequest) {
 // Static assets, the service worker and the offline page never reach the proxy. Extensions are
 // only skipped at the root (favicon, icon, manifest), so a page like "/davet/x.png" keeps the CSP.
 // /api/dosya/ sets its own sandbox CSP and streams 4 MB bodies, so it checks the session itself.
+// /api/omr/ is the workflow's HMAC-signed JSON: no session, no CSP, and its own body cap.
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|brand/|icons/|api/dosya/|sw\\.js$|offline\\.html$|[^/]+\\.(?:svg|png|ico|webmanifest)$).*)",
+    "/((?!_next/static|_next/image|brand/|icons/|api/dosya/|api/omr/|sw\\.js$|offline\\.html$|[^/]+\\.(?:svg|png|ico|webmanifest)$).*)",
   ],
 };

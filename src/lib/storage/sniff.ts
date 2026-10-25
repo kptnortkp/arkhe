@@ -114,6 +114,18 @@ export function sniffAudio(b: Uint8Array): RecordingType | null {
   return mpegOrAdts(b);
 }
 
+/** D94: `%PDF-` in the first 1,024 bytes and `%%EOF` in the last 1,024. Encrypted PDFs pass. */
+export function isPdf(b: Uint8Array) {
+  if (b.length < 16) return false;
+  const find = (from: number, to: number, text: string) => {
+    for (let at = Math.max(0, from); at + text.length <= Math.min(b.length, to); at++) {
+      if (ascii(b, at, text)) return true;
+    }
+    return false;
+  };
+  return find(0, 1024, "%PDF-") && find(b.length - 1024, b.length, "%%EOF");
+}
+
 /** A Standard MIDI File with PPQ timing that our player can time; every chunk inside the file. */
 export function checkMidi(b: Uint8Array) {
   if (b.length < 22 || !ascii(b, 0, "MThd") || u32(b, 4) !== 6) return false;

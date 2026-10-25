@@ -10,9 +10,9 @@ const HOLD_SECONDS = 3600;
 const CHUNK = 50;
 
 export function newKey(area: StorageArea, ext: string) {
-  return area === "midi"
-    ? `midi/${crypto.randomUUID()}.mid`
-    : `recordings/${crypto.randomUUID()}.${ext}`;
+  if (area === "midi") return `midi/${crypto.randomUUID()}.mid`;
+  if (area === "score") return `scores/${crypto.randomUUID()}.pdf`;
+  return `recordings/${crypto.randomUUID()}.${ext}`;
 }
 
 /**

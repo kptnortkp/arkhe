@@ -15,7 +15,9 @@ export const MIDI_PLAYER_MARKER = "arkhe-midi-player";
 export type MidiControl = { toggle: () => void };
 export type MidiPlayerState = "loading" | "playing" | "paused" | "error";
 
-type Parsed = { notes: SynthNote[]; tracks: { name: string; part: VoicePart | null }[]; duration: number };
+type Track = { name: string; parts: VoicePart[]; piano: boolean };
+type Parsed = { notes: SynthNote[]; tracks: Track[]; duration: number };
+type Mix = { on: boolean; level: number }[];
 const files = new Map<string, Promise<Parsed>>();
 
 /** A refusal the server explained (e.g. a 429 rate cap); shown as is instead of "unplayable". */
@@ -32,14 +34,46 @@ const WITHOUT_PART: Record<VoicePart, string> = {
 const fold = (s: string) =>
   s.toLocaleLowerCase("tr").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ı/g, "i");
 
-function partOf(name: string): VoicePart | null {
+function partsOf(name: string): VoicePart[] {
   const n = fold(name);
-  if (/sop/.test(n)) return "soprano";
-  if (/alt/.test(n)) return "alto";
-  if (/ten/.test(n)) return "tenor";
-  if (/\bbas/.test(n)) return "bass";
-  return null;
+  if (/\b(kadin|women|female)/.test(n)) return ["soprano", "alto"];
+  if (/\b(erkek|men\b|male\b)/.test(n)) return ["tenor", "bass"];
+  const parts: VoicePart[] = [];
+  if (/sop/.test(n)) parts.push("soprano");
+  if (/alt/.test(n)) parts.push("alto");
+  if (/ten/.test(n)) parts.push("tenor");
+  if (/\bbas/.test(n)) parts.push("bass");
+  return parts;
 }
+
+const isPiano = (name: string) => /\b(piyano|piano|pf|klavye)/.test(fold(name));
+
+/** @tonejs/midi reads meta text as Latin-1; names written as UTF-8 are re-decoded. */
+function utf8(name: string) {
+  if (/[^\x00-\xff]/.test(name)) return name;
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(Uint8Array.from(name, (c) => c.charCodeAt(0)));
+  } catch {
+    return name;
+  }
+}
+
+/** Tracks that carry my part: an exact track wins over a combined one (Kadın, Erkek). */
+function mineOf(tracks: Track[], part: VoicePart | null) {
+  if (!part) return [];
+  const exact = tracks.flatMap((t, i) => (t.parts.length === 1 && t.parts[0] === part ? [i] : []));
+  if (exact.length) return exact;
+  return tracks.flatMap((t, i) => (t.parts.includes(part) ? [i] : []));
+}
+
+const defaults = (tracks: Track[]): Mix => tracks.map((t) => ({ on: true, level: t.piano ? 50 : 100 }));
+const PRESETS = {
+  solo: (tracks: Track[], mine: number[]) => defaults(tracks).map((m, i) => ({ ...m, on: mine.includes(i) })),
+  front: (tracks: Track[], mine: number[]) => tracks.map((_, i) => ({ on: true, level: mine.includes(i) ? 100 : 30 })),
+  minus: (tracks: Track[], mine: number[]) => defaults(tracks).map((m, i) => ({ ...m, on: !mine.includes(i) })),
+};
+const gainOf = (m: Mix[number]) => (m.on ? m.level / 100 : 0);
+const same = (a: Mix, b: Mix) => a.length === b.length && a.every((m, i) => m.on === b[i].on && m.level === b[i].level);
 
 async function load(id: string): Promise<Parsed> {
   const res = await fetch(`/api/dosya/midi/${id}`);
@@ -61,8 +95,8 @@ async function load(id: string): Promise<Parsed> {
   return {
     notes,
     tracks: used.map((t, i) => {
-      const name = t.name.trim() || `Kanal ${t.channel + 1 || i + 1}`;
-      return { name, part: partOf(name) };
+      const name = utf8(t.name).trim() || `Kanal ${t.channel + 1 || i + 1}`;
+      return { name, parts: partsOf(name), piano: isPiano(name) };
     }),
     duration: Math.max(...notes.map((n) => n.time + n.duration)),
   };
@@ -79,6 +113,7 @@ export function MidiPlayer({
   ctx,
   midiId,
   myPart,
+  emphasize = false,
   compact = false,
   controlRef,
   onState,
@@ -86,6 +121,8 @@ export function MidiPlayer({
   ctx: AudioContext;
   midiId: string;
   myPart: VoicePart | null;
+  /** Opens with `{ses} önde` applied when the file has a track for my part. */
+  emphasize?: boolean;
   compact?: boolean;
   controlRef?: Ref<MidiControl>;
   onState?: (s: MidiPlayerState) => void;
@@ -94,7 +131,7 @@ export function MidiPlayer({
   const [parsed, setParsed] = useState<Parsed | null>(null);
   const [position, setPosition] = useState(0);
   const [rate, setRate] = useState(1);
-  const [muted, setMuted] = useState<boolean[]>([]);
+  const [mix, setMix] = useState<Mix>([]);
   const [status, setStatus] = useState("");
   const [refusal, setRefusal] = useState<string | null>(null);
   const [stuck, setStuck] = useState(false);
@@ -128,10 +165,9 @@ export function MidiPlayer({
     old.dispose();
     void audio.current.close().catch(() => {});
     audio.current = newAudioContext();
-    const next = new Synth(audio.current, p.notes, p.tracks.length, p.duration);
+    const next = new Synth(audio.current, p.notes, mix.map(gainOf), p.duration);
     next.setRate(old.rate, ended);
     next.seek(position, ended);
-    muted.forEach((m, i) => next.mute(i, m));
     synth.current = next;
     return next;
   }
@@ -175,10 +211,15 @@ export function MidiPlayer({
       .get(midiId)!
       .then((p) => {
         if (!alive) return;
-        synth.current = new Synth(audio.current, p.notes, p.tracks.length, p.duration);
+        const mine = mineOf(p.tracks, myPart);
+        const start =
+          emphasize && mine.length > 0 && mine.length < p.tracks.length
+            ? PRESETS.front(p.tracks, mine)
+            : defaults(p.tracks);
+        synth.current = new Synth(audio.current, p.notes, start.map(gainOf), p.duration);
         data.current = p;
         setParsed(p);
-        setMuted(p.tracks.map(() => false));
+        setMix(start);
         play();
       })
       .catch((e: unknown) => {
@@ -254,24 +295,21 @@ export function MidiPlayer({
     };
   }, []);
 
-  function setTrackMuted(i: number, m: boolean) {
-    synth.current?.mute(i, m);
-    setMuted((prev) => prev.map((v, j) => (j === i ? m : v)));
+  function apply(next: Mix) {
+    next.forEach((m, i) => synth.current?.level(i, gainOf(m)));
+    setMix(next);
   }
 
-  function solo(mine: number, invert: boolean) {
-    parsed?.tracks.forEach((_, i) => setTrackMuted(i, invert ? i === mine : i !== mine));
+  function toggleTrack(i: number) {
+    apply(mix.map((m, j) => (j === i ? { ...m, on: !m.on } : m)));
   }
 
   const duration = parsed?.duration ?? 0;
   const timeText = state === "loading" ? "Yükleniyor…" : `${clock(position)} / ${clock(duration)}`;
   const playing = state === "playing";
-  const mineIndex =
-    myPart && parsed ? parsed.tracks.findIndex((t) => t.part === myPart) : -1;
-  const uniqueMine =
-    mineIndex >= 0 && parsed!.tracks.filter((t) => t.part === myPart).length === 1;
-  const soloOn = uniqueMine && muted.every((m, i) => m === (i !== mineIndex));
-  const minusOn = uniqueMine && muted.every((m, i) => m === (i === mineIndex));
+  const tracks = parsed?.tracks ?? [];
+  const mine = mineOf(tracks, myPart);
+  const presets = mine.length > 0 && mine.length < tracks.length;
   const preset = (on: boolean) =>
     cn(
       "min-h-11 rounded-full px-3 text-sm font-medium text-primary outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50",
@@ -286,48 +324,63 @@ export function MidiPlayer({
     );
   }
 
-  const voices = parsed && parsed.tracks.length > 1 && (
+  const voices = parsed && tracks.length > 1 && (
     <div className="space-y-1.5">
       <p className="text-xs text-muted-foreground">Sesler</p>
       <div className="flex flex-wrap gap-2">
-        {parsed.tracks.map((t, i) => (
-          <button
-            key={i}
-            type="button"
-            role="checkbox"
-            aria-checked={!muted[i]}
-            data-track={t.name}
-            data-muted={muted[i] ? "true" : "false"}
-            onClick={() => setTrackMuted(i, !muted[i])}
-            className={cn(
-              "inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-              muted[i] ? "text-muted-foreground line-through" : "bg-secondary",
-            )}
-          >
-            {muted[i] ? <Circle className="size-3.5" aria-hidden /> : <Check className="size-3.5" aria-hidden />}
-            {t.part && <PartDot part={t.part} />}
-            {t.name}
-          </button>
-        ))}
+        {tracks.map((t, i) => {
+          const m = mix[i] ?? { on: true, level: 100 };
+          return (
+            <button
+              key={i}
+              type="button"
+              role="checkbox"
+              aria-checked={m.on}
+              data-track={t.name}
+              data-muted={m.on ? "false" : "true"}
+              data-level={m.level}
+              onClick={() => toggleTrack(i)}
+              className={cn(
+                "inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                m.on ? "bg-secondary" : "text-muted-foreground",
+              )}
+            >
+              {m.on ? <Check className="size-3.5" aria-hidden /> : <Circle className="size-3.5" aria-hidden />}
+              {t.parts.map((part) => (
+                <PartDot key={part} part={part} />
+              ))}
+              <span className={cn(!m.on && "line-through")}>{t.name}</span>
+              {m.level < 100 && (
+                <span className="text-xs text-muted-foreground tabular-nums">%{m.level}</span>
+              )}
+            </button>
+          );
+        })}
       </div>
-      {uniqueMine && myPart && (
+      {presets && myPart && (
         <div className="-mx-3 flex flex-wrap gap-x-1">
-          <button
-            type="button"
-            aria-pressed={soloOn}
-            className={preset(soloOn)}
-            onClick={() => solo(mineIndex, false)}
-          >
-            Yalnız {VOICE_PART_LABELS[myPart]}
-          </button>
-          <button
-            type="button"
-            aria-pressed={minusOn}
-            className={preset(minusOn)}
-            onClick={() => solo(mineIndex, true)}
-          >
-            {WITHOUT_PART[myPart]} (sen söyle)
-          </button>
+          {(
+            [
+              ["solo", `Yalnız ${VOICE_PART_LABELS[myPart]}`],
+              ["front", `${VOICE_PART_LABELS[myPart]} önde`],
+              ["minus", `${WITHOUT_PART[myPart]} (sen söyle)`],
+            ] as const
+          ).map(([key, label]) => {
+            const next = PRESETS[key](tracks, mine);
+            const on = same(mix, next);
+            return (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={on}
+                data-preset={key}
+                className={preset(on)}
+                onClick={() => apply(next)}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

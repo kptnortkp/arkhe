@@ -100,6 +100,7 @@ Everything here is free. No step needs a card or a paid plan; if a provider asks
      Data written between the backup and the incident is lost; that is why a backup runs before every migration.
 9. **Rollback.**
    - **Code:** Vercel → Deployments → the previous good deployment → "Promote to Production". Safe because migrations are expand-only, and **only while the database URL is unchanged**: a deployment keeps the environment it was built with.
+   - **Before promoting a deployment older than Phase 11** (automatic MIDI): that code has no draft filter, so undecided drafts would become visible and playable to members. In a maintenance session pointed at the production DB, run `npm run db:drop-drafts` first (it deletes `midi_files` rows with `status = 'draft'`; the trigger queues their files for the sweep), then promote. Managers can re-run the conversion later.
    - **Schema or data:** there are no down-migrations. Restore the backup `db:migrate` wrote just before the migration (steps above). Then, in Vercel → Deployments, open the deployment whose code matches that schema and use **Redeploy** (not Promote), so it is rebuilt with the new `DATABASE_URL`/`DATABASE_AUTH_TOKEN`. **Never Promote a deployment created before a database switch.**
    - **Service worker kill switch:** if a bad `public/sw.js` ever pins phones to broken assets, set `const KILL = true;` in `public/sw.js` and deploy. On the next visit each phone installs it, deletes every cache, unregisters the worker and reloads. Later, set `KILL = false`, bump `VERSION` and deploy again to bring offline support back. Bump `VERSION` on every change to `sw.js`.
 
@@ -215,6 +216,27 @@ Kayıtlar yalnızca ödev geri bildirimi için tutulur ve 90 gün sonra silinir.
 - **Browsing the Blob store in the Vercel dashboard costs operations** (it lists the store). Look sparingly; `/odevler/depolama` shows the portal's own counters. After a production restore, compare the dashboard once: files uploaded after the backup are orphans the portal no longer knows.
 - Retention: audio goes 90 days after the conductor's first comment, or 120 days after upload without one (Istanbul days). The daily cron (the backup's) runs the sweep after the backup step; its result is the `Son temizlik` line on `/odevler/depolama`.
 - Uploads stop at 95% of the free storage or upload operations, playback at 100% of the transfer/read estimate, so Blob never blocks the store.
+
+---
+
+## Otomatik MIDI (nota PDF'inden, GitHub Actions)
+
+A manager uploads a piece's score PDF (`Nota ve otomatik MIDI` on the edit page); members can open and download it. `MIDI'ye çevir` starts `.github/workflows/omr.yml` on `kptnortkp/arkhe`: Audiveris 5.11.0 reads the PDF, `omr/convert.py` writes one multi-track MIDI, and the result comes back as a **draft** that only managers see until one of them taps `Yayınla` (which also notifies the choir). Free: Actions minutes of the private repo (2,000/month; the portal allows 40 conversions per 30 days and 10 per manager per day).
+
+- **Setup, once (in the browser; never paste a token into chat or a file):**
+  1. GitHub, signed in as `kptnortkp`: Settings → Developer settings → Personal access tokens → Fine-grained → `Generate new token`. Name `arkhe-portal-omr`, expiry 1 year (write the date in STATUS), Repository access `Only select repositories` → `arkhe`, Permissions → Repository → **Actions: Read and write**. Nothing else.
+  2. `openssl rand -base64 48` in your own terminal. Put the value in GitHub (repo → Settings → Secrets and variables → Actions → New repository secret `OMR_CALLBACK_SECRET`) **and** in Vercel (`OMR_CALLBACK_SECRET`, Production only).
+  3. GitHub repo → Settings → Secrets and variables → Actions → Variables: `PORTAL_URL` = the production URL (https, no trailing slash).
+  4. Vercel (Production only): `GITHUB_OMR_TOKEN` (the PAT), `GITHUB_OMR_REPO=kptnortkp/arkhe`, `GITHUB_OMR_WORKFLOW=omr.yml`, `GITHUB_OMR_REF=<default branch>`. Redeploy.
+  5. GitHub → Settings → Billing: the Actions spending limit stays **$0**, so an overrun fails instead of billing.
+- **Not configured:** without any of the five Vercel variables the editor says `Otomatik çeviri kurulmadı…`, the workflow endpoints answer 503, and PDF and manual MIDI uploads work as before. Nothing fails at boot (one boot warning names the missing variables).
+- **When the token expires:** jobs fail with `GitHub bağlantısı reddedildi; erişim anahtarının süresi dolmuş olabilir…`. Create a new PAT as in step 1, replace `GITHUB_OMR_TOKEN` in Vercel, redeploy, update the date in STATUS.
+- **Trust:** the dispatch carries only `job_id`, `layout`, `piano`, `tempo`. The workflow reaches the portal at `PORTAL_URL` and signs every request (`X-Arkhe-Timestamp`, `X-Arkhe-Signature` = HMAC-SHA256 of `<timestamp>.<METHOD>.<path>.<sha256(body)>`, ±5 min). Endpoints: `GET /api/omr/<job>/nota`, `POST /api/omr/<job>/durum`, `POST /api/omr/<job>/sonuc`. Rotate the secret by changing it in both places at once.
+- **Time limits, no cron:** a job still queued after 20 minutes fails as `not_started`, one not finished 45 minutes after it started fails as `timeout`; checked whenever a manager opens the editor or a request arrives. The workflow itself stops at 30 minutes. Only the latest job per piece is shown.
+- **Run logs** are on github.com (Actions → omr); only the repo owner can see them. The portal never shows the workflow's free text, only a fixed reason. No artifacts are kept: the PDF stays in Blob only.
+- **Quality:** OMR makes mistakes (rhythms, accidentals, clefs). Listen against the PDF before publishing; if it's wrong, delete the draft and upload a hand-fixed MIDI instead. Automatic files never count toward the 20 manual MIDI files of a piece.
+- **AGPL:** Audiveris runs unmodified inside CI on our own files; we don't distribute or host it.
+- **Dev/e2e:** nothing goes to GitHub: a dispatch is `data/omr-outbox/<job>.json`, signed with the dev secret from `.env.development`; e2e plays the workflow's part through the real endpoints. To try the converter locally: `python3.12 -m venv .venv-omr && .venv-omr/bin/pip install -r omr/requirements.txt`, then `.venv-omr/bin/python omr/convert.py score.mxl --layout kadin_erkek --piano true --out out.mid --summary s.json --failure f.json`.
 
 ---
 

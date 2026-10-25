@@ -21,6 +21,7 @@
     "db:reset": "node --env-file-if-exists=.env scripts/assert-local-db.mjs && rm -f data/arkhe.db* && drizzle-kit migrate && npm run db:check && npm run seed",
     "db:backup": "tsx --env-file-if-exists=.env scripts/db-backup.ts",
     "db:check": "tsx --env-file-if-exists=.env scripts/db-check.ts",
+    "db:drop-drafts": "tsx --env-file-if-exists=.env scripts/db-drop-drafts.ts",
     "db:decrypt": "tsx scripts/db-decrypt.ts",
     "db:restore": "tsx scripts/db-restore.ts",
     "brand:assets": "tsx scripts/brand-assets.ts",

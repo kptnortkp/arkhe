@@ -32,6 +32,43 @@ export type EditorMidi = {
   sizeBytes: number;
 };
 
+export function FileMenu({
+  m,
+  onDelete,
+}: {
+  m: { id: string; title: string };
+  onDelete: () => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="ghost"
+            className="size-11 shrink-0 rounded-full"
+            aria-label={`Diğer işlemler: ${m.title}`}
+          />
+        }
+      >
+        <MoreHorizontal />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-40">
+        <DropdownMenuItem
+          className="min-h-11"
+          render={<a href={`/api/dosya/midi/${m.id}?indir=1`} onClick={downloadInApp} />}
+        >
+          <Download />
+          İndir
+        </DropdownMenuItem>
+        <DropdownMenuItem className="min-h-11" variant="destructive" onClick={onDelete}>
+          <Trash2 />
+          Sil
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 const chip =
   "flex min-h-11 cursor-pointer items-center gap-2 rounded-full border bg-card px-4 text-sm transition-colors select-none hover:bg-muted has-checked:border-primary has-checked:bg-primary/8 has-checked:font-medium has-focus-visible:ring-3 has-focus-visible:ring-ring/50";
 
@@ -69,7 +106,11 @@ function UploadForm({ pieceId, full }: { pieceId: string; full: boolean }) {
   }, [state]);
 
   if (full) {
-    return <p className="rounded-2xl border bg-card p-4 text-sm text-muted-foreground">{MSG.midiTooMany}</p>;
+    return (
+      <p className="rounded-2xl border bg-card p-4 text-sm text-muted-foreground">
+        {MSG.midiTooMany}
+      </p>
+    );
   }
   const fileError = localError ?? state.fieldErrors?.file?.[0];
 
@@ -122,7 +163,10 @@ function UploadForm({ pieceId, full }: { pieceId: string; full: boolean }) {
         </Button>
         {file ? (
           <p className="text-sm font-medium break-all">
-            {file.name} <span className="text-xs font-normal text-muted-foreground">{formatBytes(file.size)}</span>
+            {file.name}{" "}
+            <span className="text-xs font-normal text-muted-foreground">
+              {formatBytes(file.size)}
+            </span>
           </p>
         ) : (
           <p id="midi-file-hint" className="text-xs text-muted-foreground">
@@ -184,11 +228,17 @@ export function MidiEditor({ pieceId, files }: { pieceId: string; files: EditorM
   const [pending, run] = useRunAction();
   const [doomed, setDoomed] = useState<EditorMidi | null>(null);
   return (
-    <section aria-labelledby="midi" className="space-y-4" id="midi-dosyalari">
+    <section
+      aria-labelledby="midi"
+      className="scroll-mt-20 space-y-4 md:scroll-mt-6"
+      id="midi-dosyalari"
+    >
       <h2 id="midi" className="flex items-baseline gap-2 text-2xl font-medium">
         MIDI dosyaları
         <span className="text-base text-muted-foreground tabular-nums">{files.length}</span>
       </h2>
+      {/* Manual files only: the 20-file cap and the upload form belong to them (D116). */}
+      <h3 className="font-sans text-base font-medium">MIDI</h3>
       {files.length > 0 && (
         <ul className="divide-y rounded-2xl border bg-card" data-testid="midi-editor-list">
           {files.map((m) => (
@@ -201,50 +251,23 @@ export function MidiEditor({ pieceId, files }: { pieceId: string; files: EditorM
                   <>
                     <FileMusic className="size-5 shrink-0 text-muted-foreground" aria-hidden />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium">{m.title}</span>
+                      <span className="line-clamp-2 font-medium break-words">{m.title}</span>
                       <span className="block text-xs text-muted-foreground">
-                        {m.voicePart ? VOICE_PART_LABELS[m.voicePart] : "Tutti"} · {formatBytes(m.sizeBytes)}
+                        {m.voicePart ? VOICE_PART_LABELS[m.voicePart] : "Tutti"} ·{" "}
+                        {formatBytes(m.sizeBytes)}
                       </span>
                     </span>
                   </>
                 }
-                after={
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      render={
-                        <Button
-                          variant="ghost"
-                          className="size-11 shrink-0 rounded-full"
-                          aria-label={`Diğer işlemler: ${m.title}`}
-                        />
-                      }
-                    >
-                      <MoreHorizontal />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="min-w-40">
-                      <DropdownMenuItem
-                        className="min-h-11"
-                        render={<a href={`/api/dosya/midi/${m.id}?indir=1`} onClick={downloadInApp} />}
-                      >
-                        <Download />
-                        İndir
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="min-h-11"
-                        variant="destructive"
-                        onClick={() => setDoomed(m)}
-                      >
-                        <Trash2 />
-                        Sil
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                }
+                after={<FileMenu m={m} onDelete={() => setDoomed(m)} />}
               />
             </li>
           ))}
         </ul>
       )}
+      <p className="text-xs text-muted-foreground">
+        Otomatik oluşturulan MIDI elle eklediklerini etkilemez.
+      </p>
       <UploadForm pieceId={pieceId} full={files.length >= MIDI_MAX_PER_PIECE} />
       <ConfirmDialog
         open={doomed !== null}
@@ -255,7 +278,12 @@ export function MidiEditor({ pieceId, files }: { pieceId: string; files: EditorM
         actions={[
           {
             label: "Sil",
-            run: () => doomed && run(() => deleteMidi(doomed.id), () => setDoomed(null)),
+            run: () =>
+              doomed &&
+              run(
+                () => deleteMidi(doomed.id),
+                () => setDoomed(null),
+              ),
           },
         ]}
       />

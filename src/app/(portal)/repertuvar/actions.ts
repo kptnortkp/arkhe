@@ -10,6 +10,7 @@ import {
   midiFiles,
   PIECE_STATUSES,
   pieceLinks,
+  pieceScores,
   pieces,
   VOICE_PARTS,
 } from "@/db/schema";
@@ -181,13 +182,21 @@ export async function deletePiece(id: string): Promise<FormState> {
   let midiKeys: string[] = [];
   try {
     deleted = await db.transaction(async (tx) => {
-      // MIDI rows cascade with the piece; the 0010 trigger queues their files (AC 54).
-      midiKeys = (
-        await tx
-          .select({ key: midiFiles.storageKey })
-          .from(midiFiles)
-          .where(eq(midiFiles.pieceId, id))
-      ).map((r) => r.key);
+      // MIDI and score rows cascade with the piece; the 0010/0014 triggers queue their files (AC 54).
+      midiKeys = [
+        ...(
+          await tx
+            .select({ key: midiFiles.storageKey })
+            .from(midiFiles)
+            .where(eq(midiFiles.pieceId, id))
+        ).map((r) => r.key),
+        ...(
+          await tx
+            .select({ key: pieceScores.storageKey })
+            .from(pieceScores)
+            .where(eq(pieceScores.pieceId, id))
+        ).map((r) => r.key),
+      ];
       const [homework] = await tx
         .select({ id: assignments.id })
         .from(assignments)
