@@ -15,7 +15,7 @@ import { SubmitToggle } from "@/components/homework/submit-button";
 import { PartButton } from "@/components/repertoire/part-button";
 import { VOICE_PARTS, type VoicePart } from "@/db/schema";
 import { requireUser } from "@/lib/auth/dal";
-import { deadlineBadge, managerBadge } from "@/lib/homework/deadline";
+import { CANCELLED_BADGE, deadlineBadge, managerBadge } from "@/lib/homework/deadline";
 import { isEligible, isExpected } from "@/lib/homework/eligibility";
 import { barsLabel, homeworkBody, homeworkSubject, mailtoHref } from "@/lib/homework/mail";
 import {
@@ -67,21 +67,24 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
   const eligible = isEligible(viewer, a.parts);
   const expected = isExpected(viewer, a);
   const mine = await mySubmission(a.id, viewer.id);
+  const cancelled = a.cancelledAt !== null;
   // My own state when I sing it; the deadline itself for managers; nothing when it isn't my part.
   const headerBadge =
-    eligible || mine?.submittedAt
-      ? deadlineBadge({
-          dueAt: a.dueAt,
-          now: at,
-          submittedAt: mine?.submittedAt ?? null,
-          expected,
-        })
-      : manager
-        ? managerBadge(a.dueAt, at)
-        : null;
+    cancelled && !mine?.submittedAt
+      ? CANCELLED_BADGE
+      : eligible || mine?.submittedAt
+        ? deadlineBadge({
+            dueAt: a.dueAt,
+            now: at,
+            submittedAt: mine?.submittedAt ?? null,
+            expected,
+          })
+        : manager
+          ? managerBadge(a.dueAt, at)
+          : null;
 
   let singer: React.ReactNode = null;
-  if (eligible || mine?.submittedAt) {
+  if ((eligible && !cancelled) || mine?.submittedAt) {
     const [email, [withPart], recorder, listeners, maxMs, warning, midi, usage] = await Promise.all([
       getRecordingEmail(),
       withMyPart([{ id: a.pieceId }], viewer.voicePart),
@@ -151,11 +154,11 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
           manual={mine?.method === "manual"}
           locked={recorder.locked}
           uploadsUsed={recorder.uploadsUsed}
-          canUpload={recorder.canUpload}
-          canDelete={recorder.canDelete}
+          canUpload={recorder.canUpload && !cancelled}
+          canDelete={recorder.canDelete && !cancelled}
         />
         {showTransparency && <ListenersNote names={listeners} />}
-        {!recorder.locked && (
+        {!recorder.locked && !cancelled && (
           <FallbackDetails open={blocked}>
             <MailBlock mailto={mailto} subject={subject} email={email} />
             {toggle}
@@ -267,15 +270,18 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
             userId: e.userId,
             name: e.name,
             part: e.part,
-            state: e.state,
+            // Nobody owes a cancelled homework, so an unsubmitted row is never "Gecikti".
+            state: cancelled && e.state === "missing" ? "pending" : e.state,
             stateLabel:
               e.state === "done"
                 ? `Teslim edildi ${formatShortDate.format(e.submittedAt!)}`
                 : e.state === "late"
                   ? `Geç teslim ${formatShortDate.format(e.submittedAt!)}`
-                  : e.state === "missing"
-                    ? "Gecikti"
-                    : "Bekleniyor",
+                  : cancelled
+                    ? "İptal edildi"
+                    : e.state === "missing"
+                      ? "Gecikti"
+                      : "Bekleniyor",
             manual: e.method === "manual",
             joinedLater: !e.expected,
             left: e.left,
@@ -321,7 +327,13 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
         <div className="flex items-start justify-between gap-3">
           <p className={`${eyebrow} pt-2`}>Ödev · {barsLabel(a.barFrom, a.barTo)}</p>
           {manager && (
-            <AssignmentMenu id={a.id} title={title} submitted={submittedTotal} takes={liveTakes} />
+            <AssignmentMenu
+              id={a.id}
+              title={title}
+              submitted={submittedTotal}
+              takes={liveTakes}
+              cancelled={cancelled}
+            />
           )}
         </div>
         <h1 className="text-3xl leading-tight font-medium">{a.pieceTitle}</h1>
@@ -339,7 +351,7 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
             <Library className="size-4" />
             Esere git
           </Link>
-          {singer && !mine?.submittedAt && (
+          {singer && !mine?.submittedAt && !cancelled && (
             <a
               href="#kayit"
               className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline"
@@ -350,6 +362,17 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
           )}
         </div>
       </header>
+
+      {cancelled && (
+        <p
+          className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground"
+          role="status"
+          data-testid="cancelled-note"
+        >
+          Bu ödev iptal edildi.
+          {mine?.submittedAt ? " Gönderdiğin kayıt saklanıyor." : " Kayıt göndermene gerek yok."}
+        </p>
+      )}
 
       {a.description && (
         <section className="rounded-2xl bg-accent/60 p-4">
@@ -370,11 +393,15 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
         </>
       )}
 
-      {!eligible && !mine?.submittedAt && viewer.voicePart && viewer.role !== "conductor" && (
-        <p className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
-          Bu ödev senin partisyonun için değil.
-        </p>
-      )}
+      {!eligible &&
+        !cancelled &&
+        !mine?.submittedAt &&
+        viewer.voicePart &&
+        viewer.role !== "conductor" && (
+          <p className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
+            Bu ödev senin partisyonun için değil.
+          </p>
+        )}
 
       {rosterBlock}
     </div>

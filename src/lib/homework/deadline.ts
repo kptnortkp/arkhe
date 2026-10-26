@@ -56,6 +56,13 @@ export function deadlineBadge({
   };
 }
 
+export const CANCELLED_BADGE: DeadlineBadge = {
+  tone: "muted",
+  label: "İptal edildi",
+  late: false,
+  overdue: false,
+};
+
 /** A manager's view of a homework: the deadline itself, not a person's state. */
 export function managerBadge(dueAt: Date, now: Date): DeadlineBadge {
   if (dueAt <= now) return { tone: "muted", label: "Süre doldu", late: false, overdue: false };

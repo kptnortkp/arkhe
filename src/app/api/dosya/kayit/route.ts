@@ -46,6 +46,7 @@ class Refusal extends Error {
 function refusal(slot: Slot | null): Refusal | null {
   if (!slot) return new Refusal(404, MSG.homeworkNotFound, "not_found");
   if (!slot.eligible) return new Refusal(403, MSG.forbidden, "forbidden");
+  if (slot.cancelled) return new Refusal(409, MSG.homeworkCancelled, "cancelled");
   // D46: any feedback locks the slot, a legacy board note included.
   if (slot.hasFeedback) return new Refusal(409, MSG.locked, "locked");
   if (slot.uploads >= MAX_UPLOADS_PER_SLOT) return new Refusal(409, MSG.uploadLimit, "limit");

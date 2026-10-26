@@ -89,8 +89,9 @@ async function homeworkLines(day: string, now: Date): Promise<Item[]> {
     select a.id as id, a.due_at as due, p.title as piece,
       (select group_concat(ap.voice_part) from assignment_parts ap where ap.assignment_id = a.id) as parts
     from assignments a join pieces p on p.id = a.piece_id
-    where (a.due_at >= ${secs(todayFrom)} and a.due_at < ${secs(todayTo)})
-       or (a.due_at >= ${secs(due2From)} and a.due_at < ${secs(due2To)})`);
+    where a.cancelled_at is null
+      and ((a.due_at >= ${secs(todayFrom)} and a.due_at < ${secs(todayTo)})
+        or (a.due_at >= ${secs(due2From)} and a.due_at < ${secs(due2To)}))`);
   if (list.length === 0) return [];
   const singers = await db
     .select({

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { VOICE_PART_SHORT } from "@/lib/labels";
-import { deadlineBadge, managerBadge } from "@/lib/homework/deadline";
+import { CANCELLED_BADGE, deadlineBadge, managerBadge } from "@/lib/homework/deadline";
 import { barsLabel } from "@/lib/homework/mail";
 import type { MemberRow, PartCount } from "@/lib/homework/queries";
 import type { VoicePart } from "@/db/schema";
@@ -22,12 +22,16 @@ export function NewNote() {
 }
 
 export function SingerRow({ row, at, calm = false }: { row: MemberRow; at: Date; calm?: boolean }) {
-  const badge = deadlineBadge({
-    dueAt: row.dueAt,
-    now: at,
-    submittedAt: row.submittedAt,
-    expected: row.expected,
-  });
+  const cancelled = row.cancelledAt !== null;
+  const badge =
+    cancelled && !row.submittedAt
+      ? CANCELLED_BADGE
+      : deadlineBadge({
+          dueAt: row.dueAt,
+          now: at,
+          submittedAt: row.submittedAt,
+          expected: row.expected,
+        });
   const title = `${row.pieceTitle} · ${barsLabel(row.barFrom, row.barTo)}`;
   return (
     <li
@@ -51,13 +55,13 @@ export function SingerRow({ row, at, calm = false }: { row: MemberRow; at: Date;
           <DeadlineChip badge={badge} calm={calm} />
           <DueLine dueAt={row.dueAt} />
         </span>
-        {!row.expected && !row.submittedAt && (
+        {!row.expected && !row.submittedAt && !cancelled && (
           <span className="mt-1 text-xs text-muted-foreground">
             Sen katılmadan önce verildi; istersen teslim edebilirsin.
           </span>
         )}
       </Link>
-      {row.eligible && !row.submittedAt && (
+      {row.eligible && !row.submittedAt && !cancelled && (
         <Link
           href={`/odevler/${row.id}#kayit`}
           aria-label={`Kaydını yap: ${title}`}
@@ -89,6 +93,7 @@ export type ManagerRowData = {
   barFrom: number | null;
   barTo: number | null;
   dueAt: Date;
+  cancelledAt: Date | null;
   parts: VoicePart[];
   counts: { perPart: PartCount[]; done: number; total: number };
 };
@@ -102,7 +107,8 @@ export function ManagerRow({
   at: Date;
   ownPending: boolean;
 }) {
-  const badge = managerBadge(row.dueAt, at);
+  const cancelled = row.cancelledAt !== null;
+  const badge = cancelled ? CANCELLED_BADGE : managerBadge(row.dueAt, at);
   const missing = row.counts.total - row.counts.done;
   const percent = row.counts.total ? (row.counts.done / row.counts.total) * 100 : 0;
   return (
@@ -133,12 +139,12 @@ export function ManagerRow({
                 style={{ width: `${percent}%` }}
               />
             </span>
-            {row.dueAt <= at && missing > 0 && (
+            {row.dueAt <= at && missing > 0 && !cancelled && (
               <span className="font-medium text-absent-ink">· {missing} eksik</span>
             )}
           </span>
           <PartCounts counts={row.counts.perPart} />
-          {ownPending && (
+          {ownPending && !cancelled && (
             <span className="text-xs font-medium text-primary">Teslimin bekleniyor</span>
           )}
         </span>

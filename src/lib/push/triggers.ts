@@ -1,11 +1,12 @@
 import "server-only";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import {
   assignmentParts,
   assignments,
   attendance,
   pieces,
+  submissions,
   users,
   type RehearsalType,
   type TicketStatus,
@@ -210,6 +211,7 @@ async function homeworkHead(assignmentId: string) {
       barFrom: assignments.barFrom,
       barTo: assignments.barTo,
       piece: pieces.title,
+      cancelledAt: assignments.cancelledAt,
     })
     .from(assignments)
     .innerJoin(pieces, eq(pieces.id, assignments.pieceId))
@@ -217,30 +219,34 @@ async function homeworkHead(assignmentId: string) {
   return a ?? null;
 }
 
+async function homeworkSingers(assignmentId: string) {
+  const parts = (
+    await db
+      .select({ p: assignmentParts.voicePart })
+      .from(assignmentParts)
+      .where(eq(assignmentParts.assignmentId, assignmentId))
+  ).map((r) => r.p);
+  const singers = await db
+    .select({
+      id: users.id,
+      role: users.role,
+      voicePart: users.voicePart,
+      joinedAt: users.joinedAt,
+      leftAt: users.leftAt,
+    })
+    .from(users)
+    .where(and(isNull(users.leftAt), inArray(users.role, ["member", "board"])));
+  return singers.filter((u) => isEligible(u, parts));
+}
+
 /** 7: eligible singers of the target parts, minus the creator. */
 export function homeworkCreated(assignmentId: string, actorId: string) {
   return guard("homework_new", async (ctx) => {
     const a = await homeworkHead(assignmentId);
     if (!a || a.dueAt <= ctx.now) return [];
-    const parts = (
-      await db
-        .select({ p: assignmentParts.voicePart })
-        .from(assignmentParts)
-        .where(eq(assignmentParts.assignmentId, assignmentId))
-    ).map((r) => r.p);
-    const singers = await db
-      .select({
-        id: users.id,
-        role: users.role,
-        voicePart: users.voicePart,
-        joinedAt: users.joinedAt,
-        leftAt: users.leftAt,
-      })
-      .from(users)
-      .where(and(isNull(users.leftAt), inArray(users.role, ["member", "board"])));
     const bars = a.barFrom !== null ? ` · ölçü ${a.barFrom}–${a.barTo}` : "";
-    return singers
-      .filter((u) => u.id !== actorId && isEligible(u, parts))
+    return (await homeworkSingers(assignmentId))
+      .filter((u) => u.id !== actorId)
       .map((u) => ({
         userId: u.id,
         kind: "homework_new",
@@ -249,6 +255,40 @@ export function homeworkCreated(assignmentId: string, actorId: string) {
         title: "Yeni ödev",
         body: `${a.piece}${bars} · son gün ${gun(a.dueAt)} ${saat(a.dueAt)}`,
         line: `Yeni ödev: ${a.piece}, son gün ${gun(a.dueAt)}`,
+        url: `/odevler/${a.id}`,
+        tag: `odev-${a.id}`,
+        expiresAt: a.dueAt,
+      }));
+  });
+}
+
+/** Cancel and undo: singers who still owe it, while the deadline is ahead. */
+export function homeworkCancelled(assignmentId: string, cancelled: boolean, actorId: string) {
+  return guard(cancelled ? "homework_cancelled" : "homework_restored", async (ctx) => {
+    const a = await homeworkHead(assignmentId);
+    if (!a || a.dueAt <= ctx.now) return [];
+    const done = new Set(
+      (
+        await db
+          .select({ u: submissions.userId })
+          .from(submissions)
+          .where(and(eq(submissions.assignmentId, assignmentId), isNotNull(submissions.submittedAt)))
+      ).map((r) => r.u),
+    );
+    const bars = a.barFrom !== null ? ` · ölçü ${a.barFrom}–${a.barTo}` : "";
+    const event = uuid();
+    return (await homeworkSingers(assignmentId))
+      .filter((u) => u.id !== actorId && !done.has(u.id))
+      .map((u) => ({
+        userId: u.id,
+        kind: cancelled ? "homework_cancelled" : "homework_restored",
+        group: "odev",
+        dedupeKey: `odev-iptal-${a.id}-${event}`,
+        title: cancelled ? "Ödev iptal" : "Ödev yeniden açıldı",
+        body: cancelled
+          ? `${a.piece}${bars} ödevi iptal edildi; kayıt göndermene gerek yok.`
+          : `${a.piece}${bars} · son gün ${gun(a.dueAt)} ${saat(a.dueAt)}`,
+        line: cancelled ? `Ödev iptal: ${a.piece}` : `Ödev yeniden açıldı: ${a.piece}`,
         url: `/odevler/${a.id}`,
         tag: `odev-${a.id}`,
         expiresAt: a.dueAt,

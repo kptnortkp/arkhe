@@ -137,7 +137,8 @@ export default async function HomeworkPage({ searchParams }: PageProps<"/odevler
     listForSinger(viewer, view, at),
     listForSinger(viewer, view === "guncel" ? "gecmis" : "guncel", at),
   ]);
-  const todo = rows.filter((r) => !r.submittedAt);
+  const todo = rows.filter((r) => !r.submittedAt && !r.cancelledAt);
+  const cancelled = rows.filter((r) => !r.submittedAt && r.cancelledAt);
   const done = rows
     .filter((r) => r.submittedAt)
     .sort((a, b) => b.submittedAt!.getTime() - a.submittedAt!.getTime());
@@ -222,6 +223,21 @@ export default async function HomeworkPage({ searchParams }: PageProps<"/odevler
                 data-testid="done-list"
               >
                 {done.map((r) => (
+                  <SingerRow key={r.id} row={r} at={at} calm />
+                ))}
+              </ul>
+            </section>
+          )}
+          {cancelled.length > 0 && (
+            <section aria-labelledby="cancelled" className="space-y-2">
+              <h2 id="cancelled" className={eyebrow}>
+                İptal edilenler
+              </h2>
+              <ul
+                className="divide-y overflow-hidden rounded-2xl border bg-card"
+                data-testid="cancelled-list"
+              >
+                {cancelled.map((r) => (
                   <SingerRow key={r.id} row={r} at={at} calm />
                 ))}
               </ul>

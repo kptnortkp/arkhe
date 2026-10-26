@@ -80,6 +80,7 @@ export type UploadCode =
   | "bad_request"
   | "not_found"
   | "forbidden"
+  | "cancelled"
   | "locked"
   | "limit"
   | "rate"

@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, gte, inArray, isNotNull, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { cache } from "react";
 import { db } from "@/db";
@@ -68,6 +68,7 @@ export const openHomeworkCount = cache(async (userId: string) => {
     .where(
       and(
         gte(assignments.dueAt, since),
+        isNull(assignments.cancelledAt),
         gte(assignments.createdAt, viewer.joinedAt),
         sql`not exists (select 1 from ${submissions} s where s.assignment_id = ${assignments.id} and s.user_id = ${viewer.id} and s.submitted_at is not null)`,
       ),
@@ -83,6 +84,7 @@ const baseColumns = {
   barTo: assignments.barTo,
   dueAt: assignments.dueAt,
   createdAt: assignments.createdAt,
+  cancelledAt: assignments.cancelledAt,
 };
 
 async function partsOf(ids: string[]) {
@@ -335,6 +337,7 @@ export async function homeworkMatrix(at: Date) {
     .select(baseColumns)
     .from(assignments)
     .innerJoin(pieces, eq(pieces.id, assignments.pieceId))
+    .where(isNull(assignments.cancelledAt))
     .orderBy(desc(assignments.dueAt))
     .limit(8);
   const ids = columns.map((c) => c.id);
@@ -391,6 +394,7 @@ export async function openHomeworkForPiece(pieceId: string, at: Date) {
     .where(
       and(
         eq(assignments.pieceId, pieceId),
+        isNull(assignments.cancelledAt),
         gte(assignments.dueAt, new Date(at.getTime() - CURRENT_WINDOW_MS)),
       ),
     )
@@ -436,7 +440,9 @@ export async function homeworkDueBetween(from: Date, to: Date, at: Date) {
     .select(baseColumns)
     .from(assignments)
     .innerJoin(pieces, eq(pieces.id, assignments.pieceId))
-    .where(and(gte(assignments.dueAt, from), lt(assignments.dueAt, to)))
+    .where(
+      and(gte(assignments.dueAt, from), lt(assignments.dueAt, to), isNull(assignments.cancelledAt)),
+    )
     .orderBy(asc(assignments.dueAt));
   const ids = list.map((a) => a.id);
   const [parts, roster, subs] = await Promise.all([

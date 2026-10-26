@@ -6,6 +6,7 @@ export const MSG = {
   auth: "Giriş yapmalısın.",
   generic: "Bir şeyler ters gitti, tekrar dene.",
   homeworkNotFound: "Ödev bulunamadı.",
+  homeworkCancelled: "Bu ödev iptal edildi.",
 
   // Recording upload
   locked: "Şef yorum yazdı; kaydını artık değiştiremezsin.",

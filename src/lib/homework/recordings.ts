@@ -15,6 +15,7 @@ const toDate = (s: unknown) => (s === null || s === undefined ? null : new Date(
 
 export type Slot = {
   dueAt: Date;
+  cancelled: boolean;
   parts: VoicePart[];
   singer: (Singer & { id: string }) | null;
   eligible: boolean;
@@ -31,8 +32,12 @@ export type Slot = {
  * it again inside their write transaction (TOCTOU). null = no such homework.
  */
 export async function loadSlot(q: Q, assignmentId: string, userId: string): Promise<Slot | null> {
-  const [a] = await q.all<{ due_at: number; parts: string | null }>(sql`
-    select asg.due_at, (select group_concat(voice_part) from assignment_parts where assignment_id = asg.id) as parts
+  const [a] = await q.all<{
+    due_at: number;
+    cancelled_at: number | null;
+    parts: string | null;
+  }>(sql`
+    select asg.due_at, asg.cancelled_at, (select group_concat(voice_part) from assignment_parts where assignment_id = asg.id) as parts
     from assignments asg where asg.id = ${assignmentId}`);
   if (!a || !a.parts) return null;
   const [u] = await q.all<{
@@ -72,6 +77,7 @@ export async function loadSlot(q: Q, assignmentId: string, userId: string): Prom
     : null;
   return {
     dueAt: toDate(a.due_at)!,
+    cancelled: a.cancelled_at !== null,
     parts,
     singer,
     eligible: singer !== null && isEligible(singer, parts),

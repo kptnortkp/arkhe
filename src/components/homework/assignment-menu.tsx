@@ -1,10 +1,10 @@
 "use client";
 
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Ban, MoreHorizontal, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { deleteAssignment } from "@/app/(portal)/odevler/actions";
+import { deleteAssignment, setAssignmentCancelled } from "@/app/(portal)/odevler/actions";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -21,15 +21,18 @@ export function AssignmentMenu({
   title,
   submitted,
   takes = 0,
+  cancelled = false,
 }: {
   id: string;
   title: string;
   submitted: number;
   takes?: number;
+  cancelled?: boolean;
 }) {
   const router = useRouter();
   const [pending, run] = useRunAction();
   const [confirm, setConfirm] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
   return (
     <div className="flex gap-2">
       <Link
@@ -56,6 +59,21 @@ export function AssignmentMenu({
             <Pencil />
             Düzenle
           </DropdownMenuItem>
+          {cancelled ? (
+            <DropdownMenuItem
+              className="min-h-11"
+              disabled={pending}
+              onClick={() => run(() => setAssignmentCancelled(id, false))}
+            >
+              <RotateCcw />
+              İptali geri al
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem className="min-h-11" onClick={() => setConfirmCancel(true)}>
+              <Ban />
+              İptal et
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem
             className="min-h-11"
             variant="destructive"
@@ -66,6 +84,23 @@ export function AssignmentMenu({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      <ConfirmDialog
+        open={confirmCancel}
+        onOpenChange={setConfirmCancel}
+        title={`"${title}" iptal edilsin mi?`}
+        description="Koristler ödevi iptal edildi olarak görür ve kayıt gönderemez. Gönderilmiş kayıtlar ve yorumlar saklanır; iptali geri alabilirsin."
+        pending={pending}
+        actions={[
+          {
+            label: "İptal et",
+            run: () =>
+              run(
+                () => setAssignmentCancelled(id, true),
+                () => setConfirmCancel(false),
+              ),
+          },
+        ]}
+      />
       <ConfirmDialog
         open={confirm}
         onOpenChange={setConfirm}

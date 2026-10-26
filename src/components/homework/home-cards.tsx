@@ -34,7 +34,7 @@ function CardHeader({
 /** The singer's most urgent unsubmitted homework (overdue first); hidden when none. */
 export async function MyHomeworkCard({ viewer, at }: { viewer: Viewer; at: Date }) {
   const open = (await listForSinger(viewer, "guncel", at)).filter(
-    (r) => r.eligible && !r.submittedAt && r.expected,
+    (r) => r.eligible && !r.submittedAt && r.expected && !r.cancelledAt,
   );
   if (open.length === 0) return null;
   return (
@@ -58,7 +58,7 @@ export async function MyHomeworkCard({ viewer, at }: { viewer: Viewer; at: Date 
 }
 
 export async function ManagerHomeworkCard({ at }: { at: Date }) {
-  const next = (await listForManager("guncel", at)).find((r) => r.dueAt > at);
+  const next = (await listForManager("guncel", at)).find((r) => r.dueAt > at && !r.cancelledAt);
   return (
     <section className="space-y-4" data-testid="home-manager-homework">
       <CardHeader title="Ödevler" href="/odevler" linkLabel="Tümü" />

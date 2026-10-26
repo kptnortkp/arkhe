@@ -382,6 +382,9 @@ export const assignments = sqliteTable(
       .notNull()
       .default(now)
       .$onUpdateFn(() => new Date()),
+    // Cancelled homework stays listed as İptal edildi; nobody is expected to submit it.
+    cancelledAt: integer("cancelled_at", { mode: "timestamp" }),
+    cancelledBy: text("cancelled_by").references(() => users.id, { onDelete: "set null" }),
   },
   (t) => [
     check("assignments_bars_pair", sql`(bar_from is null) = (bar_to is null)`),

@@ -17,6 +17,8 @@ export const KINDS = [
   "homework_new",
   "homework_due2",
   "homework_due0",
+  "homework_cancelled",
+  "homework_restored",
   "feedback",
   "assistant_queue",
   "conductor_queue",

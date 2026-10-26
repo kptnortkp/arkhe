@@ -18,7 +18,7 @@ import { isEligible } from "@/lib/homework/eligibility";
 import { RECORDING_EMAIL_RE } from "@/lib/homework/mail";
 import { loadViewer } from "@/lib/homework/queries";
 import { withdrawTake } from "@/lib/homework/withdraw";
-import { feedbackSent, homeworkCreated } from "@/lib/push/triggers";
+import { feedbackSent, homeworkCancelled, homeworkCreated } from "@/lib/push/triggers";
 import { canWriteFeedback } from "@/lib/review/access";
 import { errorTag } from "@/lib/review/log";
 import { drainKeys } from "@/lib/storage/ledger";
@@ -32,6 +32,7 @@ const NOT_FOUND = "Ödev bulunamadı.";
 const STALE = "Ödev bu arada değişti. Sayfayı yenileyip tekrar dene.";
 const FEEDBACK_LOCK = "Şef geri bildirim yazdı; teslimi geri alamazsın.";
 const NOT_RESPONSIBLE = "Bu kişi bu ödevden sorumlu değil.";
+const CANCELLED = "Bu ödev iptal edildi.";
 
 const idSchema = z.uuid();
 
@@ -232,6 +233,37 @@ export async function deleteAssignment(id: string): Promise<FormState> {
   return { success: "Ödev silindi." };
 }
 
+export async function setAssignmentCancelled(id: string, cancelled: boolean): Promise<FormState> {
+  const actor = await assertManager();
+  if (!actor) return { error: FORBIDDEN };
+  if (!idSchema.safeParse(id).success) return { error: NOT_FOUND };
+  const hit = await db
+    .update(assignments)
+    .set(
+      cancelled
+        ? { cancelledAt: now(), cancelledBy: actor.id }
+        : { cancelledAt: null, cancelledBy: null },
+    )
+    .where(
+      and(
+        eq(assignments.id, id),
+        cancelled ? isNull(assignments.cancelledAt) : isNotNull(assignments.cancelledAt),
+      ),
+    )
+    .returning({ id: assignments.id });
+  if (hit.length) await homeworkCancelled(id, cancelled, actor.id);
+  revalidateHomework();
+  return { success: cancelled ? "Ödev iptal edildi." : "İptal geri alındı." };
+}
+
+async function isCancelled(id: string) {
+  const [row] = await db
+    .select({ at: assignments.cancelledAt })
+    .from(assignments)
+    .where(eq(assignments.id, id));
+  return Boolean(row?.at);
+}
+
 async function partsOfAssignment(id: string) {
   const rows = await db
     .select({ part: assignmentParts.voicePart })
@@ -249,6 +281,7 @@ export async function submitAssignment(id: string): Promise<FormState> {
   if (parts.length === 0) return { error: NOT_FOUND };
   const viewer = await loadViewer(actor.id);
   if (!viewer || !isEligible(viewer, parts)) return { error: FORBIDDEN };
+  if (await isCancelled(id)) return { error: CANCELLED };
   await db
     .insert(submissions)
     .values({ assignmentId: id, userId: actor.id, submittedAt: now(), method: "self" })
