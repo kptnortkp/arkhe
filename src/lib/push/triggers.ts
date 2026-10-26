@@ -128,8 +128,8 @@ export function rehearsalChanged(before: R, after: R, actorId: string) {
   });
 }
 
-/** 5a / 5b: cancel and undo, future rehearsals only. */
-export function rehearsalCancelled(r: R, cancelled: boolean, actorId: string) {
+/** 5a / 5b: cancel and undo, future rehearsals only; a deleted one is announced as cancelled. */
+export function rehearsalCancelled(r: R, cancelled: boolean, actorId: string, { deleted = false } = {}) {
   return guard("rehearsal_cancelled", async (ctx) => {
     if (r.startsAt <= ctx.now) return [];
     const name = rehearsalTitle(r);
@@ -147,7 +147,7 @@ export function rehearsalCancelled(r: R, cancelled: boolean, actorId: string) {
           ? `${when} ${name} yapılmayacak.`
           : `İptal geri alındı: ${when} ${name} yapılacak.`,
         line: cancelled ? `İptal: ${when} ${name}` : `İptal geri alındı: ${when} ${name}`,
-        url: `/calismalar/${r.id}`,
+        url: deleted ? "/calismalar" : `/calismalar/${r.id}`,
         tag: `calisma-${r.id}`,
         expiresAt: r.startsAt,
       }));

@@ -215,6 +215,23 @@ export async function endSeries(id: string): Promise<FormState> {
   return { success: `Seri bitirildi, sonraki ${deleted.length} çalışma silindi.` };
 }
 
+export async function deleteRehearsal(id: string): Promise<FormState> {
+  const actor = await assertManager();
+  if (!actor) return { error: FORBIDDEN };
+  const r = idSchema.safeParse(id).success ? await getRehearsal(id) : null;
+  if (!r) return { error: NOT_FOUND };
+  if (r.openedAt) return { error: "Yoklaması alınmış bir çalışma silinemez." };
+  const deleted = await db
+    .delete(rehearsals)
+    .where(and(eq(rehearsals.id, id), isNull(rehearsals.openedAt)))
+    .returning({ id: rehearsals.id });
+  if (deleted.length === 0) return { error: "Yoklaması alınmış bir çalışma silinemez." };
+  // A cancelled one was announced when it was cancelled.
+  if (!r.cancelledAt) await rehearsalCancelled(r, true, actor.id, { deleted: true });
+  revalidateRehearsal(id);
+  return { success: "Çalışma silindi." };
+}
+
 export async function openAttendance(id: string): Promise<FormState> {
   const actor = await assertManager();
   if (!actor) return { error: FORBIDDEN };

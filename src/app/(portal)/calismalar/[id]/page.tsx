@@ -137,6 +137,7 @@ export default async function RehearsalPage({ params }: PageProps<"/calismalar/[
             laterInSeries={later}
             unmarked={unmarked}
             started={started}
+            cancelled={Boolean(r.cancelledAt)}
           />
           {phase === "open" && r.endsAt < new Date() && (
             <p className="rounded-xl bg-accent px-4 py-3 text-sm text-accent-foreground">

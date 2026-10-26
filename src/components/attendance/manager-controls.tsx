@@ -1,12 +1,13 @@
 "use client";
 
-import { Ban, CalendarX2, Pencil, Radio, RotateCcw } from "lucide-react";
+import { Ban, CalendarX2, Pencil, Radio, RotateCcw, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   closeAttendance,
+  deleteRehearsal,
   endSeries,
   openAttendance,
   setCancelled,
@@ -24,7 +25,13 @@ import type { RehearsalPhase } from "@/lib/attendance/rehearsals";
 import type { FormState } from "@/lib/validation";
 import { cn } from "@/lib/utils";
 
-type Confirm = { title: string; text: string; label: string; run: () => Promise<FormState> };
+type Confirm = {
+  title: string;
+  text: string;
+  label: string;
+  run: () => Promise<FormState>;
+  leave?: boolean;
+};
 
 export function ManagerControls({
   id,
@@ -33,6 +40,7 @@ export function ManagerControls({
   laterInSeries,
   unmarked,
   started,
+  cancelled,
 }: {
   id: string;
   phase: RehearsalPhase;
@@ -40,18 +48,20 @@ export function ManagerControls({
   laterInSeries: number;
   unmarked: number;
   started: boolean;
+  cancelled: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [confirm, setConfirm] = useState<Confirm | null>(null);
 
-  function run(fn: () => Promise<FormState>) {
+  function run(fn: () => Promise<FormState>, leave = false) {
     startTransition(async () => {
       const result = await fn();
       if (result?.error) toast.error(result.error);
       else if (result?.success) toast.success(result.success);
       setConfirm(null);
-      router.refresh();
+      if (leave && result?.success) router.replace("/calismalar");
+      else router.refresh();
     });
   }
 
@@ -149,6 +159,28 @@ export function ManagerControls({
           Seriyi bitir
         </Button>
       )}
+      {(phase === "upcoming" ||
+        phase === "openable" ||
+        phase === "cancelled" ||
+        phase === "untaken") && (
+        <Button
+          variant="ghost"
+          disabled={pending}
+          onClick={() =>
+            setConfirm({
+              title: "Çalışma silinsin mi?",
+              text: `Çalışma kalıcı olarak silinir, bildirilen mazeretler de silinir. Geri alınamaz.${!cancelled && !started ? " Koristlere iptal bildirimi gider." : ""}`,
+              label: "Sil",
+              run: () => deleteRehearsal(id),
+              leave: true,
+            })
+          }
+          className={cn(pill, "text-destructive hover:text-destructive")}
+        >
+          <Trash2 />
+          Sil
+        </Button>
+      )}
 
       <Dialog open={confirm !== null} onOpenChange={(open) => !open && setConfirm(null)}>
         <DialogContent className="sm:max-w-md">
@@ -162,7 +194,7 @@ export function ManagerControls({
             </Button>
             <Button
               disabled={pending}
-              onClick={() => confirm && run(confirm.run)}
+              onClick={() => confirm && run(confirm.run, confirm.leave)}
               className="h-11 rounded-xl"
             >
               {confirm?.label}
