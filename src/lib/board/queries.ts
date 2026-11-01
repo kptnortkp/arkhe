@@ -8,6 +8,7 @@ import { assertManager, requireManager } from "@/lib/auth/dal";
 import { collator } from "@/lib/format";
 import { canDeleteComment, canDeleteTicket } from "@/lib/permissions";
 import { istanbulDateOf, now } from "@/lib/time";
+import { monthWeeks } from "./calendar";
 import {
   TICKET_STATUSES,
   type BoardFilters,
@@ -37,6 +38,7 @@ export type TicketCardData = {
   status: TicketStatus;
   urgency: TicketUrgency;
   dueOn: string | null;
+  onCalendar: boolean;
   overdue: boolean;
   // active = false renders "(kurulda değil)".
   assignee: { id: string; name: string; active: boolean } | null;
@@ -78,6 +80,7 @@ function cardColumns(me: string) {
     status: t.status,
     urgency: t.urgency,
     dueOn: t.dueOn,
+    onCalendar: t.onCalendar,
     doneAt: t.doneAt,
     updatedAt: t.updatedAt,
     assigneeId: t.assigneeId,
@@ -106,6 +109,7 @@ function toCard(r: CardRow, today: string): TicketCardData {
     status: r.status,
     urgency: r.urgency,
     dueOn: r.dueOn,
+    onCalendar: r.onCalendar,
     overdue: r.status !== "done" && r.dueOn !== null && r.dueOn < today,
     assignee:
       r.assigneeId && r.assigneeName
@@ -169,6 +173,29 @@ export async function getArchive(rawPage: unknown) {
     hasOlder: rows.length > ARCHIVE_PAGE_SIZE,
     hasNewer: page > 1,
   };
+}
+
+/** Tickets put on the calendar whose due day falls in the month's grid, by day then board order. */
+export async function getCalendar(month: string) {
+  const viewer = await requireManager();
+  const weeks = monthWeeks(month);
+  const rows = await cardsQuery(
+    viewer.id,
+    and(
+      eq(t.onCalendar, true),
+      sql`${t.dueOn} between ${weeks[0][0]} and ${weeks.at(-1)!.at(-1)!}`,
+    ),
+  );
+  const today = istanbulDateOf(now());
+  const byDay = new Map<string, TicketCardData[]>();
+  for (const r of rows.sort((a, b) =>
+    a.dueOn! < b.dueOn! ? -1 : a.dueOn! > b.dueOn! ? 1 : compareTickets(a, b),
+  )) {
+    const list = byDay.get(r.dueOn!) ?? [];
+    list.push(toCard(r, today));
+    byDay.set(r.dueOn!, list);
+  }
+  return { weeks, byDay, today };
 }
 
 export type TicketDetail = TicketCardData & {

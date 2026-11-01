@@ -1,6 +1,6 @@
 "use client";
 
-import { Link2, Trash2 } from "lucide-react";
+import { CalendarPlus, CalendarX, Link2, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -9,10 +9,12 @@ import {
   deleteComment,
   deleteTicket,
   markTicketSeen,
+  setTicketCalendar,
 } from "@/app/(portal)/yonetim/actions";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { copyText } from "@/components/copy-button";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useRunAction } from "@/components/use-run-action";
@@ -99,6 +101,86 @@ export function TicketDelete({
           },
         ]}
       />
+    </>
+  );
+}
+
+/** Takvime ekle / Takvimden çıkar; a ticket without a due day asks for one first. */
+export function CalendarToggle({
+  number,
+  onCalendar,
+  dueOn,
+  today,
+  className,
+}: {
+  number: number;
+  onCalendar: boolean;
+  dueOn: string | null;
+  today: string;
+  className?: string;
+}) {
+  const [pending, run] = useRunAction();
+  const [open, setOpen] = useState(false);
+  const [day, setDay] = useState(today);
+  const [error, setError] = useState<string>();
+  const set = (on: boolean, picked?: string) =>
+    run(
+      () => setTicketCalendar({ number, on, dueOn: picked }),
+      (r) => {
+        if (r.fieldErrors) setError(r.fieldErrors.dueOn?.[0]);
+        else setOpen(false);
+      },
+    );
+  const button = cn("h-11 rounded-full px-4", className);
+  if (onCalendar) {
+    return (
+      <Button variant="outline" className={button} disabled={pending} onClick={() => set(false)}>
+        <CalendarX />
+        Takvimden çıkar
+      </Button>
+    );
+  }
+  return (
+    <>
+      <Button
+        variant="outline"
+        className={button}
+        disabled={pending}
+        onClick={() => (dueOn ? set(true) : setOpen(true))}
+      >
+        <CalendarPlus />
+        Takvime ekle
+      </Button>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Hangi güne eklensin?"
+        description="Bu işin son tarihi yok. Seçtiğin gün son tarihi olur ve iş o gün takvimde görünür."
+        pending={pending}
+        initialFocus={() => document.getElementById("takvim-gun")}
+        actions={[{ label: "Ekle", variant: "default", run: () => set(true, day) }]}
+      >
+        <div className="space-y-2">
+          <Label htmlFor="takvim-gun">Son tarih</Label>
+          <Input
+            id="takvim-gun"
+            type="date"
+            value={day}
+            onChange={(e) => {
+              setDay(e.target.value);
+              setError(undefined);
+            }}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? "takvim-gun-error" : undefined}
+            className="h-11 w-auto min-w-44 rounded-xl"
+          />
+          {error && (
+            <p id="takvim-gun-error" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
+        </div>
+      </ConfirmDialog>
     </>
   );
 }

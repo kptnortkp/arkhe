@@ -21,6 +21,7 @@ export const COMMENT_NOT_OWN = "Yalnızca kendi yorumunu silebilirsin.";
 export const COMMENT_TOO_OLD = "Yorum 15 dakika geçtikten sonra silinemez.";
 export const RATE_LIMITED = "Çok fazla deneme. Biraz sonra yeniden dene.";
 export const BAD_DATE = "Geçerli bir tarih seç.";
+export const CALENDAR_NEEDS_DATE = "Takvime eklemek için son tarih seç.";
 export const UNASSIGNED = "Atanmadı";
 export const NOT_ON_BOARD = "kurulda değil";
 
@@ -71,19 +72,42 @@ const dueOn = z
   );
 
 const urgency = z.enum(TICKET_URGENCIES, "Aciliyet seç.");
-const ticketFields = { title, description, assigneeId, dueOn };
+// "1" or "0" from the form's hidden field; absent on edit keeps the current value.
+const onCalendar = z
+  .enum(["0", "1"])
+  .optional()
+  .transform((v) => (v === undefined ? undefined : v === "1"));
+const ticketFields = { title, description, assigneeId, dueOn, onCalendar };
 
-export const createTicketSchema = z.object({
-  ...ticketFields,
-  urgency: urgency.default("medium"),
-  status: z.enum(TICKET_STATUSES, "Durum seç.").default("todo"),
-});
+function calendarNeedsDate(
+  d: { dueOn: string | null; onCalendar?: boolean },
+  ctx: z.RefinementCtx,
+) {
+  if (d.onCalendar && !d.dueOn)
+    ctx.addIssue({ code: "custom", path: ["dueOn"], message: CALENDAR_NEEDS_DATE });
+}
+
+export const createTicketSchema = z
+  .object({
+    ...ticketFields,
+    urgency: urgency.default("medium"),
+    status: z.enum(TICKET_STATUSES, "Durum seç.").default("todo"),
+  })
+  .superRefine(calendarNeedsDate);
 
 // No defaults on edit: a field missing from the form must never silently reset the ticket.
-export const updateTicketSchema = z.object({
-  ...ticketFields,
-  urgency,
-  revision: z.coerce.number().int().min(0),
+export const updateTicketSchema = z
+  .object({
+    ...ticketFields,
+    urgency,
+    revision: z.coerce.number().int().min(0),
+  })
+  .superRefine(calendarNeedsDate);
+
+export const calendarSchema = z.object({
+  number: ticketNumber,
+  on: z.boolean(),
+  dueOn,
 });
 
 export const commentSchema = z.object({

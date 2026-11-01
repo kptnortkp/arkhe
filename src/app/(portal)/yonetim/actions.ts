@@ -12,6 +12,9 @@ import { consumeAttempt, forgetAttempt } from "@/lib/auth/rate-limit";
 import { assertManager } from "@/lib/auth/dal";
 import {
   BAD_ASSIGNEE,
+  BAD_DATE,
+  CALENDAR_NEEDS_DATE,
+  calendarSchema,
   COMMENT_DELETE_WINDOW_S,
   COMMENT_LIMIT,
   COMMENT_NOT_OWN,
@@ -115,6 +118,7 @@ export async function createTicket(_prev: FormState, formData: FormData): Promis
         urgency: d.urgency,
         assigneeId: d.assigneeId,
         dueOn: d.dueOn,
+        onCalendar: d.onCalendar ?? false,
         doneAt: d.status === "done" ? nowSql : null,
         createdBy: actor.id,
         createdAt: nowSql,
@@ -179,12 +183,15 @@ export async function updateTicket(
       if (cur.revision !== d.revision) return TICKET_STALE;
       // An unchanged assignee stays even if they left the board (AC 11, "kurulda değil").
       if (d.assigneeId !== cur.assigneeId) await checkAssignee(tx, d.assigneeId);
+      // A ticket without a due day can't stay on the calendar.
+      const onCalendar = d.dueOn !== null && (d.onCalendar ?? cur.onCalendar);
       const changed =
         d.title !== cur.title ||
         d.description !== cur.description ||
         d.assigneeId !== cur.assigneeId ||
         d.urgency !== cur.urgency ||
-        d.dueOn !== cur.dueOn;
+        d.dueOn !== cur.dueOn ||
+        onCalendar !== cur.onCalendar;
       if (!changed) return null;
       const hit = await tx
         .update(t)
@@ -194,6 +201,7 @@ export async function updateTicket(
           assigneeId: d.assigneeId,
           urgency: d.urgency,
           dueOn: d.dueOn,
+          onCalendar,
           revision: sql`${t.revision} + 1`,
           updatedAt: nowSql,
           updatedBy: actor.id,
@@ -298,6 +306,52 @@ export async function moveTicket(input: {
   if (moved) await ticketChanged({ ticket: moved, actor, movedTo: to });
   revalidateBoard();
   return { success: movedMessage(number, to) };
+}
+
+/** Takvime ekle / Takvimden çıkar on the detail page; `dueOn` sets the day of a ticket without one. */
+export async function setTicketCalendar(input: {
+  number: number;
+  on: boolean;
+  dueOn?: string;
+}): Promise<FormState> {
+  const actor = await assertManager();
+  if (!actor) return { error: FORBIDDEN };
+  const parsed = calendarSchema.safeParse(input);
+  if (!parsed.success) {
+    const bad = parsed.error.issues.some((i) => i.path[0] === "dueOn");
+    return bad ? { fieldErrors: { dueOn: [BAD_DATE] } } : { error: TICKET_NOT_FOUND };
+  }
+  const { number, on, dueOn } = parsed.data;
+  let dated: TicketEvent["ticket"] | null = null;
+  const error = await writeTx(async (tx): Promise<string | null> => {
+    const [cur] = await tx.select().from(t).where(eq(t.number, number));
+    if (!cur) return TICKET_NOT_FOUND;
+    const day = on ? (cur.dueOn ?? dueOn) : cur.dueOn;
+    if (on && !day) return CALENDAR_NEEDS_DATE;
+    if (cur.onCalendar === on && day === cur.dueOn) return null;
+    await tx
+      .update(t)
+      .set({
+        onCalendar: on,
+        dueOn: day,
+        revision: sql`${t.revision} + 1`,
+        updatedAt: nowSql,
+        updatedBy: actor.id,
+      })
+      .where(eq(t.id, cur.id));
+    if (day !== cur.dueOn) {
+      await tx
+        .insert(ev)
+        .values({ ticketId: cur.id, kind: "due", actorId: actor.id, toValue: day });
+      dated = { ...cur, dueOn: day };
+    }
+    await markSeen(tx, cur.id, actor.id);
+    return null;
+  });
+  if (error) return { error };
+  if (dated) await ticketChanged({ ticket: dated, actor });
+  revalidateBoard();
+  return { success: on ? `#${number} takvime eklendi.` : `#${number} takvimden çıkarıldı.` };
 }
 
 export async function deleteTicket(rawNumber: number): Promise<FormState> {

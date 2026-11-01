@@ -773,6 +773,8 @@ export const boardTickets = sqliteTable(
     assigneeId: text("assignee_id").references(() => users.id, { onDelete: "restrict" }),
     // Plain Europe/Istanbul calendar day.
     dueOn: text("due_on"),
+    // Shown on /yonetim/takvim on its due day; only set while due_on is set.
+    onCalendar: integer("on_calendar", { mode: "boolean" }).notNull().default(false),
     doneAt: integer("done_at", { mode: "timestamp" }),
     // Optimistic lock for edits; bumped by every write to this row, moves included.
     revision: integer("revision").notNull().default(0),
@@ -787,6 +789,9 @@ export const boardTickets = sqliteTable(
     uniqueIndex("board_tickets_number_idx").on(t.number),
     index("board_tickets_status_idx").on(t.status, t.doneAt),
     index("board_tickets_assignee_idx").on(t.assigneeId, t.status),
+    index("board_tickets_calendar_idx")
+      .on(t.dueOn)
+      .where(sql`on_calendar = 1`),
     check("board_tickets_number_check", sql`typeof(number) = 'integer' and number >= 1`),
     check("board_tickets_status_check", sql`status in (${inList(TICKET_STATUSES)})`),
     check("board_tickets_urgency_check", sql`urgency in (${inList(TICKET_URGENCIES)})`),

@@ -1,6 +1,6 @@
 "use client";
 
-import { TriangleAlert } from "lucide-react";
+import { CalendarPlus, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
@@ -11,6 +11,8 @@ import { useFocusError } from "@/components/forms/use-focus-error";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { SWITCH_CLASS } from "@/components/notifications/push-client";
 import { Textarea } from "@/components/ui/textarea";
 import {
   TICKET_STATUS_LABELS,
@@ -29,6 +31,7 @@ export type TicketDefaults = {
   assigneeId: string;
   urgency: TicketUrgency;
   dueOn: string;
+  onCalendar: boolean;
   status: TicketStatus;
 };
 
@@ -84,6 +87,7 @@ export function TicketForm({
   const [urgency, setUrgency] = useState<TicketUrgency>(defaults.urgency);
   const [status, setStatus] = useState<TicketStatus>(defaults.status);
   const [dueOn, setDueOn] = useState(defaults.dueOn);
+  const [onCalendar, setOnCalendar] = useState(defaults.onCalendar);
   const stale = state.error === TICKET_STALE && mode === "edit";
   const canSelfAssign = assignees.some((a) => a.id === me) && assigneeId !== me;
 
@@ -189,13 +193,38 @@ export function TicketForm({
               type="button"
               variant="ghost"
               className="h-11 px-3 text-sm"
-              onClick={() => setDueOn("")}
+              onClick={() => {
+                setDueOn("");
+                setOnCalendar(false);
+              }}
             >
               Tarihi kaldır
             </Button>
           )}
         </div>
         <Hint id="dueOn-error" error={errors.dueOn?.[0]} />
+        <input type="hidden" name="onCalendar" value={onCalendar ? "1" : "0"} />
+        <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-xl border bg-card px-3 py-2">
+          <span className="flex items-center gap-2">
+            <CalendarPlus aria-hidden className="size-4 text-muted-foreground" />
+            <span id="onCalendar-label" className="text-sm font-medium">
+              Takvime ekle
+            </span>
+          </span>
+          <Switch
+            checked={onCalendar}
+            onCheckedChange={setOnCalendar}
+            aria-labelledby="onCalendar-label"
+            aria-describedby="onCalendar-hint"
+            data-testid="on-calendar"
+            className={SWITCH_CLASS}
+          />
+        </label>
+        <p id="onCalendar-hint" className="text-xs text-muted-foreground">
+          {onCalendar && !dueOn
+            ? "Takvime eklemek için son tarih seç."
+            : "İş, son tarihinde yönetim takviminde görünür."}
+        </p>
       </div>
 
       <div className="space-y-2">

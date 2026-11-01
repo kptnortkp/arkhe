@@ -5,6 +5,7 @@ import { BackLink } from "@/components/board/back-link";
 import { MoveMenu } from "@/components/board/move-menu";
 import { Assignee } from "@/components/board/ticket-card";
 import {
+  CalendarToggle,
   CommentDelete,
   CommentForm,
   CopyLinkButton,
@@ -63,6 +64,19 @@ export default async function TicketPage({ params }: PageProps<"/yonetim/[numara
             <span className="text-muted-foreground">Son tarih yok</span>
           )}
         </dd>
+        <dt className="text-muted-foreground">Takvim</dt>
+        <dd data-testid="ticket-calendar">
+          {t.onCalendar && t.dueOn ? (
+            <Link
+              href={`/yonetim/takvim?ay=${t.dueOn.slice(0, 7)}&gun=${t.dueOn}`}
+              className="font-medium text-primary hover:underline"
+            >
+              Takvimde
+            </Link>
+          ) : (
+            <span className="text-muted-foreground">Takvimde değil</span>
+          )}
+        </dd>
       </dl>
       <div className="space-y-1 border-t pt-2.5 text-xs text-muted-foreground">
         <p data-testid="ticket-opened">
@@ -108,6 +122,13 @@ export default async function TicketPage({ params }: PageProps<"/yonetim/[numara
               Düzenle
             </Link>
             {t.canDelete && <TicketDelete number={t.number} className="max-lg:hidden" />}
+            <CalendarToggle
+              number={t.number}
+              onCalendar={t.onCalendar}
+              dueOn={t.dueOn}
+              today={today}
+              className="lg:col-span-2"
+            />
           </div>
           {facts}
         </aside>

@@ -211,6 +211,8 @@ export async function smallTargets(page) {
         if (e.closest("[data-testid=ticket-card]") && e.tagName === "A") return false;
         // A radio inside a chip label: the label is the target.
         if (e.type === "radio" || e.closest(".sr-only")) return false;
+        // A visually hidden 1 px input (base-ui Switch): its row is the target.
+        if (r.width <= 1 && r.height <= 1) return false;
         return r.height < 43.5;
       })
       .map(

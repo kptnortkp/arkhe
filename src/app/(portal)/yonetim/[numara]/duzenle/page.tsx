@@ -37,6 +37,7 @@ export default async function EditTicketPage({ params }: PageProps<"/yonetim/[nu
           assigneeId: ticket.assignee?.id ?? "",
           urgency: ticket.urgency,
           dueOn: ticket.dueOn ?? "",
+          onCalendar: ticket.onCalendar,
           status: ticket.status,
         }}
       />
