@@ -1,3 +1,4 @@
+-- deploy: reviewed (table rebuilds copy every row; rehearsed on a copy of the production dump)
 CREATE TABLE `omr_jobs` (
 	`id` text PRIMARY KEY NOT NULL,
 	`piece_id` text NOT NULL,
