@@ -54,3 +54,6 @@ data/uploads*/
 !.claude/
 .claude/*
 !.claude/agents/
+
+# encrypted production dumps written by scripts/deploy-db.ts
+/deploy-backup/

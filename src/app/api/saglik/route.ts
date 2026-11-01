@@ -3,7 +3,11 @@ import { connection } from "next/server";
 import { db } from "@/db";
 
 const TIMEOUT_MS = 3000;
-const headers = { "Cache-Control": "no-store" };
+// The deploy workflow waits until this names the commit it pushed.
+const headers = {
+  "Cache-Control": "no-store",
+  "X-Arkhe-Commit": (process.env.VERCEL_GIT_COMMIT_SHA ?? "local").slice(0, 7),
+};
 
 /** Readiness probe: fixed bodies only, the reason for a failure goes to the server log. */
 export async function GET() {

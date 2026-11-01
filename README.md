@@ -103,6 +103,21 @@ Everything here is free. No step needs a card or a paid plan; if a provider asks
    - **Schema or data:** there are no down-migrations. Restore the backup `db:migrate` wrote just before the migration (steps above). Then, in Vercel → Deployments, open the deployment whose code matches that schema and use **Redeploy** (not Promote), so it is rebuilt with the new `DATABASE_URL`/`DATABASE_AUTH_TOKEN`. **Never Promote a deployment created before a database switch.**
    - **Service worker kill switch:** if a bad `public/sw.js` ever pins phones to broken assets, set `const KILL = true;` in `public/sw.js` and deploy. On the next visit each phone installs it, deletes every cache, unregisters the worker and reloads. Later, set `KILL = false`, bump `VERSION` and deploy again to bring offline support back. Bump `VERSION` on every change to `sw.js`.
 
+### Automatic deploys (GitHub Actions)
+
+Every push to `initial-setup` runs `.github/workflows/deploy.yml`; Vercel's own git deploys are off (`vercel.json`).
+
+1. Lint and typecheck.
+2. `scripts/deploy-db.ts`, only when a migration is pending: an encrypted dump of production (kept 7 days as a workflow artifact, `npm run db:decrypt` opens it), the migrations on a throwaway copy where every existing row must hash the same before and after, `db:check` on the copy, then the same migrations on production in one atomic batch, a no-rows-lost check and `db:check`. Any failure stops here and the old code keeps running.
+3. The Vercel deploy hook, then a wait until `/api/saglik` answers with this commit in `X-Arkhe-Commit`.
+
+A migration that drops, renames, deletes or rewrites rows stops the gate until its first line is `-- deploy: reviewed` (add it after rehearsing it on a copy). Keep migrations expand-only: the old code runs against the new schema for a minute or two.
+
+Setup, once:
+
+- GitHub → repo → Settings → Secrets and variables → Actions → **Secrets**: `TURSO_DATABASE_URL` (`libsql://…`), `TURSO_AUTH_TOKEN` (`turso db tokens create <db>`, typed straight into GitHub), `BACKUP_PASSPHRASE` (`openssl rand -base64 32`, kept in a password manager; without it the deploy backups cannot be opened), `VERCEL_DEPLOY_HOOK` (Vercel → Settings → Git → Deploy Hooks, branch `initial-setup`). **Variables**: `PORTAL_URL` (`https://<your-domain>`, also used by the MIDI workflow).
+- A failed run emails the repo owner (GitHub's default notification setting). To retry, fix and push again, or Actions → deploy → Run workflow.
+
 ### Go-live check: bulk import on the Turso driver
 
 Every import run so far used a local `file:` database. Before the board imports real history, run the import once against a local `sqld` (`turso dev`, free and open source): start it, point a shell at it with `DATABASE_URL=http://127.0.0.1:8080`, run `drizzle-kit migrate`, then the six sample files (check, commit, undo) and one in-process `commitFile` call with `faultAt` set (the cookie hook is off on non-file databases); that commit must roll back completely. Time a 5000-row `uyeler` commit there; it must finish well inside the host's 60 s limit.
