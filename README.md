@@ -28,8 +28,8 @@ Every `npm run e2e` and `npm run db:reset` wipes all finance, board (`/yonetim`)
 | `npm run db:check`                                   | Foreign keys, orphans, `migrations=N/N`, `quick_check` (file DBs), no demo accounts (remote DBs).   |
 | `npm run create-admin -- "Ad Soyad" email`           | Creates or promotes a conductor and prints a one-time password link (24 h).                         |
 | `npm run docs:import` (`-- --check`)                 | Regenerates the import templates in `docs/ice-aktarma/` from `src/lib/import/defs`; `--check` writes nothing and fails on a stale file or on a file the generator no longer writes. Run it after editing `src/lib/import/defs` or `docs.ts`. |
-| `npm run db:decrypt -- <file.sql.gz.enc>`            | Decrypts a monthly backup attachment to `data/backups/<name>.sql` (prompts for the passphrase).     |
-| `npm run db:restore -- <file.sql> <target.db>`       | Restores a plain-SQL dump into a new local SQLite file; refuses to overwrite anything.              |
+| `npm run db:decrypt -- <file.sql.gz.enc>`            | Decrypts a deploy backup (GitHub Actions artifact) to `data/backups/<name>.sql` (prompts for the passphrase). |
+| `npm run db:restore -- <file.sql[.gz]> <target.db>`  | Restores a plain or gzipped SQL dump into a new local SQLite file; refuses to overwrite anything.   |
 
 Environment variables: see `.env.example`.
 
@@ -149,52 +149,47 @@ Same build as the production smoke test (`next build` + `next start`), Turso unc
 
 ## Aylık yedek e-postası
 
-On the 1st of every month (Vercel Cron, daily at 05:00 UTC = 08:00–09:00 Istanbul) the portal emails the previous Istanbul month's reports and an encrypted copy of the whole database to the 1–5 addresses the conductor saves on `/yedek`:
+On the 1st of every month (Vercel Cron, daily at 05:00 UTC = 08:00–09:00 Istanbul) the portal emails the previous Istanbul month's reports and a copy of the whole database to the 1–5 addresses the conductor saves on `/yedek`:
 
 - `arkhe-devam-YYYY-MM.csv`, `arkhe-odev-YYYY-MM.csv`, `arkhe-finans-YYYY-MM.csv`, `arkhe-aidat-YYYY-MM.csv`: plain CSVs (names, attendance, homework and dues; no emails or phones).
-- `arkhe-yedek-YYYY-MM-DD-HHmm.sql.gz.enc`: the same dump as `db:backup`, gzipped and encrypted with AES-256-GCM; the key comes from scrypt over `BACKUP_PASSPHRASE`.
+- `arkhe-yedek-YYYY-MM-DD-HHmm.sql.gz`: the same dump as `db:backup`, gzipped. **Not encrypted**: it holds member data and password hashes, so send it only to a secure mailbox the board controls.
 
 The cron runs every day; it sends only while the previous month has no successful send, so a failed 1st retries itself the next morning. A month that is still unsent when the next month starts is abandoned; its CSVs can still be exported from `/raporlar` and `/finans/rapor`. In dev (`npm run dev`) nothing is sent: every email is written to `data/outbox/*.eml`.
 
 ### Setup (once, by the deployer)
 
 1. **Gmail.** Create (or reuse) a choir Gmail account. Turn on 2-Step Verification, then Google Account → Security → App passwords → create one named `Arkhe Portal`. Changing the Google password revokes it.
-2. **Passphrase.** Generate one of at least 16 characters: `openssl rand -base64 24`.
-3. **Store the passphrase outside Vercel, in two places** (for example the conductor's password manager and a sealed paper copy with the board president). Without it every backup is useless. If it is lost, the live data is unaffected: set a new one, redeploy and press `Şimdi gönder`. Rotating it doesn't re-encrypt old backups, so keep the old one with its date.
-4. **Cron secret.** `openssl rand -hex 32`. Production refuses anything shorter than 32 characters and the dev value.
-5. **Vercel → Settings → Environment Variables, Production only, typed by hand** (never paste them into chat, a file or a commit), then redeploy:
+2. **Cron secret.** `openssl rand -hex 32`. Production refuses anything shorter than 32 characters and the dev value.
+3. **Vercel → Settings → Environment Variables, Production only, typed by hand** (never paste them into chat, a file or a commit), then redeploy:
    - `SMTP_USER` = the choir Gmail address
    - `SMTP_PASS` = the App Password (spaces are ignored)
    - `SMTP_FROM` (optional) = e.g. `"Arkhe Korosu" <koro@gmail.com>`; default `"Arkhe Portal" <SMTP_USER>`
-   - `BACKUP_PASSPHRASE` = the passphrase from step 2
-   - `CRON_SECRET` = the value from step 4 (Vercel sends it as `Authorization: Bearer …`)
-6. **First send.** As the conductor, open `/yedek`, save the recipients and press `Şimdi gönder`. Check that the email arrives (look in spam once and mark it "not spam") and that Kurulum shows four `Tamam`.
-7. **Restore drill on that first email** (below), then delete the local copies.
+   - `CRON_SECRET` = the value from step 2 (Vercel sends it as `Authorization: Bearer …`)
+4. **First send.** As the conductor, open `/yedek`, save the recipients and press `Şimdi gönder`. Check that the email arrives (look in spam once and mark it "not spam") and that Kurulum shows three `Tamam`.
+5. **Restore drill on that first email** (below), then delete the local copies.
 
 The portal starts without any of these variables; a missing one only fails the send, shows `Eksik` under Kurulum and logs one boot warning with the variable names.
 
-### Decrypt and restore (laptop)
+### Restore (laptop)
 
-Save the `.sql.gz.enc` attachment, then:
+Save the `.sql.gz` attachment, then:
 
 ```bash
-npm run db:decrypt -- ~/Downloads/arkhe-yedek-2026-11-01-0802.sql.gz.enc   # prompts "Backup passphrase:"
-npm run db:restore -- data/backups/arkhe-yedek-2026-11-01-0802.sql data/restore-drill.db
+npm run db:restore -- ~/Downloads/arkhe-yedek-2026-11-01-0802.sql.gz data/restore-drill.db
 DATABASE_URL=file:$PWD/data/restore-drill.db npm run db:check                  # migrations=N/N
-rm -f data/restore-drill.db data/restore-drill.db-wal data/restore-drill.db-shm data/backups/arkhe-yedek-*.sql
+rm -f data/restore-drill.db data/restore-drill.db-wal data/restore-drill.db-shm
 ```
 
-- Neither script reads `.env` or `.env.development`. The passphrase comes from a `BACKUP_PASSPHRASE` set in your shell, or from the prompt (no echo).
-- A wrong passphrase or a damaged file prints `Wrong passphrase or damaged file.` and writes nothing. The decrypted `.sql` is written with owner-only permissions and holds password hashes and member data: delete it after use.
 - An older backup restored next to newer code shows `migrations missing` in `db:check`; run `DATABASE_URL=file:<target> npx drizzle-kit migrate` on the restored file.
-- **Real incident:** decrypt, then follow "Restore to Turso" above with the `.sql` file.
+- **Real incident:** double-click the `.sql.gz` (or `gunzip -k`) to get the `.sql`, then follow "Restore to Turso" above.
+- Deploy backups (GitHub Actions artifacts, `.sql.gz.enc`) stay encrypted: `npm run db:decrypt -- <file>` prompts for the deploy `BACKUP_PASSPHRASE` and writes `data/backups/<name>.sql`, which `db:restore` then takes. A wrong passphrase prints `Wrong passphrase or damaged file.` and writes nothing.
 
 ### Notes
 
-- **Ses kayıtları ve MIDI dosyaları bu yedeğe dahil değildir; kayıtlar 90 gün sonra zaten silinir.** Şifreli yedek, asistan notlarını ve şefin yorumlarını da içerir; ses ve MIDI dosyalarını içermez. MIDI files exist only in the portal's file store: keep the originals on Drive.
+- **Ses kayıtları ve MIDI dosyaları bu yedeğe dahil değildir; kayıtlar 90 gün sonra zaten silinir.** Yedek, asistan notlarını ve şefin yorumlarını da içerir; ses ve MIDI dosyalarını içermez. MIDI files exist only in the portal's file store: keep the originals on Drive.
 - **Turso's free point-in-time restore reaches back 1 day only.** For anything noticed later, the monthly email is the backup.
 - Vercel Hobby cron fires once a day somewhere between 08:00 and 09:00 Istanbul and runs only on the production deployment. Gmail's daily sending limit (~500) is far above our use.
-- The CSVs are not encrypted. Add only board members' addresses; every recipient change emails the old and the new list.
+- Nothing in this email is encrypted. Add only board members' addresses; every recipient change emails the old and the new list.
 
 ### Gmail girişi reddedilirse
 
@@ -202,7 +197,7 @@ The run log on `/yedek` shows `Gmail girişi reddedildi. Uygulama şifresini kon
 
 1. Sign in to the choir Gmail in a browser, open Security → Recent security activity and confirm the sign-in ("Yes, it was me"). Press `Şimdi gönder` again.
 2. Revoke the App Password, create a new one, update `SMTP_PASS` in Vercel and redeploy.
-3. Only then, a free fallback provider with no code change: set `SMTP_HOST` and `SMTP_PORT` (465 uses TLS, any other port STARTTLS) and that provider's `SMTP_USER`/`SMTP_PASS`. Options: **Brevo's free plan** (`smtp-relay.brevo.com`, port `587`) or a free **Yandex** mailbox with an app password (`smtp.yandex.com`, port `465`). The provider then carries the plain CSVs and the encrypted backup, so the board should agree first. Free plan only, never enter a card; check the provider's current free terms at setup time.
+3. Only then, a free fallback provider with no code change: set `SMTP_HOST` and `SMTP_PORT` (465 uses TLS, any other port STARTTLS) and that provider's `SMTP_USER`/`SMTP_PASS`. Options: **Brevo's free plan** (`smtp-relay.brevo.com`, port `587`) or a free **Yandex** mailbox with an app password (`smtp.yandex.com`, port `465`). The provider then carries the plain CSVs and the unencrypted backup, so the board should agree first. Free plan only, never enter a card; check the provider's current free terms at setup time.
 
 ---
 
@@ -244,7 +239,7 @@ A manager uploads a piece's score PDF (`Nota ve otomatik MIDI` on the edit page)
 
 Free on every push service (FCM, Apple, Mozilla) with VAPID keys; no SaaS, no Firebase SDK.
 
-- **Keys, once:** on a trusted machine run `npx web-push generate-vapid-keys`. In Vercel set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT=mailto:<koro adresi>` for **Production only**, then redeploy. Keep a copy of the keys next to the backup passphrase.
+- **Keys, once:** on a trusted machine run `npx web-push generate-vapid-keys`. In Vercel set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT=mailto:<koro adresi>` for **Production only**, then redeploy. Keep a copy of the keys in a password manager.
 - **Never rotate the keys** unless they leak: a new key pair silently ends every subscription, and every singer has to turn notifications on again.
 - Without the three variables the portal still starts (one boot warning); `Profilim › Bildirimler` shows `Bildirimler henüz açılmadı.` and nothing is sent.
 - **iPhone:** iOS 16.4 or newer, and only from the Arkhe icon on the home screen (`Ana ekrana ekle`). Safari tabs never get notifications.

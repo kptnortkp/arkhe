@@ -1,10 +1,10 @@
-// Phase 7: the encrypted attachment and the restore drill (AC 28–30; AC 27 is phase6-b's AC39).
+// Phase 7: the gzipped attachment, the restore drill and db:decrypt for deploy backups (AC 28–30).
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { gunzipSync } from "node:zlib";
 import { BASE, check, db, login, newPage } from "./lib.mjs";
 import {
-  DEV_PASSPHRASE,
   ROOT,
   newEmails,
   outboxSnapshot,
@@ -17,6 +17,22 @@ import {
 const SCRATCH = path.join(ROOT, "data/e2e-p7");
 const BACKUPS = path.join(ROOT, "data/backups");
 const COUNTED = ["users", "attendance", "submissions", "finance_entries"];
+const PASSPHRASE = "e2e-deploy-backup-passphrase";
+
+/** A deploy-style .sql.gz.enc of `sql`, made by the same encryptBackup the deploy uses. */
+function encrypt(sql, out) {
+  const plain = `${out}.plain`;
+  writeFileSync(plain, sql);
+  const code = `Promise.all([import("node:fs"), import("./src/lib/backup/crypto.ts")]).then(([fs, c]) =>
+    fs.writeFileSync(process.argv[1], c.encryptBackup(fs.readFileSync(process.argv[2]), process.env.P)))`;
+  const r = spawnSync("npx", ["tsx", "-e", code, out, plain], {
+    cwd: ROOT,
+    encoding: "utf8",
+    env: { ...process.env, P: PASSPHRASE },
+  });
+  rmSync(plain, { force: true });
+  if (r.status !== 0) throw new Error(`encrypt failed: ${r.stderr}`);
+}
 
 function npm(script, args, env = {}) {
   const r = spawnSync("npm", ["run", "--silent", script, "--", ...args], {
@@ -67,32 +83,29 @@ export default async function phase7Restore(browser) {
     );
     await sendFromUi(sef);
     const mails = newEmails(start);
-    const encs = mails
-      .map((f) => parseEml(f).attachments.find((a) => a.filename.endsWith(".sql.gz.enc")))
+    const gzs = mails
+      .map((f) => parseEml(f).attachments.find((a) => a.filename.endsWith(".sql.gz")))
       .filter(Boolean);
-    check(mails.length === 2 && encs.length === 2, `AC28 two manual sends → two .enc (${mails.length})`);
-    if (encs.length !== 2) return;
-    const [a, b] = encs.map((e) => e.data);
-    const fixtureEmail = Buffer.from("korist@arkhe.local");
+    check(mails.length === 2 && gzs.length === 2, `AC28 two manual sends → two .sql.gz (${mails.length})`);
+    if (gzs.length !== 2) return;
+    const [a, b] = gzs.map((e) => e.data);
+    const sql = gunzipSync(a);
     check(
-      a.subarray(0, 9).toString() === "ARKHE-BK1" &&
-        b.subarray(0, 9).toString() === "ARKHE-BK1" &&
-        !a.equals(b),
-      "AC28 both attachments start with ARKHE-BK1 and differ",
-    );
-    check(
-      !a.includes(fixtureEmail) && !b.includes(fixtureEmail),
-      "AC28 neither attachment contains a member's email as bytes",
+      [a, b].every((d) => d[0] === 0x1f && d[1] === 0x8b) &&
+        sql.toString("utf8").trimEnd().endsWith("COMMIT;"),
+      "AC28 both attachments are plain gzip and unzip to a complete dump",
     );
 
-    // AC29
+    // AC29: deploy backups stay encrypted; db:decrypt opens them.
     const enc = (name, data) => {
       const file = path.join(SCRATCH, name);
-      writeFileSync(file, data);
+      if (data) writeFileSync(file, data);
+      else encrypt(sql, file);
       cleanupFiles.push(file, path.join(BACKUPS, name.replace(/\.gz\.enc$/, "")));
       return path.relative(ROOT, file);
     };
-    const wrongFile = enc(`p7-wrong-${Date.now()}.sql.gz.enc`, a);
+    const wrongFile = enc(`p7-wrong-${Date.now()}.sql.gz.enc`);
+    const encBytes = readFileSync(path.join(ROOT, wrongFile));
     const wrong = npm("db:decrypt", [wrongFile], { BACKUP_PASSPHRASE: "e2e-wrong-passphrase-1234" });
     check(
       wrong.status === 1 &&
@@ -100,36 +113,41 @@ export default async function phase7Restore(browser) {
         !existsSync(cleanupFiles.at(-1)),
       `AC29 wrong passphrase → exit 1, the message, no file (${wrong.status})`,
     );
-    const flipped = Buffer.from(a);
+    const flipped = Buffer.from(encBytes);
     flipped[flipped.length - 40] ^= 0xff;
     const flipFile = enc(`p7-flip-${Date.now()}.sql.gz.enc`, flipped);
-    const flip = npm("db:decrypt", [flipFile], { BACKUP_PASSPHRASE: DEV_PASSPHRASE });
+    const flip = npm("db:decrypt", [flipFile], { BACKUP_PASSPHRASE: PASSPHRASE });
     check(
       flip.status === 1 &&
         flip.out.includes("Wrong passphrase or damaged file.") &&
         !existsSync(cleanupFiles.at(-1)),
       `AC29 one flipped byte → exit 1, the message, no file (${flip.status})`,
     );
-
-    // AC30 drill
-    const drillFile = enc(`p7-drill-${Date.now()}.sql.gz.enc`, a);
+    const drillFile = enc(`p7-drill-${Date.now()}.sql.gz.enc`, encBytes);
     const sqlPath = cleanupFiles.at(-1);
-    const dec = npm("db:decrypt", [drillFile], { BACKUP_PASSPHRASE: DEV_PASSPHRASE });
+    const dec = npm("db:decrypt", [drillFile], { BACKUP_PASSPHRASE: PASSPHRASE });
     const decrypted = /Decrypted: (\S+)/.exec(dec.out)?.[1];
     check(
-      dec.status === 0 && decrypted === path.relative(ROOT, sqlPath),
-      `AC30 db:decrypt with the dev passphrase → Decrypted: ${decrypted}`,
+      dec.status === 0 &&
+        decrypted === path.relative(ROOT, sqlPath) &&
+        readFileSync(sqlPath).equals(sql),
+      `AC30 db:decrypt → Decrypted: ${decrypted}, byte-identical to the dump`,
     );
-    const again = npm("db:decrypt", [drillFile], { BACKUP_PASSPHRASE: DEV_PASSPHRASE });
+    const again = npm("db:decrypt", [drillFile], { BACKUP_PASSPHRASE: PASSPHRASE });
     check(
       again.status === 1 && again.out.includes(`Output file exists: ${decrypted}`),
       "AC29 a second decrypt refuses to overwrite: Output file exists",
     );
+
+    // AC30 drill: the attachment as saved from the email, straight into db:restore.
+    const gzFile = path.join(SCRATCH, `p7-drill-${Date.now()}.sql.gz`);
+    writeFileSync(gzFile, a);
+    cleanupFiles.push(gzFile);
     const existing = path.join(SCRATCH, "exists.db");
     writeFileSync(existing, "");
     cleanupFiles.push(existing);
-    const overExisting = npm("db:restore", [decrypted, path.relative(ROOT, existing)]);
-    const remote = npm("db:restore", [decrypted, "libsql://x.invalid"]);
+    const overExisting = npm("db:restore", [path.relative(ROOT, gzFile), path.relative(ROOT, existing)]);
+    const remote = npm("db:restore", [path.relative(ROOT, gzFile), "libsql://x.invalid"]);
     const encrypted = npm("db:restore", [drillFile, path.relative(ROOT, drillDb)]);
     check(
       overExisting.status === 1 &&
@@ -141,8 +159,11 @@ export default async function phase7Restore(browser) {
         !existsSync(drillDb),
       "AC29 db:restore refuses an existing target, a libsql:// target and an encrypted input",
     );
-    const restore = npm("db:restore", [decrypted, path.relative(ROOT, drillDb)]);
-    check(restore.status === 0 && restore.out.includes("Restored: "), "AC30 db:restore into data/");
+    const restore = npm("db:restore", [path.relative(ROOT, gzFile), path.relative(ROOT, drillDb)]);
+    check(
+      restore.status === 0 && restore.out.includes("Restored: "),
+      "AC30 db:restore takes the .sql.gz attachment as is",
+    );
     const journal = JSON.parse(readFileSync(path.join(ROOT, "drizzle/meta/_journal.json"), "utf8"));
     const n = journal.entries.length;
     const dbCheck = spawnSync("npm", ["run", "db:check"], {
@@ -166,7 +187,7 @@ export default async function phase7Restore(browser) {
       Number(mediaRestored.n) > 0 &&
         Number(mediaRestored.n) === Number(mediaLive.n) &&
         Number(mediaRestored.r) === Number(mediaLive.r),
-      `AC42 (Phase 9) the decrypted dump holds the assistant-note and recording rows (${mediaRestored.n}, ${mediaRestored.r})`,
+      `AC42 (Phase 9) the dump holds the assistant-note and recording rows (${mediaRestored.n}, ${mediaRestored.r})`,
     );
     check(
       JSON.stringify(got) === JSON.stringify(live),

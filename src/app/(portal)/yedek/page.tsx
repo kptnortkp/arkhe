@@ -38,7 +38,7 @@ export default async function BackupPage() {
         </Link>
         <h1 className="text-4xl font-medium">Yedekleme</h1>
         <p className="max-w-prose text-sm text-muted-foreground">
-          Her ayın 1&apos;inde, geçen ayın raporları ve koronun tüm kayıtlarının şifreli yedeği
+          Her ayın 1&apos;inde, geçen ayın raporları ve koronun tüm kayıtlarının yedeği
           aşağıdaki adreslere e-postayla gider.
         </p>
       </div>

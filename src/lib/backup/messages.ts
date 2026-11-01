@@ -2,7 +2,6 @@
 import { README_SECTION } from "./constants";
 
 export const RUN_ERRORS = {
-  passphrase: `Yedek şifresi ayarlanmamış ya da geçersiz (BACKUP_PASSPHRASE). README: "${README_SECTION}".`,
   smtp: `E-posta hesabı ayarlanmamış (SMTP_USER, SMTP_PASS). README: "${README_SECTION}".`,
   size: "Ekler 18 MB sınırını aşıyor. Portalı kuran kişiye haber ver.",
   auth: "Gmail girişi reddedildi. Uygulama şifresini kontrol et.",
@@ -15,7 +14,7 @@ export const RUN_ERRORS = {
 export type RunErrorKey = keyof typeof RUN_ERRORS;
 
 export class BackupError extends Error {
-  constructor(readonly key: "passphrase" | "smtp" | "size") {
+  constructor(readonly key: "smtp" | "size") {
     super(`backup precondition failed: ${key}`);
     this.name = "BackupError";
   }

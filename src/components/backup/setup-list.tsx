@@ -1,4 +1,4 @@
-import { CircleCheck, KeyRound, TriangleAlert } from "lucide-react";
+import { CircleCheck, TriangleAlert } from "lucide-react";
 import type { BackupPage } from "@/lib/backup/queries";
 import { cn } from "@/lib/utils";
 
@@ -24,15 +24,6 @@ export function SetupList({ setup }: { setup: BackupPage["setup"] }) {
           ? "Şu an deneme ortamı, e-posta gönderilmez, dosyaya yazılır."
           : undefined,
       vars: "SMTP_USER · SMTP_PASS",
-    },
-    {
-      id: "passphrase",
-      label: "Yedek şifresi",
-      ok: setup.passphrase === "ok",
-      explain: "Yedek dosyasını kilitleyen şifre. En az 16 karakter.",
-      note:
-        setup.passphrase === "invalid" ? "Çok kısa ya da deneme şifresi; yenisini gir." : undefined,
-      vars: "BACKUP_PASSPHRASE",
     },
     {
       id: "cron",
@@ -99,19 +90,10 @@ export function SetupList({ setup }: { setup: BackupPage["setup"] }) {
           );
         })}
       </ul>
-      <div className="space-y-2 text-sm text-muted-foreground">
-        <p>
-          Eksik ayarları portalı kuran kişi Vercel&apos;de girer. Adımlar README&apos;de:
-          &quot;Aylık yedek e-postası&quot;.
-        </p>
-        <p className="flex gap-2">
-          <KeyRound className="mt-0.5 size-4 shrink-0" aria-hidden />
-          <span>
-            Yedek şifresini Vercel dışında iki yerde sakla (ör. şefin şifre yöneticisi ve kapalı
-            zarfta bir kâğıt). Şifre kaybolursa hiçbir yedek açılamaz.
-          </span>
-        </p>
-      </div>
+      <p className="text-sm text-muted-foreground">
+        Eksik ayarları portalı kuran kişi Vercel&apos;de girer. Adımlar README&apos;de: &quot;Aylık
+        yedek e-postası&quot;.
+      </p>
     </section>
   );
 }

@@ -177,8 +177,6 @@ const outboxFiles = () => {
 };
 const AC22_TEXT =
   'E-posta hesabı ayarlanmamış (SMTP_USER, SMTP_PASS). README: "Aylık yedek e-postası".';
-const AC23_TEXT =
-  'Yedek şifresi ayarlanmamış ya da geçersiz (BACKUP_PASSPHRASE). README: "Aylık yedek e-postası".';
 const NO_SMTP = { SMTP_USER: "", SMTP_PASS: "", SMTP_FROM: "", SMTP_HOST: "", SMTP_PORT: "" };
 
 async function withServer(extra, fn) {
@@ -253,13 +251,12 @@ const setupOk = async (page, id) =>
 async function phase7() {
   console.log("# phase 7 backup");
   const before = outboxFiles();
-  const passphrase = randomBytes(18).toString("base64");
   const cronSecret = randomBytes(32).toString("hex");
-  const secrets = [passphrase, cronSecret, "dev-only-backup-passphrase", "dev-only-cron-secret"];
+  const secrets = [cronSecret, "dev-only-cron-secret"];
 
-  // B: a 31-character CRON_SECRET (too short for production), a valid passphrase, no SMTP.
+  // B: a 31-character CRON_SECRET (too short for production), no SMTP.
   const shortSecret = "s".repeat(31);
-  await withServer({ CRON_SECRET: shortSecret, BACKUP_PASSPHRASE: passphrase }, async (url, child) => {
+  await withServer({ CRON_SECRET: shortSecret }, async (url, child) => {
     const res = await fetch(`${url}/api/cron/aylik-yedek`, {
       headers: { Authorization: `Bearer ${shortSecret}` },
     });
@@ -295,9 +292,9 @@ async function phase7() {
     await page.goto(`${url}/yedek`);
     check(
       (await setupOk(page, "smtp")) === "false" &&
-        (await setupOk(page, "passphrase")) === "true" &&
-        (await setupOk(page, "cron")) === "false",
-      "Phase7 AC22 Kurulum: E-posta hesabı and Zamanlayıcı anahtarı Eksik, Yedek şifresi Tamam",
+        (await setupOk(page, "cron")) === "false" &&
+        (await page.locator("[data-testid=backup-setup-passphrase]").count()) === 0,
+      "Phase7 AC22 Kurulum: E-posta hesabı and Zamanlayıcı anahtarı Eksik, no passphrase row",
     );
     const sent = await sendNow(page, url);
     check(
@@ -309,9 +306,9 @@ async function phase7() {
     await page.context().close();
   });
 
-  // C: both dev values.
+  // C: the dev CRON_SECRET.
   await withServer(
-    { CRON_SECRET: "dev-only-cron-secret", BACKUP_PASSPHRASE: "dev-only-backup-passphrase" },
+    { CRON_SECRET: "dev-only-cron-secret" },
     async (url) => {
       const res = await fetch(`${url}/api/cron/aylik-yedek`, {
         headers: { Authorization: "Bearer dev-only-cron-secret" },
@@ -320,29 +317,25 @@ async function phase7() {
       const page = await adminOn(url);
       await page.goto(`${url}/yedek`);
       check(
-        (await setupOk(page, "passphrase")) === "false" &&
-          (await setupOk(page, "cron")) === "false" &&
-          ((await page.locator("[data-testid=backup-setup-passphrase]").textContent()) ?? "").includes(
-            "Çok kısa ya da deneme şifresi; yenisini gir.",
-          ),
-        "Phase7 AC25 Kurulum marks the dev passphrase and secret Eksik, with the reason",
+        (await setupOk(page, "cron")) === "false",
+        "Phase7 AC25 Kurulum marks the dev CRON_SECRET Eksik",
       );
       const sent = await sendNow(page, url);
       check(
-        sent.status === "failed" && sent.text.includes(AC23_TEXT),
-        `Phase7 AC25 a manual send with the dev passphrase fails with the AC23 message`,
+        sent.status === "failed" && sent.text.includes(AC22_TEXT),
+        `Phase7 AC25 a manual send without SMTP fails with the SMTP message`,
       );
       await page.context().close();
     },
   );
 
-  // D: a valid CRON_SECRET, no passphrase.
-  await withServer({ CRON_SECRET: cronSecret, BACKUP_PASSPHRASE: "" }, async (url) => {
+  // D: a valid CRON_SECRET.
+  await withServer({ CRON_SECRET: cronSecret }, async (url) => {
     const page = await adminOn(url);
     const sent = await sendNow(page, url);
     check(
-      sent.status === "failed" && sent.text.includes(AC23_TEXT),
-      "Phase7 AC23 a manual send without BACKUP_PASSPHRASE fails with its message",
+      sent.status === "failed" && sent.text.includes(AC22_TEXT),
+      "Phase7 AC22 a manual send without SMTP fails with its message",
     );
     const res = await fetch(`${url}/api/cron/aylik-yedek?bugun=2020-01-01`, {
       headers: { Authorization: `Bearer ${cronSecret}` },

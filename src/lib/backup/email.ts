@@ -31,7 +31,7 @@ export function attachmentNames(month: string, sentAtIstanbul: { date: string; t
     homework: `arkhe-odev-${month}.csv`,
     ledger: `arkhe-finans-${month}.csv`,
     dues: `arkhe-aidat-${month}.csv`,
-    backup: `arkhe-yedek-${sentAtIstanbul.date}-${sentAtIstanbul.time.replace(":", "")}.sql.gz.enc`,
+    backup: `arkhe-yedek-${sentAtIstanbul.date}-${sentAtIstanbul.time.replace(":", "")}.sql.gz`,
   } satisfies AttachmentNames;
 }
 
@@ -70,7 +70,7 @@ export function monthlyEmail(input: {
           "",
         ]
       : []),
-    `Arkhe Portal'ın ${label} raporları ve koronun tüm kayıtlarının şifreli yedeği ekte.`,
+    `Arkhe Portal'ın ${label} raporları ve koronun tüm kayıtlarının yedeği ekte.`,
     "",
     `Çalışma: ${s.rehearsals} · Ortalama devam: ${pct(s.attendancePercent)}`,
     `Ödev: ${s.assignments} · Zamanında teslim: ${pct(s.onTimePercent)}`,
@@ -83,15 +83,15 @@ export function monthlyEmail(input: {
     `- ${input.files.ledger}: kasa hareketleri`,
     `- ${input.files.dues}: aidat durumu (gönderim günü itibarıyla)`,
     ...(b ? [`- ${b.filename}: bütçe planı ve gerçekleşen`] : []),
-    `- ${input.files.backup}: şifreli yedek`,
+    `- ${input.files.backup}: veritabanı yedeği`,
     "",
     "CSV dosyaları telefonda ya da Excel'de açılır.",
     "",
-    `Yedek dosyasını açmanız gerekmez; bu e-postayı silmeden saklayın. Portalda bir sorun olursa koronun kayıtları bu dosyadan geri getirilir. Dosya şifrelidir ve şifresi bu e-postada yoktur. Gerekirse dosyayı portalı kuran kişi açar; adımlar README'nin "${README_SECTION}" bölümünde.`,
+    `Yedek dosyasını açmanız gerekmez; bu e-postayı silmeden saklayın. Portalda bir sorun olursa koronun kayıtları bu dosyadan geri getirilir. Gerekirse dosyayı portalı kuran kişi açar; adımlar README'nin "${README_SECTION}" bölümünde.`,
     "",
     "Ses kayıtları ve MIDI dosyaları bu yedeğe dahil değildir; kayıtlar 90 gün sonra zaten silinir.",
     "",
-    "Raporlar şifresizdir; bu e-postayı koro yönetimi dışında kimseye iletmeyin.",
+    "Raporlar ve yedek şifresizdir, üyelerin kişisel bilgilerini içerir; bu e-postayı koro yönetimi dışında kimseye iletmeyin.",
     "",
     "Bu e-posta her ayın 1'inde kendiliğinden gönderilir. Alıcıları koro şefi buradan değiştirir:",
     input.pageUrl,

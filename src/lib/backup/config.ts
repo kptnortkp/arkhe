@@ -1,5 +1,5 @@
 // Pure: reads only the env object it is given, so scripts and tests can reuse it.
-import { DEV_CRON_SECRET, DEV_PASSPHRASE, MIN_CRON_SECRET_PROD, MIN_PASSPHRASE } from "./constants";
+import { DEV_CRON_SECRET, MIN_CRON_SECRET_PROD } from "./constants";
 
 type Env = Record<string, string | undefined>;
 
@@ -11,25 +11,6 @@ export function cronSecret(env: Env): string | null {
   if (!v) return null;
   if (isProd(env) && (v.length < MIN_CRON_SECRET_PROD || v === DEV_CRON_SECRET)) return null;
   return v;
-}
-
-export function normalizePassphrase(raw: string) {
-  return raw.trim().normalize("NFC");
-}
-
-export type PassphraseState = "ok" | "missing" | "invalid";
-
-export function passphraseState(env: Env): PassphraseState {
-  const raw = env.BACKUP_PASSPHRASE ?? "";
-  if (!raw.trim()) return "missing";
-  const v = normalizePassphrase(raw);
-  if (v.length < MIN_PASSPHRASE || (isProd(env) && v === DEV_PASSPHRASE)) return "invalid";
-  return "ok";
-}
-
-/** Trimmed, NFC-normalised passphrase, or null when unusable. */
-export function backupPassphrase(env: Env): string | null {
-  return passphraseState(env) === "ok" ? normalizePassphrase(env.BACKUP_PASSPHRASE!) : null;
 }
 
 export type SmtpConfig =
@@ -65,7 +46,6 @@ export function smtpConfig(env: Env): SmtpConfig {
 
 export type BackupSetup = {
   mail: "ok" | "dev" | "missing";
-  passphrase: PassphraseState;
   cronSecret: boolean;
 };
 
@@ -74,7 +54,6 @@ export function backupSetup(env: Env): BackupSetup {
   const mail = smtpConfig(env).mode;
   return {
     mail: mail === "outbox" ? "dev" : mail === "smtp" ? "ok" : "missing",
-    passphrase: passphraseState(env),
     cronSecret: cronSecret(env) !== null,
   };
 }
@@ -84,7 +63,6 @@ export function missingBackupVars(env: Env): string[] {
   const s = backupSetup(env);
   const missing: string[] = [];
   if (s.mail === "missing") missing.push("SMTP_USER", "SMTP_PASS");
-  if (s.passphrase !== "ok") missing.push("BACKUP_PASSPHRASE");
   if (!s.cronSecret) missing.push("CRON_SECRET");
   return missing;
 }
@@ -92,13 +70,10 @@ export function missingBackupVars(env: Env): string[] {
 /** Every secret in every form it may appear in an error message; used by each backup error log. */
 export function redactionSecrets(env: Env): string[] {
   const rawPass = env.SMTP_PASS ?? "";
-  const rawPhrase = env.BACKUP_PASSPHRASE ?? "";
   return [
     rawPass,
     rawPass.replace(/\s+/g, ""),
     (env.SMTP_USER ?? "").trim(),
-    rawPhrase,
-    normalizePassphrase(rawPhrase),
     cronSecret(env) ?? "",
   ].filter((s) => s.length > 0);
 }

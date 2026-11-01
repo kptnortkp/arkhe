@@ -4,7 +4,6 @@ import path from "node:path";
 import { BASE, check, db, login, newPage, userId } from "./lib.mjs";
 import {
   DEV_CRON_SECRET,
-  DEV_PASSPHRASE,
   ROOT,
   cron,
   csvRows,
@@ -328,9 +327,9 @@ export default async function phase7Cron(browser) {
 
     // AC8
     const body = mail.text;
-    const backupName = mail.attachments.find((a) => a.filename.endsWith(".sql.gz.enc"))?.filename;
+    const backupName = mail.attachments.find((a) => a.filename.endsWith(".sql.gz"))?.filename;
     const lines = [
-      "Arkhe Portal'ın Ocak 2025 raporları ve koronun tüm kayıtlarının şifreli yedeği ekte.",
+      "Arkhe Portal'ın Ocak 2025 raporları ve koronun tüm kayıtlarının yedeği ekte.",
       "Çalışma: 2 · Ortalama devam: %50",
       "Ödev: 1 · Zamanında teslim: %33",
       `Gelir: ${kurus(1_250_000)} · Gider: ${kurus(320_000)} · Net: ${kurus(930_000)}`,
@@ -339,9 +338,9 @@ export default async function phase7Cron(browser) {
       "- arkhe-finans-2025-01.csv: kasa hareketleri",
       "- arkhe-aidat-2025-01.csv: aidat durumu (gönderim günü itibarıyla)",
       "CSV dosyaları telefonda ya da Excel'de açılır.",
-      `Yedek dosyasını açmanız gerekmez; bu e-postayı silmeden saklayın. Portalda bir sorun olursa koronun kayıtları bu dosyadan geri getirilir. Dosya şifrelidir ve şifresi bu e-postada yoktur. Gerekirse dosyayı portalı kuran kişi açar; adımlar README'nin "Aylık yedek e-postası" bölümünde.`,
+      `Yedek dosyasını açmanız gerekmez; bu e-postayı silmeden saklayın. Portalda bir sorun olursa koronun kayıtları bu dosyadan geri getirilir. Gerekirse dosyayı portalı kuran kişi açar; adımlar README'nin "Aylık yedek e-postası" bölümünde.`,
       "Ses kayıtları ve MIDI dosyaları bu yedeğe dahil değildir; kayıtlar 90 gün sonra zaten silinir.",
-      "Raporlar şifresizdir; bu e-postayı koro yönetimi dışında kimseye iletmeyin.",
+      "Raporlar ve yedek şifresizdir, üyelerin kişisel bilgilerini içerir; bu e-postayı koro yönetimi dışında kimseye iletmeyin.",
       "Bu e-posta her ayın 1'inde kendiliğinden gönderilir. Alıcıları koro şefi buradan değiştirir:",
       `${BASE}/yedek`,
     ];
@@ -354,13 +353,13 @@ export default async function phase7Cron(browser) {
     check(
       audioLine > 0 &&
         bodyLines.slice(audioLine + 1).find((l) => l.trim() !== "") ===
-          "Raporlar şifresizdir; bu e-postayı koro yönetimi dışında kimseye iletmeyin.",
-      "AC42 (Phase 9) the email says audio isn't in the backup, right before Raporlar şifresizdir…",
+          "Raporlar ve yedek şifresizdir, üyelerin kişisel bilgilerini içerir; bu e-postayı koro yönetimi dışında kimseye iletmeyin.",
+      "AC42 (Phase 9) the email says audio isn't in the backup, right before Raporlar ve yedek şifresizdir…",
     );
     check(
-      /^arkhe-yedek-\d{4}-\d{2}-\d{2}-\d{4}\.sql\.gz\.enc$/.test(backupName ?? "") &&
-        body.includes(`- ${backupName}: şifreli yedek`),
-      `AC8 the backup line names arkhe-yedek-YYYY-MM-DD-HHmm.sql.gz.enc (${backupName})`,
+      /^arkhe-yedek-\d{4}-\d{2}-\d{2}-\d{4}\.sql\.gz$/.test(backupName ?? "") &&
+        body.includes(`- ${backupName}: veritabanı yedeği`),
+      `AC8 the backup line names arkhe-yedek-YYYY-MM-DD-HHmm.sql.gz (${backupName})`,
     );
     check(
       !body.includes("elle gönderildi") && !/Bu e-postayı .* elle gönderdi/.test(body),
@@ -480,7 +479,7 @@ export default async function phase7Cron(browser) {
     // AC24
     const errors = (await db.execute("select error from backup_runs where error is not null")).rows;
     check(
-      errors.every((r) => !r.error.includes(DEV_CRON_SECRET) && !r.error.includes(DEV_PASSPHRASE)),
+      errors.every((r) => !r.error.includes(DEV_CRON_SECRET)),
       `AC24 no failed row holds a secret value (${errors.length} rows checked)`,
     );
 
@@ -492,7 +491,6 @@ export default async function phase7Cron(browser) {
       "SMTP_FROM",
       "SMTP_HOST",
       "SMTP_PORT",
-      "BACKUP_PASSPHRASE",
       "CRON_SECRET",
     ];
     check(
@@ -500,7 +498,7 @@ export default async function phase7Cron(browser) {
         !/^SMTP_\w+=/m.test(example) &&
         /^#\s*SMTP_USER=/m.test(example) &&
         example.includes(".env.development"),
-      "AC32 .env.example lists the seven keys, SMTP_* commented out, points at .env.development",
+      "AC32 .env.example lists the six keys, SMTP_* commented out, points at .env.development",
     );
     const devEnv = readFileSync(path.join(ROOT, ".env.development"), "utf8");
     const devKeys = devEnv
@@ -510,7 +508,6 @@ export default async function phase7Cron(browser) {
     check(
       JSON.stringify(devKeys) ===
         JSON.stringify([
-          "BACKUP_PASSPHRASE=dev-only-backup-passphrase",
           "CRON_SECRET=dev-only-cron-secret",
           "OMR_CALLBACK_SECRET=dev-only-omr-callback-secret",
         ]) && /^#.*production/im.test(devEnv),

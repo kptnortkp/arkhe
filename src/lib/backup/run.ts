@@ -1,10 +1,10 @@
 import "server-only";
 import { db } from "@/db";
+import { gzipSync } from "node:zlib";
 import { appUrl } from "@/lib/auth/set-password-links";
 import { istanbulDateOf, istanbulTimeOf } from "@/lib/time";
-import { backupPassphrase, redactionSecrets, smtpConfig } from "./config";
+import { redactionSecrets, smtpConfig } from "./config";
 import { COOLDOWN_SECONDS, MAX_ATTACHMENT_BYTES, STALE_SECONDS } from "./constants";
-import { encryptBackup } from "./crypto";
 import { dumpDatabase } from "./dump";
 import { attachmentNames, budgetAttachmentName, monthlyEmail } from "./email";
 import { SEND_BUDGET_MS, sendMail } from "./mail";
@@ -162,17 +162,14 @@ export async function runMonthlyBackup(opts: RunOptions): Promise<RunOutcome> {
   let size: number | null = null;
   let delivered: { accepted: number; rejected: number };
   try {
-    // Order matters: no email ever leaves without an encrypted backup, and nothing opens SMTP
-    // until every attachment is built.
-    const passphrase = backupPassphrase(env);
-    if (!passphrase) throw new BackupError("passphrase");
+    // Nothing opens SMTP until every attachment is built.
     const mail = smtpConfig(env);
     if (mail.mode === "missing") throw new BackupError("smtp");
 
     const at = new Date();
     const reports = await buildReports(month, opts.today, at);
     const dump = await dumpDatabase(client());
-    const encrypted = encryptBackup(Buffer.from(dump.sql, "utf8"), passphrase);
+    const backup = gzipSync(Buffer.from(dump.sql, "utf8"), { level: 9 });
     const files = attachmentNames(month, { date: istanbulDateOf(at), time: istanbulTimeOf(at) });
     let budgetFile = reports.budget ? budgetAttachmentName(month) : null;
     const csv = (filename: string, body: string) => ({
@@ -185,7 +182,7 @@ export async function runMonthlyBackup(opts: RunOptions): Promise<RunOutcome> {
       csv(files.homework, reports.csv.homework),
       csv(files.ledger, reports.csv.ledger),
       csv(files.dues, reports.csv.dues),
-      { filename: files.backup, content: encrypted, contentType: "application/octet-stream" },
+      { filename: files.backup, content: backup, contentType: "application/gzip" },
     ];
     size = attachments.reduce((s, a) => s + a.content.byteLength, 0);
     if (size > MAX_ATTACHMENT_BYTES) throw new BackupError("size");

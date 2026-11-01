@@ -7,7 +7,6 @@ import { BASE, db } from "./lib.mjs";
 export const ROOT = fileURLToPath(new URL("..", import.meta.url));
 export const OUTBOX = path.join(ROOT, "data/outbox");
 export const DEV_CRON_SECRET = process.env.CRON_SECRET ?? "dev-only-cron-secret";
-export const DEV_PASSPHRASE = process.env.BACKUP_PASSPHRASE ?? "dev-only-backup-passphrase";
 
 export function outboxSnapshot() {
   mkdirSync(OUTBOX, { recursive: true });

@@ -215,7 +215,7 @@ export default async function phase7Page(browser) {
     );
     const setupRows = sef.locator("[data-testid=backup-setup] li");
     check(
-      (await setupRows.count()) === 4 &&
+      (await setupRows.count()) === 3 &&
         (await sef.locator("[data-testid=backup-setup-smtp]").getAttribute("data-ok")) === "true" &&
         (await text(sef.locator("[data-testid=backup-setup-smtp]"))).includes(
           "deneme ortamı, e-posta gönderilmez, dosyaya yazılır",
@@ -223,14 +223,13 @@ export default async function phase7Page(browser) {
         (await sef.locator("[data-testid=backup-setup-recipients]").getAttribute("data-ok")) ===
           "false" &&
         (await text(sef.locator("[data-testid=backup-setup-recipients]"))).endsWith("Eksik"),
-      "AC16 Kurulum: four rows; dev mail Tamam with the outbox note; Alıcılar Eksik",
+      "AC16 Kurulum: three rows; dev mail Tamam with the outbox note; Alıcılar Eksik",
     );
     const setupText = await text(sef.locator("[data-testid=backup-setup]"));
     check(
       !setupText.includes("dev-only") &&
-        setupText.includes("Şifre kaybolursa hiçbir yedek açılamaz.") &&
         setupText.includes('Adımlar README\'de: "Aylık yedek e-postası".'),
-      "AC16 Kurulum shows no secret value, plus the README line and the passphrase reminder",
+      "AC16 Kurulum shows no secret value, plus the README line",
     );
 
     // AC14: first save normalises, no notice
@@ -399,7 +398,7 @@ export default async function phase7Page(browser) {
     const dialogText = await text(dialog);
     check(
       dialogText.includes("Rapor ve yedek gönderilsin mi?") &&
-        dialogText.includes(`2 adrese ${PREV_LABEL} raporları ve şifreli yedek gönderilecek.`) &&
+        dialogText.includes(`2 adrese ${PREV_LABEL} raporları ve yedek gönderilecek.`) &&
         JSON.stringify(
           await dialog.locator("[data-testid=send-recipients] li").allTextContents(),
         ) === '["p7a@e2e.test","p7c@e2e.test"]' &&
@@ -712,8 +711,8 @@ export default async function phase7Page(browser) {
             (await page.getByText("Alıcıları yalnızca koro şefi değiştirebilir.").count()) === 1 &&
             (await page.getByText(LONG, { exact: true }).count()) === 1;
         check(
-          layout.fits && roleOk && (await page.locator("[data-testid=backup-setup] li").count()) === 4,
-          `AC16 ${email} ${scheme}: no horizontal scroll with a 48-character address, four Kurulum rows, role controls`,
+          layout.fits && roleOk && (await page.locator("[data-testid=backup-setup] li").count()) === 3,
+          `AC16 ${email} ${scheme}: no horizontal scroll with a 48-character address, three Kurulum rows, role controls`,
         );
         check(csp.includes("'nonce-"), `AC36 ${email} ${scheme}: /yedek carries the nonce CSP`);
         await page.evaluate(axeSource);

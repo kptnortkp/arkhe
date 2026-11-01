@@ -107,7 +107,7 @@ export function SendNow({
         onOpenChange={setOpen}
         finalFocus={() => (answered.current ? resultRef.current : true)}
         title="Rapor ve yedek gönderilsin mi?"
-        description={`${recipients.length} adrese ${monthLabel} raporları ve şifreli yedek gönderilecek.`}
+        description={`${recipients.length} adrese ${monthLabel} raporları ve yedek gönderilecek.`}
         pending={pending}
         actions={[
           {

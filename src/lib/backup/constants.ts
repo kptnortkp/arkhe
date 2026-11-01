@@ -14,9 +14,7 @@ export const RECIPIENT_CHANGES_PER_DAY = 10;
 export const MANUAL_SENDS_PER_HOUR = 6;
 
 export const DEV_CRON_SECRET = "dev-only-cron-secret";
-export const DEV_PASSPHRASE = "dev-only-backup-passphrase";
 export const MIN_CRON_SECRET_PROD = 32;
-export const MIN_PASSPHRASE = 16;
 
 export const OUTBOX_FROM = '"Arkhe Portal" <outbox@arkhe.local>';
 export const README_SECTION = "Aylık yedek e-postası";

@@ -1,7 +1,8 @@
-// Restores a plain-SQL dump (db:backup or db:decrypt output) into a NEW local SQLite file.
+// Restores a plain-SQL dump (db:backup, db:decrypt or the monthly .sql.gz) into a NEW local SQLite file.
 // Reads no env file and never touches DATABASE_URL.
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
+import { gunzipSync } from "node:zlib";
 import { createClient } from "@libsql/client";
 import { isEncryptedBackup } from "../src/lib/backup/crypto";
 
@@ -15,7 +16,7 @@ const SIDE_FILES = ["", "-wal", "-shm", "-journal"];
 async function main() {
   const [input, target] = process.argv.slice(2);
   if (!input || !target || process.argv.length > 4) {
-    fail("Usage: npm run db:restore -- <file.sql> <target.db>");
+    fail("Usage: npm run db:restore -- <file.sql|file.sql.gz> <target.db>");
   }
   let dump: Buffer;
   try {
@@ -24,6 +25,13 @@ async function main() {
     fail(`Cannot read ${input}`);
   }
   if (isEncryptedBackup(dump)) fail("This file is encrypted; run npm run db:decrypt first.");
+  if (dump[0] === 0x1f && dump[1] === 0x8b) {
+    try {
+      dump = gunzipSync(dump, { maxOutputLength: 1024 * 1024 * 1024 });
+    } catch {
+      fail(`Cannot unzip ${input}`);
+    }
+  }
   if (/^[a-z][a-z0-9+.-]*:/i.test(target) || target === ":memory:") {
     fail("Restore target must be a local file path.");
   }
