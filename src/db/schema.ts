@@ -19,7 +19,12 @@ import {
   INCOME_CATEGORIES,
   OVERRIDE_KINDS,
 } from "../lib/finance/categories";
-import { TICKET_EVENT_KINDS, TICKET_STATUSES, TICKET_URGENCIES } from "../lib/board/labels";
+import {
+  CALENDAR_KINDS,
+  TICKET_EVENT_KINDS,
+  TICKET_STATUSES,
+  TICKET_URGENCIES,
+} from "../lib/board/labels";
 import {
   MIDI_MAX_BYTES,
   RECORDING_EXTENSIONS,
@@ -806,6 +811,38 @@ export const boardTickets = sqliteTable(
     ),
     check("board_tickets_done_at", sql`(status = 'done') = (done_at is not null)`),
     check("board_tickets_revision_check", sql`typeof(revision) = 'integer' and revision >= 0`),
+  ],
+);
+
+// Board calendar entries that aren't tickets (a concert, a meeting); only the title and day are required.
+export const calendarEvents = sqliteTable(
+  "calendar_events",
+  {
+    id: id(),
+    title: text("title").notNull(),
+    kind: text("kind", { enum: CALENDAR_KINDS }).notNull().default("other"),
+    // Plain Europe/Istanbul calendar day; times are "HH:MM" on that day, none means all day.
+    day: text("day").notNull(),
+    startTime: text("start_time"),
+    endTime: text("end_time"),
+    location: text("location"),
+    note: text("note"),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(now),
+  },
+  (t) => [
+    index("calendar_events_day_idx").on(t.day),
+    check("calendar_events_title_length", sql`length(trim(title)) between 1 and 120`),
+    check("calendar_events_kind_check", sql`kind in (${inList(CALENDAR_KINDS)})`),
+    check("calendar_events_day_format", sql`${day("day")} and date(day) is day`),
+    check(
+      "calendar_events_times",
+      sql`(start_time is null or start_time glob '[0-2][0-9]:[0-5][0-9]')
+        and (end_time is null or (start_time is not null and end_time glob '[0-2][0-9]:[0-5][0-9]' and end_time > start_time))`,
+    ),
+    check("calendar_events_location_length", optText("location", 120)),
+    check("calendar_events_note_length", optText("note", 1000)),
   ],
 );
 

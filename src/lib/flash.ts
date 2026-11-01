@@ -12,6 +12,8 @@ const FLASH_MESSAGES = {
   "taslak-olusturuldu": "Taslak oluşturuldu. Şimdi tutarları yaz.",
   "plan-kaydedildi": "Plan kaydedildi.",
   "butce-silindi": "Bütçe silindi.",
+  "etkinlik-eklendi": "Etkinlik takvime eklendi.",
+  "etkinlik-silindi": "Etkinlik silindi.",
 } as const;
 
 const NUMBERED_MESSAGES = {

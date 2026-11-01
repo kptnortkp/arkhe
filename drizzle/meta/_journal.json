@@ -120,6 +120,13 @@
       "when": 1793513855805,
       "tag": "0016_board_calendar",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1793516798329,
+      "tag": "0017_calendar_events",
+      "breakpoints": true
     }
   ]
 }

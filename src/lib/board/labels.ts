@@ -10,9 +10,19 @@ export const TICKET_EVENT_KINDS = [
   "comment",
 ] as const;
 
+export const CALENDAR_KINDS = ["concert", "meeting", "trip", "other"] as const;
+
 export type TicketStatus = (typeof TICKET_STATUSES)[number];
+export type CalendarKind = (typeof CALENDAR_KINDS)[number];
 export type TicketUrgency = (typeof TICKET_URGENCIES)[number];
 export type TicketEventKind = (typeof TICKET_EVENT_KINDS)[number];
+
+export const CALENDAR_KIND_LABELS: Record<CalendarKind, string> = {
+  concert: "Konser",
+  meeting: "Toplantı",
+  trip: "Kamp / gezi",
+  other: "Diğer",
+};
 
 export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
   todo: "Yapılacak",

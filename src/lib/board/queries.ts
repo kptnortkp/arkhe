@@ -3,15 +3,25 @@ import { and, asc, eq, ne, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { cache } from "react";
 import { db } from "@/db";
-import { boardTicketEvents, boardTicketReads, boardTickets, users } from "@/db/schema";
+import {
+  boardTicketEvents,
+  boardTicketReads,
+  boardTickets,
+  calendarEvents,
+  users,
+} from "@/db/schema";
 import { assertManager, requireManager } from "@/lib/auth/dal";
 import { collator } from "@/lib/format";
 import { canDeleteComment, canDeleteTicket } from "@/lib/permissions";
-import { istanbulDateOf, now } from "@/lib/time";
-import { monthWeeks } from "./calendar";
+import { listRehearsals, rehearsalTitle } from "@/lib/attendance/rehearsals";
+import { REHEARSAL_TYPE_LABELS } from "@/lib/labels";
+import { addDays, istanbulDateOf, istanbulTimeOf, istanbulToUtc, now } from "@/lib/time";
+import { monthWeeks, type CalendarFilter, type CalendarTone } from "./calendar";
 import {
+  CALENDAR_KIND_LABELS,
   TICKET_STATUSES,
   type BoardFilters,
+  type CalendarKind,
   type TicketStatus,
   type TicketUrgency,
 } from "./labels";
@@ -175,27 +185,126 @@ export async function getArchive(rawPage: unknown) {
   };
 }
 
-/** Tickets put on the calendar whose due day falls in the month's grid, by day then board order. */
-export async function getCalendar(month: string) {
+export type CalendarItem = {
+  key: string;
+  tone: CalendarTone;
+  title: string;
+  href: string;
+  // "HH:MM" or null for all day.
+  start: string | null;
+  end: string | null;
+  location: string | null;
+  // Rehearsal type or event kind label, ticket number.
+  label: string;
+  // Cancelled rehearsals and Bitti tickets are struck through.
+  struck: boolean;
+};
+
+const EVENT_FILTER: Partial<Record<CalendarFilter, CalendarKind>> = {
+  konser: "concert",
+  toplanti: "meeting",
+  gezi: "trip",
+  diger: "other",
+};
+
+/** Rehearsals, calendar events and tickets put on the calendar, for the month's grid, by day. */
+export async function getCalendar(month: string, filter: CalendarFilter) {
   const viewer = await requireManager();
   const weeks = monthWeeks(month);
-  const rows = await cardsQuery(
-    viewer.id,
-    and(
-      eq(t.onCalendar, true),
-      sql`${t.dueOn} between ${weeks[0][0]} and ${weeks.at(-1)!.at(-1)!}`,
-    ),
-  );
-  const today = istanbulDateOf(now());
-  const byDay = new Map<string, TicketCardData[]>();
-  for (const r of rows.sort((a, b) =>
-    a.dueOn! < b.dueOn! ? -1 : a.dueOn! > b.dueOn! ? 1 : compareTickets(a, b),
-  )) {
-    const list = byDay.get(r.dueOn!) ?? [];
-    list.push(toCard(r, today));
-    byDay.set(r.dueOn!, list);
+  const first = weeks[0][0];
+  const last = weeks.at(-1)!.at(-1)!;
+  const want = (f: CalendarFilter) => filter === "hepsi" || filter === f;
+  const eventKind = EVENT_FILTER[filter];
+  const wantEvents = filter === "hepsi" || eventKind !== undefined;
+  const wantRehearsals = want("calisma") || want("konser");
+
+  const [rehearsalRows, eventRows, ticketRows] = await Promise.all([
+    wantRehearsals
+      ? listRehearsals({
+          from: istanbulToUtc(first),
+          to: istanbulToUtc(addDays(last, 1)),
+          limit: 500,
+        })
+      : [],
+    wantEvents
+      ? db
+          .select()
+          .from(calendarEvents)
+          .where(
+            and(
+              sql`${calendarEvents.day} between ${first} and ${last}`,
+              eventKind ? eq(calendarEvents.kind, eventKind) : undefined,
+            ),
+          )
+      : [],
+    want("is")
+      ? cardsQuery(
+          viewer.id,
+          and(eq(t.onCalendar, true), sql`${t.dueOn} between ${first} and ${last}`),
+        )
+      : [],
+  ]);
+
+  const items: (CalendarItem & { day: string })[] = [];
+  for (const r of rehearsalRows) {
+    const concert = r.type === "concert";
+    if (filter === "calisma" && concert) continue;
+    if (filter === "konser" && !concert) continue;
+    items.push({
+      key: `r-${r.id}`,
+      day: istanbulDateOf(r.startsAt),
+      tone: concert ? "concert" : "rehearsal",
+      title: rehearsalTitle(r),
+      href: `/calismalar/${r.id}`,
+      start: istanbulTimeOf(r.startsAt),
+      end: istanbulTimeOf(r.endsAt),
+      location: r.location,
+      label: REHEARSAL_TYPE_LABELS[r.type],
+      struck: r.cancelledAt !== null,
+    });
   }
-  return { weeks, byDay, today };
+  for (const ev of eventRows) {
+    items.push({
+      key: `e-${ev.id}`,
+      day: ev.day,
+      tone: ev.kind,
+      title: ev.title,
+      href: `/yonetim/takvim/etkinlik/${ev.id}`,
+      start: ev.startTime,
+      end: ev.endTime,
+      location: ev.location,
+      label: CALENDAR_KIND_LABELS[ev.kind],
+      struck: false,
+    });
+  }
+  for (const r of ticketRows) {
+    items.push({
+      key: `t-${r.number}`,
+      day: r.dueOn!,
+      tone: "ticket",
+      title: r.title,
+      href: `/yonetim/${r.number}`,
+      start: null,
+      end: null,
+      location: null,
+      label: `İş #${r.number}`,
+      struck: r.status === "done",
+    });
+  }
+  // All-day entries first, then by start time, then by title.
+  items.sort(
+    (a, b) =>
+      (a.day < b.day ? -1 : a.day > b.day ? 1 : 0) ||
+      (a.start ?? "").localeCompare(b.start ?? "") ||
+      collator.compare(a.title, b.title),
+  );
+  const byDay = new Map<string, CalendarItem[]>();
+  for (const { day, ...item } of items) {
+    const list = byDay.get(day) ?? [];
+    list.push(item);
+    byDay.set(day, list);
+  }
+  return { weeks, byDay, today: istanbulDateOf(now()) };
 }
 
 export type TicketDetail = TicketCardData & {
@@ -333,4 +442,12 @@ export const boardSummary = cache(async (): Promise<BoardSummary | null> => {
 /** The D7 badge count; 0 for members without a board query. */
 export async function boardBadgeCount() {
   return (await boardSummary())?.fresh ?? 0;
+}
+
+/** One calendar event for its edit page; null for a malformed or unknown id (the page 404s). */
+export async function getCalendarEvent(id: string) {
+  await requireManager();
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+  const [row] = await db.select().from(calendarEvents).where(eq(calendarEvents.id, id));
+  return row ?? null;
 }
