@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { checkIn, type CheckInResult } from "@/app/(portal)/calismalar/actions";
 import { STATUS_LABELS } from "@/lib/labels";
 import { CodeEntry } from "./check-in-panel";
+import { reloadIfStale, STALE_MESSAGE } from "@/components/stale-deploy";
 
 export function QrCheckIn({
   rehearsalId,
@@ -26,9 +27,11 @@ export function QrCheckIn({
     if (started.current || !code) return;
     started.current = true;
     void checkIn(rehearsalId, code, "qr")
-      .catch((): CheckInResult => ({
+      .catch((e: unknown): CheckInResult => ({
         ok: false,
-        error: "Bağlantı yok. İnternet gelince kodu buradan gir.",
+        error: reloadIfStale(e)
+          ? STALE_MESSAGE
+          : "Bağlantı yok. İnternet gelince kodu buradan gir.",
       }))
       .then((r) => {
         setResult(r);

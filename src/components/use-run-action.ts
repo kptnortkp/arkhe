@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
+import { reloadIfStale, STALE_MESSAGE } from "@/components/stale-deploy";
 import type { FormState } from "@/lib/validation";
 
 /** Runs a server action in a transition, toasts its result and refreshes the page. */
@@ -14,7 +15,11 @@ export function useRunAction() {
       let result: FormState;
       try {
         result = await fn();
-      } catch {
+      } catch (e) {
+        if (reloadIfStale(e)) {
+          toast.info(STALE_MESSAGE);
+          return;
+        }
         // A thrown action (e.g. a row deleted meanwhile) would otherwise reach the error page.
         result = { error: "Bir şeyler ters gitti, tekrar dene." };
       }

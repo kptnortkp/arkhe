@@ -117,6 +117,7 @@ A migration that drops, renames, deletes or rewrites rows stops the gate until i
 Setup, once:
 
 - GitHub → repo → Settings → Secrets and variables → Actions → **Secrets**: `TURSO_DATABASE_URL` (`libsql://…`), `TURSO_AUTH_TOKEN` (`turso db tokens create <db>`, typed straight into GitHub), `BACKUP_PASSPHRASE` (`openssl rand -base64 32`, kept in a password manager; without it the deploy backups cannot be opened), `VERCEL_DEPLOY_HOOK` (Vercel → Settings → Git → Deploy Hooks, branch `initial-setup`). **Variables**: `PORTAL_URL` (`https://<your-domain>`, also used by the MIDI workflow).
+- Vercel → Settings → Environment Variables, Production: `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` (`openssl rand -base64 32`, typed by hand). It keeps server action ids the same across deploys, so a phone that kept the portal open keeps working; without it every build may draw a new key and an open page's buttons stop until it reloads (the page reloads itself when that happens).
 - A failed run emails the repo owner (GitHub's default notification setting). To retry, fix and push again, or Actions → deploy → Run workflow.
 
 ### Go-live check: bulk import on the Turso driver

@@ -29,6 +29,7 @@ import type { AttendanceStatus, CheckInMethod } from "@/db/schema";
 import { STATUS_LABELS } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 import { StatusChip } from "./status-chip";
+import { reloadIfStale, STALE_MESSAGE } from "@/components/stale-deploy";
 
 export type CheckInPanelProps = {
   rehearsalId: string;
@@ -265,9 +266,11 @@ export function CodeEntry({
 
   function submit(value: string) {
     startTransition(async () => {
-      const result = await checkIn(rehearsalId, value, method).catch(() => ({
+      const result = await checkIn(rehearsalId, value, method).catch((e: unknown) => ({
         ok: false as const,
-        error: "Bağlantı yok. İnternet gelince tekrar dene ya da yoklamayı alan kişiye söyle.",
+        error: reloadIfStale(e)
+          ? STALE_MESSAGE
+          : "Bağlantı yok. İnternet gelince tekrar dene ya da yoklamayı alan kişiye söyle.",
       }));
       if (result.ok) {
         onSuccess();
