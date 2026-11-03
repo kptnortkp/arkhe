@@ -1,6 +1,6 @@
 // Arkhe service worker: offline page, static assets and Web Push. Never caches pages, API or RSC data.
 // Bump VERSION on every change to this file; old caches are deleted on activate.
-const VERSION = "arkhe-v2";
+const VERSION = "arkhe-v3";
 // Kill switch: set to true and deploy to drop every cache, unregister and reload open tabs.
 // Unregistering also ends every push subscription on that device.
 const KILL = false;
@@ -78,6 +78,21 @@ function isRscRequest(req, url) {
   return false;
 }
 
+// iOS often fails the first request after the app wakes up on a dead connection; retry before
+// showing the offline page.
+async function navigate(req) {
+  for (const wait of [0, 500, 1500]) {
+    if (wait) await new Promise((resolve) => setTimeout(resolve, wait));
+    try {
+      return await fetch(req);
+    } catch {
+      // The navigation was cancelled (another one replaced it): nothing to retry.
+      if (req.signal.aborted) break;
+    }
+  }
+  return (await caches.match(OFFLINE_URL)) ?? Response.error();
+}
+
 self.addEventListener("fetch", (event) => {
   if (KILL) return;
   const req = event.request;
@@ -87,9 +102,7 @@ self.addEventListener("fetch", (event) => {
 
   // Pages always come from the network; the offline page only stands in when the network fails.
   if (req.mode === "navigate") {
-    event.respondWith(
-      fetch(req).catch(async () => (await caches.match(OFFLINE_URL)) ?? Response.error()),
-    );
+    event.respondWith(navigate(req));
     return;
   }
 

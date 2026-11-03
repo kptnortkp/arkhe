@@ -20,9 +20,9 @@ export async function pushWorkerChecks({ context, page, cdp, base, check }) {
     swh["cache-control"] === "no-cache, no-store, must-revalidate" &&
       swh["content-type"] === "application/javascript; charset=utf-8" &&
       swh["content-security-policy"] === "default-src 'self'; script-src 'self'" &&
-      swText.includes('const VERSION = "arkhe-v2"') &&
+      swText.includes('const VERSION = "arkhe-v3"') &&
       swText.includes("const KILL = false"),
-    "Phase10 AC22 /sw.js keeps its Phase 6 headers; VERSION is arkhe-v2; KILL stays false",
+    "Phase10 AC22 /sw.js keeps its Phase 6 headers; VERSION is arkhe-v3; KILL stays false",
   );
   const csp = (await page.request.get(`${base}/profil`)).headers()["content-security-policy"] ?? "";
   check(

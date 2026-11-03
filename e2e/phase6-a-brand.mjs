@@ -204,8 +204,9 @@ export default async function phase6Brand(browser) {
   check(
     (await anon.title()) === "Çevrimdışı · Arkhe" &&
       (await anon.getByRole("heading", { name: "Bağlantı yok" }).isVisible()) &&
-      (await anon.getByRole("link", { name: "Tekrar dene" }).getAttribute("href")) === "/",
-    "AC16 offline.html has the title, heading and Tekrar dene → /",
+      (await anon.getByRole("link", { name: "Tekrar dene" }).getAttribute("href")) === "" &&
+      (await anon.locator('meta[http-equiv="refresh"]').getAttribute("content")) === "10",
+    "AC16 offline.html has the title, heading, Tekrar dene reloads the page, and it retries itself",
   );
   await anon.context().close();
 
