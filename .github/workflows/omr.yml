@@ -120,7 +120,11 @@ jobs:
           cd ~/audiveris
           echo "${AUDIVERIS_SHA256}  ${AUDIVERIS_DEB}" | sha256sum -c -
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ./"$AUDIVERIS_DEB" xvfb
+          # The package's postinst registers a desktop menu entry, which fails on a headless runner.
+          deps=$(dpkg-deb -f "$AUDIVERIS_DEB" Depends | sed 's/([^)]*)//g; s/,/ /g')
+          sudo apt-get install -y -qq --no-install-recommends $deps libgtk-3-0t64 xvfb xauth
+          sudo dpkg-deb -x "$AUDIVERIS_DEB" /
+          test -x /opt/audiveris/bin/Audiveris
 
       - name: Run Audiveris
         run: |
