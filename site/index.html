@@ -27,7 +27,6 @@
       :root {
         --ink: #0d0b19;
         --paper: #f9f5ec;
-        --muted: rgba(249, 245, 236, 0.72);
         --gold: #dcb36a;
         --gold-ink: #1d1a2e;
       }
@@ -104,13 +103,6 @@
         letter-spacing: -0.01em;
         margin: 0;
       }
-      .lead {
-        max-width: 34rem;
-        margin: 0;
-        font-size: clamp(16px, 2.2vw, 18px);
-        line-height: 1.55;
-        color: var(--muted);
-      }
       .actions {
         display: flex;
         flex-wrap: wrap;
@@ -170,9 +162,6 @@
         main > :nth-child(3) {
           animation-delay: 0.16s;
         }
-        main > :nth-child(4) {
-          animation-delay: 0.24s;
-        }
         @keyframes rise {
           from {
             opacity: 0;
@@ -199,9 +188,6 @@
       <main>
         <p class="eyebrow">Yeni web sitemiz</p>
         <h1>Çok yakında</h1>
-        <p class="lead">
-          Konserlerimiz, repertuvarımız ve koroya katılma bilgileriyle yeni web sitemiz hazırlanıyor.
-        </p>
         <div class="actions">
           <a class="btn" href="/portal">Üye portalı</a>
         </div>
