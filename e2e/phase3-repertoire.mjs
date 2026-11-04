@@ -192,16 +192,12 @@ async function browse(browser, ids, shots) {
     "AC3 row shows composer and arranger",
   );
 
-  // AC4 direct part link
-  const avePart = aveRow.getByRole("link", { name: /^Partisyonum/ });
+  // AC4 direct part link. Ave Verum has a seeded alto MIDI: the portal player wins over Drive (D59).
   check(
-    (await avePart.getAttribute("href")) === D("seedAveAlto"),
-    "AC4 Partisyonum opens the alto file",
-  );
-  check(
-    (await avePart.getAttribute("target")) === "_blank" &&
-      (await avePart.getAttribute("rel")).includes("noopener"),
-    "AC4 Partisyonum opens in a new tab with noopener",
+    /^\/repertuvar\/[0-9a-f-]+\?cal=1$/.test(
+      (await aveRow.getByTestId("midi-part-link").getAttribute("href")) ?? "",
+    ),
+    "AC4 with a MIDI for my part, Partisyonum plays it in the portal",
   );
 
   // AC5 Tutti fallback and disabled
@@ -209,6 +205,11 @@ async function browse(browser, ids, shots) {
   check(
     (await gulumPart.getAttribute("href")) === D("seedGulumTutti"),
     "AC5 falls back to the Tutti file",
+  );
+  check(
+    (await gulumPart.getAttribute("target")) === "_blank" &&
+      (await gulumPart.getAttribute("rel")).includes("noopener"),
+    "AC4 a Drive part opens in a new tab with noopener",
   );
   const hallButton = (await rowOf(korist, "Hallelujah")).getByRole("button", {
     name: "Partisyon kaydı yok",

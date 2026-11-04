@@ -9,6 +9,7 @@ import { requireUser } from "@/lib/auth/dal";
 import { formatDuration } from "@/lib/format";
 import { isManager } from "@/lib/permissions";
 import { LIST_VIEWS, listPieces, withMyPart, type ListView } from "@/lib/repertoire";
+import { heroMidi } from "@/lib/repertoire-midi";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Repertuvar" };
@@ -39,6 +40,17 @@ export default async function RepertoirePage({ searchParams }: PageProps<"/reper
     : "calisiliyor";
   const { shown, counts, total } = await listPieces(view, q);
   const rows = await withMyPart(shown, user.voicePart);
+  // As on the home page: a portal MIDI for my part plays on the piece page.
+  const midiPieces = new Set(
+    user.voicePart
+      ? (
+          await Promise.all(
+            rows.map(async (r) => ((await heroMidi(r.id, user.voicePart!)) ? r.id : null)),
+          )
+        ).filter(Boolean)
+      : [],
+  );
+  const midiHref = (id: string) => (midiPieces.has(id) ? `/repertuvar/${id}?cal=1` : undefined);
   const isProgram = view === "program" && !q;
   const chips = CHIPS.filter((c) => c.view !== "program" || manager || counts.program > 0);
 
@@ -160,6 +172,7 @@ export default async function RepertoirePage({ searchParams }: PageProps<"/reper
               piece={r}
               myPart={r.myPart}
               voicePart={user.voicePart}
+              midiHref={midiHref(r.id)}
               number={i + 1}
               showStatus
             />
@@ -173,6 +186,7 @@ export default async function RepertoirePage({ searchParams }: PageProps<"/reper
               piece={r}
               myPart={r.myPart}
               voicePart={user.voicePart}
+              midiHref={midiHref(r.id)}
               number={i + 1}
               showStatus
             />
@@ -186,6 +200,7 @@ export default async function RepertoirePage({ searchParams }: PageProps<"/reper
               piece={r}
               myPart={r.myPart}
               voicePart={user.voicePart}
+              midiHref={midiHref(r.id)}
               showStatus={Boolean(q) || view === "tumu"}
             />
           ))}

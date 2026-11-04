@@ -1,7 +1,7 @@
 // Phase 13 A: rehearsal audio of a piece (Ses kayıtları): upload, guard rails, playback, the editor
 // queue, delete and the piece cascade.
 import { BASE, check, cleanup, db, loginAs } from "./lib.mjs";
-import { fileExists, go, mp3Bytes, one, PNG, wavOfSize } from "./media.mjs";
+import { fileExists, go, insertMidi, longMidi, mp3Bytes, one, PNG, wavOfSize } from "./media.mjs";
 import { newPiece } from "./omr.mjs";
 
 const UPLOAD_ID_HEADER = "X-Upload-Id";
@@ -91,6 +91,13 @@ async function suite(browser) {
   await go(korist, `${BASE}/repertuvar`);
   const listButton = korist.locator(`a[href="/repertuvar/${pieceId}#ses-kayitlari"]`);
   check((await listButton.count()) > 0, "audio: the list's Partisyonum leads to the piece's audio");
+  const midi = await insertMidi(pieceId, { part: "alto", bytes: longMidi({ seconds: 4, names: ["Alto"] }) });
+  await go(korist, `${BASE}/repertuvar`);
+  check(
+    (await korist.locator(`[data-testid=midi-part-link][href="/repertuvar/${pieceId}?cal=1"]`).count()) > 0,
+    "audio: with a MIDI for my part, the list's Partisyonum plays it on the piece page",
+  );
+  await db.execute({ sql: "delete from midi_files where id = ?", args: [midi.id] });
   await go(korist, `${BASE}/repertuvar/${pieceId}?partisyon=tumu`);
   check((await korist.locator("[data-testid=audio-row]").count()) === 3, "audio: Tümü shows every part");
   const fetched = korist.waitForResponse((r) => r.url().includes(`/api/dosya/ses/`) && r.status() === 200, { timeout: 10000 }).catch(() => null);
