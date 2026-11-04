@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { FilterChip } from "@/components/filter-chip";
+import { AudioList } from "@/components/audio/audio-list";
 import { MidiButton } from "@/components/midi/midi-button";
 import { MidiList } from "@/components/midi/midi-list";
 import { ScoreSection } from "@/components/midi/score-row";
@@ -22,6 +23,7 @@ import { managerBadge } from "@/lib/homework/deadline";
 import { barsLabel } from "@/lib/homework/mail";
 import { openHomeworkForPiece } from "@/lib/homework/queries";
 import { getPiece, programRank } from "@/lib/repertoire";
+import { audioForPiece } from "@/lib/repertoire-audio";
 import { heroMidi, midiForPiece, scoreForPiece } from "@/lib/repertoire-midi";
 import { now } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -89,10 +91,11 @@ export default async function PiecePage({ params, searchParams }: PageProps<"/re
   const hiddenParts =
     links.some((l) => l.kind === "part") && !visible.some((l) => l.kind === "part");
 
-  const [hero, midiRows, score] = await Promise.all([
+  const [hero, midiRows, score, audioRows] = await Promise.all([
     mine ? heroMidi(piece.id, mine) : null,
     midiForPiece(piece.id, filter ?? "all"),
     scoreForPiece(piece.id),
+    audioForPiece(piece.id, filter ?? "all"),
   ]);
 
   const chipHref = (value: string | null) =>
@@ -206,6 +209,7 @@ export default async function PiecePage({ params, searchParams }: PageProps<"/re
 
       <ScoreSection score={score} />
       <MidiList rows={midiRows} myPart={mine} />
+      <AudioList rows={audioRows} />
 
       {links.length === 0 && !folder ? (
         manager && (

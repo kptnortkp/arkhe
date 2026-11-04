@@ -1545,6 +1545,48 @@ export const pieceScores = sqliteTable(
   ],
 );
 
+// Rehearsal audio of a piece (Ses kayıtları). Null voice_part = Tutti. Stored under recordings/ with
+// area "recording", so the ledger, the sweep and the playback stop treat it like a take.
+// The 0018 trigger queues the file on delete; a drizzle "__new_piece_audio" rebuild would drop it.
+export const pieceAudio = sqliteTable(
+  "piece_audio",
+  {
+    // The client's X-Upload-Id (idempotent retries); the storage key is a separate server uuid.
+    id: text("id").primaryKey(),
+    pieceId: text("piece_id")
+      .notNull()
+      .references(() => pieces.id, { onDelete: "cascade" }),
+    voicePart: text("voice_part", { enum: VOICE_PARTS }),
+    label: text("label"),
+    storageKey: text("storage_key").notNull(),
+    contentType: text("content_type", { enum: RECORDING_TYPES }).notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("piece_audio_piece_idx").on(t.pieceId, t.voicePart),
+    uniqueIndex("piece_audio_storage_key_idx").on(t.storageKey),
+    check("piece_audio_id_check", uuidPart("id")),
+    check(
+      "piece_audio_voice_part_check",
+      sql`voice_part is null or voice_part in (${inList(VOICE_PARTS)})`,
+    ),
+    check(
+      "piece_audio_label_length",
+      sql`label is null or (length(trim(label)) between 1 and 60 and length(label) <= 60)`,
+    ),
+    check("piece_audio_content_type_check", sql`content_type in (${inList(RECORDING_TYPES)})`),
+    check(
+      "piece_audio_storage_key_check",
+      sql`substr(storage_key, 1, 11) = 'recordings/' and ${uuidPart("substr(storage_key, 12, 36)")} and substr(storage_key, 48) = '.' || ${recordingExt}`,
+    ),
+    check("piece_audio_size_check", bytes("size_bytes", RECORDING_MAX_BYTES)),
+  ],
+);
+
 // One row per conversion (D100). Kept, cascades with the piece; the editor shows the latest.
 export const omrJobs = sqliteTable(
   "omr_jobs",

@@ -2,8 +2,9 @@
 
 import { Loader2, Pause, Play } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { MSG } from "@/lib/storage/messages";
+import { cn } from "@/lib/utils";
 import { claimPlayback, releasePlayback } from "./media-bus";
 
 type PlayerState = "idle" | "loading" | "playing" | "paused" | "error";
@@ -14,11 +15,14 @@ export const clock = (sec: number) => {
 };
 
 /**
- * Plays a take: either an in-memory blob, or `/api/dosya/kayit/<id>` fetched once on the first
- * tap (no preload, no Range requests) and played from a blob: URL.
+ * Plays a take: either an in-memory blob, or `/api/dosya/kayit/<id>` (or `src`) fetched once on the
+ * first tap (no preload, no Range requests) and played from a blob: URL.
  */
 export function AudioPlayer({
   recordingId,
+  src,
+  head,
+  after,
   blob,
   durationMs,
   label = "Kaydını dinle",
@@ -26,6 +30,11 @@ export function AudioPlayer({
   downloadHint = false,
 }: {
   recordingId?: string;
+  /** A cacheable file URL instead of a take (rehearsal audio). */
+  src?: string;
+  /** Compact list row: an icon button beside `head`/`after`; the slider shows once loaded. */
+  head?: ReactNode;
+  after?: ReactNode;
   blob?: Blob;
   durationMs: number | null;
   label?: string;
@@ -73,10 +82,12 @@ export function AudioPlayer({
   async function source(): Promise<string | null> {
     if (urlRef.current) return urlRef.current;
     if (blob) return (urlRef.current = URL.createObjectURL(blob));
-    if (!recordingId) return null;
+    if (!recordingId && !src) return null;
     let res: Response;
     try {
-      res = await fetch(`/api/dosya/kayit/${recordingId}`, { cache: "no-store" });
+      res = src
+        ? await fetch(src)
+        : await fetch(`/api/dosya/kayit/${recordingId}`, { cache: "no-store" });
     } catch {
       setError(MSG.playbackFailed);
       return null;
@@ -105,12 +116,12 @@ export function AudioPlayer({
     claimPlayback(self.current);
     if (!audio.src) {
       setState("loading");
-      const src = await source();
-      if (!src) {
+      const url = await source();
+      if (!url) {
         setState("error");
         return;
       }
-      audio.src = src;
+      audio.src = url;
       setLoaded(true);
     }
     try {
@@ -132,48 +143,73 @@ export function AudioPlayer({
   const unplayable = "Bu kayıt bu tarayıcıda çalmıyor.";
   const playing = state === "playing";
 
+  const toggleButton = (
+    <button
+      ref={buttonRef}
+      type="button"
+      onClick={toggle}
+      disabled={playbackPaused || state === "loading"}
+      aria-busy={state === "loading" || undefined}
+      aria-label={playing ? "Duraklat" : label}
+      className={cn(
+        "inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary text-sm font-medium text-primary-foreground transition-colors outline-none hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60",
+        head ? "w-11" : "px-4",
+      )}
+    >
+      {state === "loading" ? (
+        <Loader2 className="size-4 animate-spin" aria-hidden />
+      ) : playing ? (
+        <Pause className="size-4" aria-hidden />
+      ) : (
+        <Play className="size-4" aria-hidden />
+      )}
+      {!head && (playing ? "Duraklat" : "Dinle")}
+    </button>
+  );
+  const seek = (
+    <>
+      <input
+        type="range"
+        aria-label="Konum"
+        min={0}
+        max={total ?? 0}
+        step={0.1}
+        value={Math.min(position, total ?? 0)}
+        disabled={!total || !loaded}
+        aria-valuetext={`${clock(position)} / ${total ? clock(total) : "—"}`}
+        onChange={(e) => {
+          const audio = audioRef.current;
+          if (!audio) return;
+          audio.currentTime = Number(e.target.value);
+          setPosition(Number(e.target.value));
+        }}
+        className="h-11 min-w-0 flex-1 accent-primary"
+      />
+      <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+        {clock(position)} / {total ? clock(total) : "—"}
+      </span>
+    </>
+  );
+
   return (
     <div className="space-y-1.5" data-audio-player data-state={state}>
-      <div className="flex items-center gap-3 rounded-2xl bg-muted p-2 pr-3">
-        <button
-          ref={buttonRef}
-          type="button"
-          onClick={toggle}
-          disabled={playbackPaused || state === "loading"}
-          aria-busy={state === "loading" || undefined}
-          aria-label={playing ? "Duraklat" : label}
-          className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors outline-none hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60"
-        >
-          {state === "loading" ? (
-            <Loader2 className="size-4 animate-spin" aria-hidden />
-          ) : playing ? (
-            <Pause className="size-4" aria-hidden />
-          ) : (
-            <Play className="size-4" aria-hidden />
+      {head ? (
+        <>
+          <div className="flex items-center gap-3">
+            {toggleButton}
+            {head}
+            {after}
+          </div>
+          {loaded && (
+            <div className="flex items-center gap-3 rounded-2xl bg-muted px-3">{seek}</div>
           )}
-          {playing ? "Duraklat" : "Dinle"}
-        </button>
-        <input
-          type="range"
-          aria-label="Konum"
-          min={0}
-          max={total ?? 0}
-          step={0.1}
-          value={Math.min(position, total ?? 0)}
-          disabled={!total || !loaded}
-          aria-valuetext={`${clock(position)} / ${total ? clock(total) : "—"}`}
-          onChange={(e) => {
-            const audio = audioRef.current;
-            if (!audio) return;
-            audio.currentTime = Number(e.target.value);
-            setPosition(Number(e.target.value));
-          }}
-          className="h-11 min-w-0 flex-1 accent-primary"
-        />
-        <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-          {clock(position)} / {total ? clock(total) : "—"}
-        </span>
-      </div>
+        </>
+      ) : (
+        <div className="flex items-center gap-3 rounded-2xl bg-muted p-2 pr-3">
+          {toggleButton}
+          {seek}
+        </div>
+      )}
       <audio
         ref={audioRef}
         preload="none"

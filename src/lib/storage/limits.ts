@@ -27,6 +27,10 @@ export const SCORE_MAX_BYTES = 4_194_304;
 export const MAX_UPLOADS_PER_SLOT = 5;
 export const MIDI_MAX_PER_PIECE = 20;
 export const MIDI_LABEL_MAX = 60;
+/** Rehearsal audio of a piece (Ses kayıtları): same size cap as a take. */
+export const AUDIO_MAX_PER_PIECE = 25;
+/** All rehearsal audio together, so homework takes always keep room in the 1 GB store. */
+export const AUDIO_TOTAL_MAX_BYTES = 450_000_000;
 export const NOTE_MAX = 1000;
 /** The recorder's hard stop; the server clamps reported durations to it (D35). */
 export const MAX_DURATION_MS = 600_000;
@@ -54,6 +58,9 @@ export const LISTEN_PER_FILE_PER_HOUR = 10;
 export const LISTEN_PER_DAY = { conductor: 300, assistant: 120, member: 40 } as const;
 export const MIDI_PER_HOUR = 600;
 export const MIDI_PER_DAY = 300;
+/** Rehearsal audio is cached by the browser for a week, so a listener fetches each file rarely. */
+export const AUDIO_PER_HOUR = 30;
+export const AUDIO_PER_DAY = 60;
 /** Score PDFs are up to 4 MB, so their caps are lower than MIDI's. */
 export const SCORE_PER_HOUR = 30;
 export const SCORE_PER_DAY = 60;

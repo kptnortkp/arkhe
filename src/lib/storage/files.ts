@@ -123,3 +123,37 @@ export async function midiForDelivery(id: string): Promise<DeliveryMidi | null> 
     draft: m.status === "draft",
   };
 }
+
+export type DeliveryAudio = {
+  id: string;
+  storageKey: string;
+  contentType: RecordingType;
+  sizeBytes: number;
+  voicePart: VoicePart | null;
+  label: string | null;
+  pieceTitle: string;
+};
+
+export async function audioForDelivery(id: string): Promise<DeliveryAudio | null> {
+  const [a] = await db.all<{
+    id: string;
+    storage_key: string;
+    content_type: RecordingType;
+    size_bytes: number;
+    voice_part: VoicePart | null;
+    label: string | null;
+    title: string;
+  }>(sql`
+    select a.id, a.storage_key, a.content_type, a.size_bytes, a.voice_part, a.label, p.title
+    from piece_audio a join pieces p on p.id = a.piece_id where a.id = ${id}`);
+  if (!a) return null;
+  return {
+    id: a.id,
+    storageKey: a.storage_key,
+    contentType: a.content_type,
+    sizeBytes: Number(a.size_bytes),
+    voicePart: a.voice_part,
+    label: a.label,
+    pieceTitle: a.title,
+  };
+}

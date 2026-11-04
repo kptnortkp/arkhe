@@ -42,6 +42,7 @@ export async function usage(): Promise<Usage> {
       (select coalesce(sum(size_bytes), 0) from recordings where audio_deleted_at is null)
       + (select coalesce(sum(size_bytes), 0) from midi_files)
       + (select coalesce(sum(size_bytes), 0) from piece_scores)
+      + (select coalesce(sum(size_bytes), 0) from piece_audio)
       + (select coalesce(sum(size_bytes), 0) from storage_deletions where state = 'pending') as s,
       (select count(*) from storage_events where kind = 'put' and at > ${since}) as u,
       g.r, g.t, g.rr, g.rt

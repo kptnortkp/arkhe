@@ -107,6 +107,20 @@ async function main() {
         ],
       );
     }
+    if (tables.has("piece_audio")) {
+      checks.push(
+        [
+          "select count(*) from sqlite_master where type = 'trigger' and name = 'piece_audio_queue_on_delete'",
+          "piece audio trigger missing",
+          1,
+        ],
+        [
+          "select count(*) from storage_deletions d where exists (select 1 from piece_audio a where a.storage_key = d.storage_key)",
+          "live piece audio keys queued for deletion",
+          0,
+        ],
+      );
+    }
     for (const [query, problem, want] of checks) {
       const n = Number((await client.execute(query)).rows[0][0]);
       if (n !== want) problems.push(problem);

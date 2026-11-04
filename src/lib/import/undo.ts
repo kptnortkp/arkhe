@@ -212,6 +212,7 @@ const members: Undo = async (t, actor, batch, items) => {
             or exists (select 1 from budget_revisions br where br.actor_id = "users"."id")
             or exists (select 1 from listening_assistants la where la.created_by = "users"."id")
             or exists (select 1 from midi_files mf where mf.created_by = "users"."id")
+            or exists (select 1 from piece_audio pa where pa.created_by = "users"."id")
             or exists (select 1 from import_batches ib where "users"."id" in (ib.created_by, ib.undone_by)))`,
         ),
       ),

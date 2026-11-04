@@ -74,6 +74,16 @@ export const MSG = {
   midiDeleted: "Dosya silindi.",
   pieceNotFound: "Eser bulunamadı.",
 
+  // Rehearsal audio (Ses kayıtları)
+  audioTooMany: "Bir esere en fazla 25 ses kaydı eklenebilir.",
+  audioStoreFull:
+    "Ses kayıtlarına ayrılan alan doldu (450 MB). Kullanılmayan kayıtları silip tekrar dene.",
+  audioTooBig:
+    "Ses dosyası en fazla 4 MB olabilir. MP3'ü daha düşük kalitede (ör. 96 kbps) dışa aktarıp tekrar dene.",
+  audioWrongType: "Bu dosya bir ses kaydı değil ya da türü desteklenmiyor (mp3, m4a, wav…).",
+  audioUploaded: "Ses kaydı yüklendi.",
+  audioDeleted: "Ses kaydı silindi.",
+
   // Storage page
   storageNotConfigured: "Dosya deposu bağlı değil.",
 } as const;

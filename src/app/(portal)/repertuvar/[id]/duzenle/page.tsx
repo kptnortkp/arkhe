@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { updatePiece } from "@/app/(portal)/repertuvar/actions";
+import { AudioEditor } from "@/components/audio/audio-editor";
 import { BackLink } from "@/components/repertoire/back-link";
 import { DangerZone } from "@/components/repertoire/danger-zone";
 import { MidiEditor } from "@/components/midi/midi-editor";
@@ -14,6 +15,7 @@ import { AutoGroup } from "@/components/midi/auto-group";
 import { ScoreEditor } from "@/components/midi/score-editor";
 import { omrConfigured, runUrl } from "@/lib/omr/config";
 import { latestJob } from "@/lib/omr/jobs";
+import { audioForPiece } from "@/lib/repertoire-audio";
 import { midiForEditor, scoreForPiece } from "@/lib/repertoire-midi";
 
 export const metadata = { title: "Eseri düzenle" };
@@ -23,6 +25,7 @@ const SECTIONS = [
   ["#baglantilar", "Bağlantılar"],
   ["#nota-ve-midi", "Nota ve MIDI"],
   ["#midi-dosyalari", "MIDI dosyaları"],
+  ["#ses-kayitlari", "Ses kayıtları"],
 ] as const;
 
 export default async function EditPiecePage({ params }: PageProps<"/repertuvar/[id]/duzenle">) {
@@ -32,10 +35,11 @@ export default async function EditPiecePage({ params }: PageProps<"/repertuvar/[
   const data = await getPiece(id);
   if (!data) notFound();
   const { piece, links } = data;
-  const [midi, score, job] = await Promise.all([
+  const [midi, score, job, audio] = await Promise.all([
     midiForEditor(piece.id),
     scoreForPiece(piece.id),
     latestJob(piece.id),
+    audioForPiece(piece.id, "all"),
   ]);
   const active = job?.state === "queued" || job?.state === "running";
 
@@ -145,6 +149,7 @@ export default async function EditPiecePage({ params }: PageProps<"/repertuvar/[
           sizeBytes: m.sizeBytes,
         }))}
       />
+      <AudioEditor pieceId={piece.id} pieceTitle={piece.title} files={audio} />
       <DangerZone
         id={piece.id}
         title={piece.title}

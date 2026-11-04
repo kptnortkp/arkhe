@@ -215,6 +215,14 @@ Kayıtlar yalnızca ödev geri bildirimi için tutulur ve 90 gün sonra silinir.
 
 ---
 
+## Ses kayıtları (eserlerin prova kayıtları)
+
+A manager adds rehearsal audio to a piece on its edit page (`Ses kayıtları`): several files at once, each with a part (or Tutti) and a label guessed from the file name. Everyone signed in can listen and download on the piece page (Tutti plus their part, `Tümü` for all).
+
+- **Limits:** 4 MB per file (the platform's request limit; export rehearsal tracks as MP3, 64–96 kbps mono fits several minutes), 25 files per piece, 450 MB for all rehearsal audio together so homework takes keep room in the 1 GB store.
+- **Storage:** files live under `recordings/` with area `recording`, so deletion, the sweep and the monthly playback stop treat them like takes; retention never touches them (it only reads the `recordings` table). Deleting a file or its piece queues the file (0018 trigger).
+- **Playback:** `/api/dosya/ses/<id>`, cached by the browser for a week; 30 per hour and 60 per day per listener.
+
 ## Otomatik MIDI (nota PDF'inden, GitHub Actions)
 
 A manager uploads a piece's score PDF (`Nota ve otomatik MIDI` on the edit page); members can open and download it. `MIDI'ye çevir` starts `.github/workflows/omr.yml` on `kptnortkp/arkhe`: Audiveris 5.11.0 reads the PDF, `omr/convert.py` writes one multi-track MIDI, and the result comes back as a **draft** that only managers see until one of them taps `Yayınla` (which also notifies the choir). Free: Actions minutes of the private repo (2,000/month; the portal allows 40 conversions per 30 days and 10 per manager per day).

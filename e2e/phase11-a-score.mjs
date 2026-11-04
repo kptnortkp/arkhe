@@ -1,5 +1,6 @@
 // Phase 11 A: the migration, the score PDF, storage bookkeeping, manual vs automatic groups
 // (AC 1, 2, 5–8, 29 for the score row, 32, 33).
+import { readFileSync } from "node:fs";
 import { actionIds, BASE, callAction, check, cleanup, db, loginAs, newPage } from "./lib.mjs";
 import { axe, createUser, fileExists, go, insertMidi, layoutIssues, midiBytes, one, PNG, setHook } from "./media.mjs";
 import { autoMidi, insertJob, newPiece, pdfBytes, uploadScore } from "./omr.mjs";
@@ -10,6 +11,7 @@ const TRIGGERS = [
   "budgets_no_overlap_insert",
   "budgets_no_overlap_update",
   "midi_files_queue_on_delete",
+  "piece_audio_queue_on_delete",
   "piece_scores_queue_on_delete",
   "recordings_audio_final",
   "recordings_queue_on_audio_delete",
@@ -45,7 +47,8 @@ async function suite(browser, shots) {
   // ------------------------------------------------------------------ AC 1
   const triggers = (await db.execute("select name from sqlite_master where type = 'trigger' order by name")).rows.map((r) => r.name);
   const applied = Number((await one("select count(*) as n from __drizzle_migrations")).n);
-  check(applied === 15 && JSON.stringify(triggers) === JSON.stringify(TRIGGERS), `AC1 15 migrations; the 0010 triggers plus the score trigger (${triggers})`);
+  const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8")).entries.length;
+  check(applied === journal && JSON.stringify(triggers) === JSON.stringify(TRIGGERS), `AC1 every migration applied (${applied}/${journal}); the 0010 triggers plus the score and audio triggers (${triggers})`);
   const seed = await one("select count(*) as n, sum(status = 'published') as p, sum(auto) as a from midi_files where id like '00000000-0000-4000-9100-%'");
   check(Number(seed.n) === 2 && Number(seed.p) === 2 && Number(seed.a) === 0, "AC1 existing MIDI rows read as published, manual");
   const tables = (await db.execute("select sql from sqlite_master where name in ('storage_deletions', 'storage_events')")).rows.map((r) => r.sql).join(" ");

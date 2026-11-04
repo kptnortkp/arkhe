@@ -257,6 +257,7 @@ export async function reconcileLocalUploads(client) {
         `select storage_key from recordings where audio_deleted_at is null
          union all select storage_key from midi_files
          union all select storage_key from piece_scores
+         union all select storage_key from piece_audio
          union all select storage_key from storage_deletions where state = 'pending' and not_before > unixepoch()`,
       )
     ).rows.map((r) => String(r[0])),
@@ -286,6 +287,7 @@ export async function clearE2eMedia(client) {
       `delete from recordings where user_id in (${e2e})`,
       `delete from listening_assistants where user_id in (${e2e}) or created_by in (${e2e})`,
       `delete from midi_files where created_by in (${e2e})`,
+      `delete from piece_audio where created_by in (${e2e})`,
     ],
     "write",
   );
