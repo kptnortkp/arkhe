@@ -153,6 +153,11 @@ export async function homeworkMidi(pieceId: string, part: VoicePart | null): Pro
   return auto ? { row: auto, emphasize: false } : null;
 }
 
+/** Every part at once, for playing along: a manual Tutti file, else the published automatic one. */
+export async function tuttiMidi(pieceId: string) {
+  return (await manualFor(pieceId, null)) ?? (await publishedAuto(pieceId));
+}
+
 /** Published files of both kinds: "does this piece have MIDI". */
 export async function midiCount(pieceId: string) {
   const [r] = await db.all<{ n: number }>(

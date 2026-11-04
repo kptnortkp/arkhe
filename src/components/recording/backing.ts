@@ -5,6 +5,9 @@ export type Backing =
   | { kind: "audio"; id: string; label: string }
   | { kind: "midi"; id: string; label: string; emphasize: boolean };
 
+/** What the homework page can play: the singer's part and every part together. */
+export type Backings = { part: Backing | null; tutti: Backing | null };
+
 /** Starts playback now and returns the stop function. */
 export type StartBacking = () => () => void;
 

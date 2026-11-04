@@ -1,6 +1,6 @@
-// Phase 13 B: play-along while recording. The part's rehearsal audio (else the MIDI) loads during
-// the count-in, starts with the take and stops with it.
-import { BASE, check, cleanup, db, loginAs } from "./lib.mjs";
+// Phase 13 B: Partisyonu çal / Tutti'yi çal on the homework page, before or during a take (then the
+// voice is recorded with it); "Tutti'yi kayıtla birlikte başlat" starts Tutti with the take.
+import { BASE, check, cleanup, loginAs } from "./lib.mjs";
 import { go, insertAssignment, insertMidi, longMidi, micPage, wavBytes } from "./media.mjs";
 
 const KORIST = "korist@arkhe.local";
@@ -32,12 +32,9 @@ async function uploadAudio(page, pieceId, part, body) {
   return res.status();
 }
 
-async function recordFor(page, ms) {
+async function startTake(page) {
   await page.getByRole("button", { name: "Kayda başla" }).click();
-  await page.waitForFunction(() => document.querySelector("[data-recorder]")?.getAttribute("data-state") === "recording", null, { timeout: 20000 }).catch(() => {});
   await page.getByRole("button", { name: "Kaydı durdur" }).waitFor({ timeout: 20000 });
-  await page.waitForTimeout(ms);
-  await page.getByRole("button", { name: "Kaydı durdur" }).click();
 }
 
 export default async function run(browser) {
@@ -51,58 +48,96 @@ export default async function run(browser) {
 
 async function suite(browser) {
   const sef = await loginAs(browser, "sef@arkhe.local");
+  const PART = wavBytes({ seconds: 7, hz: 330, rate: 48000 });
+  const TUTTI = wavBytes({ seconds: 9, hz: 262, rate: 48000 });
 
   // ------------------------------------------------------------------ rehearsal audio
-  const withAudio = await insertAssignment({ dueDays: 3, parts: ["alto"], title: "E2E Eşlik Ses" });
-  const status = await uploadAudio(sef, withAudio.piece, "alto", wavBytes({ seconds: 7, hz: 330, rate: 48000 }));
-  check(status === 201, `play-along: the alto rehearsal audio uploads (${status})`);
+  const hw = await insertAssignment({ dueDays: 3, parts: ["alto"], title: "E2E Eşlik Ses" });
+  const ups = [await uploadAudio(sef, hw.piece, "alto", PART), await uploadAudio(sef, hw.piece, "tutti", TUTTI)];
+  check(ups.every((s) => s === 201), `play-along: the alto and Tutti audio upload (${ups})`);
 
   const korist = await micPage(browser, KORIST);
   await watchAudio(korist);
-  await go(korist, `${BASE}/odevler/${withAudio.id}`);
-  const option = korist.getByTestId("play-along");
-  check(
-    (await option.isVisible()) &&
-      (await option.locator("input[type=checkbox]").isChecked()) &&
-      (await option.innerText()).includes("Ses kaydı: Alto"),
-    "play-along: the option is on by default and names the alto audio",
-  );
-  const fetched = korist.waitForResponse((r) => r.url().includes("/api/dosya/ses/") && r.status() === 200, { timeout: 15000 }).catch(() => null);
-  await recordFor(korist, 2000);
-  check(Boolean(await fetched), "play-along: the audio loads during the count-in");
-  const buffers = await korist.evaluate(() => window.__buffers);
-  check(buffers.includes(7), `play-along: the 7 s part starts with the take (${buffers})`);
-  await korist.getByRole("button", { name: "Kaydı gönder" }).waitFor({ timeout: 15000 });
-  check(true, "play-along: the take finishes and can be sent");
-
-  // Off: nothing is fetched or played.
-  const offHw = await insertAssignment({ dueDays: 3, parts: ["alto"], title: "E2E Eşlik Kapalı" });
-  await uploadAudio(sef, offHw.piece, "alto", wavBytes({ seconds: 7, hz: 330, rate: 48000 }));
-  await go(korist, `${BASE}/odevler/${offHw.id}`);
-  await korist.getByTestId("play-along").locator("input[type=checkbox]").uncheck();
-  let asked = false;
+  let asked = 0;
   korist.on("request", (r) => {
-    if (r.url().includes("/api/dosya/ses/")) asked = true;
+    if (r.url().includes("/api/dosya/ses/")) asked += 1;
   });
+  await go(korist, `${BASE}/odevler/${hw.id}`);
+  const option = korist.getByTestId("tutti-with-take");
+  check(
+    (await korist.getByTestId("along-part").getAttribute("aria-label")).startsWith("Partisyonu çal (Ses kaydı: Alto") &&
+      (await korist.getByTestId("along-tutti").getAttribute("aria-label")).startsWith("Tutti'yi çal") &&
+      (await option.isVisible()) &&
+      !(await option.locator("input[type=checkbox]").isChecked()) &&
+      asked === 0,
+    "play-along: both buttons and the unticked option show; nothing loads yet",
+  );
+
+  // Before a take: one at a time, the same button stops it.
+  await korist.getByTestId("along-part").click();
+  await korist.getByRole("button", { name: /^Partisyonu durdur/ }).waitFor({ timeout: 15000 });
+  await korist.getByTestId("along-tutti").click();
+  await korist.getByRole("button", { name: /^Tutti'yi durdur/ }).waitFor({ timeout: 15000 });
+  check(
+    (await korist.getByRole("button", { name: /^Partisyonu durdur/ }).count()) === 0 &&
+      JSON.stringify(await korist.evaluate(() => window.__buffers)) === "[7,9]",
+    "play-along: before a take, Partisyon then Tutti play on the page, one at a time",
+  );
+  await korist.getByTestId("along-tutti").click();
+  await korist.getByRole("button", { name: /^Tutti'yi çal/ }).waitFor();
+  check(true, "play-along: Tutti'yi durdur stops it");
+
+  // During a take, without the option: nothing starts on its own, Tutti starts on a tap.
   await korist.evaluate(() => (window.__buffers = []));
-  await recordFor(korist, 1500);
-  const after = await korist.evaluate(() => window.__buffers);
-  check(!asked && !after.includes(7), "play-along: unchecked, the part neither loads nor plays");
+  await startTake(korist);
+  await korist.waitForTimeout(1500);
+  // The fake microphone plays its own 4 s tone; the 7 s part and 9 s Tutti must not start.
+  const silent = await korist.evaluate(() => window.__buffers);
+  check(!silent.includes(7) && !silent.includes(9), `play-along: unticked, the take starts silent (${silent})`);
+  await korist.getByTestId("along-tutti").click();
+  await korist.getByRole("button", { name: /^Tutti'yi durdur/ }).waitFor({ timeout: 15000 });
+  check((await korist.evaluate(() => window.__buffers)).includes(9), "play-along: Tutti'yi çal plays mid-take");
+  await korist.getByRole("button", { name: "Kaydı durdur" }).click();
+  await korist.getByRole("button", { name: "Kaydı gönder" }).waitFor({ timeout: 15000 });
+  check(
+    (await korist.getByRole("button", { name: /durdur/ }).count()) === 0,
+    "play-along: stopping the take stops Tutti; the take can be sent",
+  );
   await korist.context().close();
 
-  // ------------------------------------------------------------------ MIDI fallback
-  const withMidi = await insertAssignment({ dueDays: 3, parts: ["alto"], title: "E2E Eşlik MIDI" });
-  await insertMidi(withMidi.piece, { part: "alto", bytes: longMidi({ seconds: 10, names: ["Alto"] }) });
+  // With the option: Tutti loads in the count-in and starts with the take.
+  const hw2 = await insertAssignment({ dueDays: 3, parts: ["alto"], title: "E2E Eşlik Birlikte" });
+  await uploadAudio(sef, hw2.piece, "tutti", TUTTI);
   const korist2 = await micPage(browser, KORIST);
   await watchAudio(korist2);
-  await go(korist2, `${BASE}/odevler/${withMidi.id}`);
-  check(
-    (await korist2.getByTestId("play-along").innerText()).includes("MIDI"),
-    "play-along: without audio, the option plays the MIDI",
-  );
-  await recordFor(korist2, 2000);
-  const oscillators = await korist2.evaluate(() => window.__oscillators);
-  check(oscillators > 0, `play-along: the MIDI part sounds during the take (${oscillators} notes)`);
+  await go(korist2, `${BASE}/odevler/${hw2.id}`);
+  check((await korist2.getByTestId("along-part").count()) === 0, "play-along: no part file, no Partisyonu çal");
+  await korist2.getByTestId("tutti-with-take").locator("input[type=checkbox]").check();
+  await startTake(korist2);
+  await korist2.getByRole("button", { name: /^Tutti'yi durdur/ }).waitFor({ timeout: 15000 });
+  check((await korist2.evaluate(() => window.__buffers)).includes(9), "play-along: ticked, Tutti starts with the take");
+  await korist2.getByRole("button", { name: "Kaydı durdur" }).click();
   await korist2.context().close();
+
+  // ------------------------------------------------------------------ MIDI fallback
+  const hw3 = await insertAssignment({ dueDays: 3, parts: ["alto"], title: "E2E Eşlik MIDI" });
+  await insertMidi(hw3.piece, { part: "alto", bytes: longMidi({ seconds: 10, names: ["Alto"] }) });
+  const korist3 = await micPage(browser, KORIST);
+  await watchAudio(korist3);
+  await go(korist3, `${BASE}/odevler/${hw3.id}`);
+  check(
+    (await korist3.getByTestId("along-part").getAttribute("aria-label")) === "Partisyonu çal (MIDI)" &&
+      (await korist3.getByTestId("along-tutti").count()) === 0 &&
+      (await korist3.getByTestId("tutti-with-take").count()) === 0,
+    "play-along: with only an alto MIDI, Partisyonu çal plays it and there is no Tutti",
+  );
+  await startTake(korist3);
+  await korist3.getByTestId("along-part").click();
+  await korist3.getByRole("button", { name: /^Partisyonu durdur/ }).waitFor({ timeout: 15000 });
+  await korist3.waitForTimeout(1500);
+  const oscillators = await korist3.evaluate(() => window.__oscillators);
+  check(oscillators > 0, `play-along: the MIDI part sounds during the take (${oscillators} notes)`);
+  await korist3.getByRole("button", { name: "Kaydı durdur" }).click();
+  await korist3.context().close();
   await sef.context().close();
 }

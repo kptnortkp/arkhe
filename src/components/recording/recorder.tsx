@@ -4,7 +4,9 @@ import {
   AudioLines,
   CircleCheck,
   Download,
+  Loader2,
   Mic,
+  Play,
   RefreshCw,
   RotateCcw,
   Send,
@@ -30,7 +32,9 @@ import { dayInstant, formatAuditDate, formatShortDateTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { VoicePart } from "@/db/schema";
 import { AudioPlayer, clock } from "./audio-player";
-import { prepareBacking, type Backing } from "./backing";
+import { prepareBacking, type Backings, type StartBacking } from "./backing";
+
+type Which = keyof Backings;
 import { clearTake, getTake, setTake, takeKey, type Take } from "./take-store";
 import { uploadBlob } from "./upload";
 import { recorderSupported, useMediaRecorder, type MicProblem } from "./use-media-recorder";
@@ -134,7 +138,7 @@ export function Recorder({
   uploadsUsed,
   canUpload,
   canDelete,
-  backing = null,
+  backings = { part: null, tutti: null },
   voicePart = null,
 }: {
   assignmentId: string;
@@ -152,8 +156,8 @@ export function Recorder({
   uploadsUsed: number;
   canUpload: boolean;
   canDelete: boolean;
-  /** Played from the speaker while recording, so the take holds the voice with it. */
-  backing?: Backing | null;
+  /** Played from the speaker on this page; during a take the voice is recorded with it. */
+  backings?: Backings;
   voicePart?: VoicePart | null;
 }) {
   const router = useRouter();
@@ -172,7 +176,15 @@ export function Recorder({
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [askPermission, setAskPermission] = useState(false);
   const [retried, setRetried] = useState(false);
-  const [playAlong, setPlayAlong] = useState(true);
+  const [along, setAlong] = useState<{ which: Which; loading: boolean } | null>(null);
+  const prepared = useRef<{ ctx: AudioContext | null; starts: Partial<Record<Which, Promise<StartBacking>>> }>({
+    ctx: null,
+    starts: {},
+  });
+  const alongStop = useRef<(() => void) | null>(null);
+  const idleCtx = useRef<AudioContext | null>(null);
+  const [tuttiWithTake, setTuttiWithTake] = useState(false);
+  const autoTutti = useRef(false);
   const [pending, run] = useRunAction();
   const supported = useSyncExternalStore(noop, recorderSupported, () => true);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -187,7 +199,6 @@ export function Recorder({
 
   const rec = useMediaRecorder({
     maxMs,
-    prepare: backing && playAlong ? (ctx) => prepareBacking(backing, voicePart, ctx) : undefined,
     onDone: ({ blob, durationMs, reason }) => {
       const t: Take = { blob, durationMs, uploadId: crypto.randomUUID(), source: "record" };
       setTake(key, t);
@@ -275,12 +286,87 @@ export function Recorder({
     if (d instanceof HTMLDetailsElement) d.open = true;
   }
 
+  function stopAlong() {
+    alongStop.current?.();
+    alongStop.current = null;
+    setAlong(null);
+  }
+
+  /** During a take, the take's own context (so it is recorded); before it, one made in this tap. */
+  function playbackContext() {
+    const ctx = rec.context();
+    if (ctx) return ctx;
+    if (!idleCtx.current || idleCtx.current.state === "closed") {
+      const Ctx =
+        window.AudioContext ??
+        (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      idleCtx.current = new Ctx();
+    }
+    void idleCtx.current.resume().catch(() => {});
+    return idleCtx.current;
+  }
+
+  function prepare(which: Which, ctx: AudioContext) {
+    const backing = backings[which];
+    if (!backing) return null;
+    if (prepared.current.ctx !== ctx) prepared.current = { ctx, starts: {} };
+    return (prepared.current.starts[which] ??= prepareBacking(backing, voicePart, ctx));
+  }
+
+  /** One plays at a time, from its start; the same button again stops it. */
+  async function toggleAlong(which: Which) {
+    const again = along?.which === which;
+    stopAlong();
+    if (again) return;
+    const ctx = playbackContext();
+    const loading = prepare(which, ctx);
+    if (!loading) return;
+    setAlong({ which, loading: true });
+    try {
+      const start = await loading;
+      if (prepared.current.ctx !== ctx) return;
+      alongStop.current = start();
+      setAlong({ which, loading: false });
+    } catch {
+      prepared.current.starts[which] = undefined;
+      setAlong(null);
+      toast.error("Şu an çalınamıyor. Biraz sonra tekrar dene.");
+    }
+  }
+
+  // Tutti starts with the take when chosen; anything playing stops when a take starts or ends.
+  useEffect(() => {
+    if (rec.phase === "recording" && autoTutti.current) {
+      autoTutti.current = false;
+      void toggleAlong("tutti");
+      return;
+    }
+    if (rec.phase === "recording") return;
+    /* eslint-disable react-hooks/set-state-in-effect -- playback follows the take's phase */
+    stopAlong();
+    /* eslint-enable react-hooks/set-state-in-effect */
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- toggleAlong only reads refs and the take
+  }, [rec.phase]);
+
+  useEffect(
+    () => () => {
+      alongStop.current?.();
+      void idleCtx.current?.close().catch(() => {});
+    },
+    [],
+  );
+
   function startRecording() {
     setProblem(null);
     setInlineError(null);
     setNotice(null);
     lastAnnounced.current = -1;
+    stopAlong();
     rec.start();
+    // Loads during the count-in, so Tutti can start with the take.
+    const ctx = rec.context();
+    autoTutti.current = Boolean(backings.tutti && tuttiWithTake && ctx);
+    if (autoTutti.current && ctx) prepare("tutti", ctx);
   }
 
   useEffect(() => {
@@ -433,6 +519,45 @@ export function Recorder({
     </div>
   );
 
+  function alongButtons() {
+    const item = (which: Which, name: string, play: string, stop: string) => {
+      const backing = backings[which];
+      if (!backing) return null;
+      const mine = along?.which === which;
+      const playing = mine && !along?.loading;
+      return (
+        <Button
+          type="button"
+          variant={playing ? "default" : "outline"}
+          className="h-auto min-h-12 min-w-0 flex-1 flex-col gap-0 rounded-2xl px-3 py-2"
+          aria-label={`${playing ? stop : play} (${backing.label})`}
+          aria-pressed={playing}
+          disabled={mine && along?.loading}
+          onClick={() => void toggleAlong(which)}
+          data-testid={`along-${which}`}
+        >
+          <span className="flex items-center gap-1.5">
+            {mine && along?.loading ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : playing ? (
+              <Square className="size-3.5 fill-current" />
+            ) : (
+              <Play className="size-4" />
+            )}
+            {name}
+          </span>
+          <span className="w-full truncate text-xs font-normal opacity-75">{backing.label}</span>
+        </Button>
+      );
+    };
+    return (
+      <div className="flex w-full gap-2 md:max-w-sm" data-testid="along">
+        {item("part", "Partisyon", "Partisyonu çal", "Partisyonu durdur")}
+        {item("tutti", "Tutti", "Tutti'yi çal", "Tutti'yi durdur")}
+      </div>
+    );
+  }
+
   function idleControls(replacing: boolean) {
     return (
       <div className="space-y-3">
@@ -450,26 +575,27 @@ export function Recorder({
           <p className="text-xs text-muted-foreground">Yeni kaydı gönderince eskisi silinir.</p>
         )}
         {errorLine}
-        {supported && backing && (
+        {(backings.part || backings.tutti) && alongButtons()}
+        {supported && backings.tutti && (
           <label
             className={cn(box, "flex min-h-11 cursor-pointer items-start gap-3")}
-            data-testid="play-along"
+            data-testid="tutti-with-take"
           >
             <input
               type="checkbox"
-              checked={playAlong}
-              onChange={(e) => setPlayAlong(e.target.checked)}
+              checked={tuttiWithTake}
+              onChange={(e) => setTuttiWithTake(e.target.checked)}
               className="mt-0.5 size-5 shrink-0 accent-primary"
             />
             <span className="space-y-0.5">
-              <span className="block text-sm font-medium">Kaydederken partisyonu çal</span>
+              <span className="block text-sm font-medium">Tutti&apos;yi kayıtla birlikte başlat</span>
               <span className="block text-xs text-muted-foreground">
-                {backing.label}. Kayıt başlayınca telefondan çalar ve sesinle birlikte kayda girer.
+                Kayıt sırasında çalan ses de sesinle birlikte kayda girer.
               </span>
             </span>
           </label>
         )}
-        {supported && !backing && (
+        {supported && !backings.part && !backings.tutti && (
           <p className="text-xs text-muted-foreground">
             Kulaklık takarsan MIDI&apos;yi dinlerken kayıt yapabilirsin.
           </p>
@@ -699,6 +825,8 @@ export function Recorder({
             Vazgeç
           </Button>
         ) : (
+          <div className="flex flex-col gap-2 md:max-w-sm">
+          {(backings.part || backings.tutti) && alongButtons()}
           <Button
             type="button"
             aria-label="Kaydı durdur"
@@ -708,6 +836,7 @@ export function Recorder({
             <Square className="size-5 fill-current" />
             Durdur
           </Button>
+          </div>
         )}
       </div>
     );

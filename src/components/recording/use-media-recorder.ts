@@ -69,14 +69,11 @@ export function useMediaRecorder({
   onDone,
   onProblem,
   onEmpty,
-  prepare,
 }: {
   maxMs: number;
   onDone: (take: RecordedTake) => void;
   onProblem: (p: MicProblem) => void;
   onEmpty: () => void;
-  /** Loads something to play along during the count-in; it starts with the take. */
-  prepare?: (ctx: AudioContext) => Promise<(() => () => void) | null>;
 }) {
   const [phase, setPhase] = useState<RecorderPhase>("off");
   const [count, setCount] = useState(COUNT_IN);
@@ -96,21 +93,14 @@ export function useMediaRecorder({
     wake?: WakeLockSentinelLike | null;
     reason: StopReason;
     cancelled: boolean;
-    backing?: Promise<(() => () => void) | null>;
-    startBacking?: (() => () => void) | null;
-    stopBacking?: () => void;
   }>({ chunks: [], startAt: 0, raf: 0, timers: [], reason: "user", cancelled: false });
-  const handlers = useRef({ onDone, onProblem, onEmpty, maxMs, prepare });
+  const handlers = useRef({ onDone, onProblem, onEmpty, maxMs });
   useEffect(() => {
-    handlers.current = { onDone, onProblem, onEmpty, maxMs, prepare };
+    handlers.current = { onDone, onProblem, onEmpty, maxMs };
   });
 
   function teardown() {
     const l = live.current;
-    l.stopBacking?.();
-    l.stopBacking = undefined;
-    l.startBacking = undefined;
-    l.backing = undefined;
     cancelAnimationFrame(l.raf);
     l.timers.forEach(clearTimeout);
     l.timers = [];
@@ -273,8 +263,6 @@ export function useMediaRecorder({
     };
     stream.getAudioTracks().forEach((t) => (t.onended = () => stop("interrupted")));
     rec.onstart = () => {
-      l.stopBacking?.();
-      l.stopBacking = l.startBacking?.();
       l.startAt = performance.now();
       setElapsed(0);
       setPhase("recording");
@@ -302,14 +290,6 @@ export function useMediaRecorder({
       (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     const ctx = new Ctx();
     l.ctx = ctx;
-    // A slow or failed load must not hold the take: after 10 s it records without it.
-    const prepare = handlers.current.prepare;
-    l.backing = prepare
-      ? Promise.race([
-          prepare(ctx).catch(() => null),
-          new Promise<null>((resolve) => setTimeout(() => resolve(null), 10_000)),
-        ])
-      : Promise.resolve(null);
     void wakeLock();
     setPhase("requesting");
     setLoud(false);
@@ -345,10 +325,8 @@ export function useMediaRecorder({
         }
         l.timers.push(
           setTimeout(() => {
-            void Promise.all([probing, l.backing]).then(([, startBacking]) => {
-              if (l.cancelled) return;
-              l.startBacking = startBacking;
-              void begin(stream);
+            void probing.then(() => {
+              if (!l.cancelled) void begin(stream);
             });
           }, COUNT_IN * 1000),
         );
@@ -397,5 +375,21 @@ export function useMediaRecorder({
     [],
   );
 
-  return { phase, count, elapsed, loud, silent, level, barsRef, start, stop, cancel, bars: BARS };
+  /** The take's running context (started in the tap): what a play-along plays on. */
+  const context = () => live.current.ctx ?? null;
+
+  return {
+    phase,
+    count,
+    elapsed,
+    loud,
+    silent,
+    level,
+    barsRef,
+    start,
+    stop,
+    cancel,
+    context,
+    bars: BARS,
+  };
 }
