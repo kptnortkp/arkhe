@@ -9,13 +9,12 @@ export function canManageBackup(role: Role) {
   return role === "conductor";
 }
 
-/** Reset links bypass the current password, so only the conductor may issue them for managers. */
+/** Any manager may send anyone else a reset link: the choir has one conductor, who can forget too. */
 export function canIssueLink(
   actor: { id: string; role: Role },
   target: { id: string; role: Role },
 ) {
-  if (actor.id === target.id || !isManager(actor.role)) return false;
-  return actor.role === "conductor" || target.role === "member";
+  return actor.id !== target.id && isManager(actor.role);
 }
 
 /** Whether `actor` may edit `target` and give them `nextRole`. Board manages choristers only. */

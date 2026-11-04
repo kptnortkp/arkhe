@@ -61,6 +61,23 @@ export default async function phase1(browser, shotsDir) {
   await page.waitForSelector("text=Davet linki hazır");
   const url = (await page.textContent("p.font-mono")).trim();
   check(url.startsWith(`${BASE}/davet/`), "invite link is created");
+
+  // The choir has one conductor: the board can send them a reset link, but not edit them.
+  const {
+    rows: [sefRow],
+  } = await db.execute("select id from users where email = 'sef@arkhe.local'");
+  await page.goto(`${BASE}/uyeler/${sefRow.id}`);
+  check(
+    (await page.locator("input[name=name]").count()) === 0 &&
+      (await page.getByRole("button", { name: "Üyeyi pasifleştir" }).count()) === 0,
+    "board sees the conductor read-only, without deactivate",
+  );
+  await page.getByRole("button", { name: "Yenileme linki oluştur" }).click();
+  await page.waitForSelector("p.font-mono");
+  check(
+    (await page.textContent("p.font-mono")).trim().startsWith(`${BASE}/davet/`),
+    "board creates a reset link for the conductor",
+  );
   await page.context().close();
 
   page = await newPage(browser, { mobile: true });

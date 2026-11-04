@@ -78,10 +78,19 @@ export default async function MemberPage({ params }: PageProps<"/uyeler/[id]">) 
           />
         </>
       ) : (
-        <p className="rounded-2xl border bg-card p-5 text-sm text-muted-foreground">
-          Şef ve yönetim kurulu hesaplarını sadece koro şefi düzenleyebilir. Kendi bilgilerin için
-          Profilim sayfasını kullan.
-        </p>
+        <>
+          <p className="rounded-2xl border bg-card p-5 text-sm text-muted-foreground">
+            Şef ve yönetim kurulu hesaplarını sadece koro şefi düzenleyebilir. Kendi bilgilerin için
+            Profilim sayfasını kullan.
+          </p>
+          <MemberAccess
+            id={member.id}
+            isActive={member.isActive}
+            hasPassword={member.hasPassword}
+            canIssueLink={canIssueLink(actor, member)}
+            canToggleActive={false}
+          />
+        </>
       )}
     </div>
   );
