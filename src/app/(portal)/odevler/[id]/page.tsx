@@ -10,6 +10,7 @@ import { Roster, type RosterGroup } from "@/components/homework/roster";
 import { MailBlock } from "@/components/homework/singer-steps";
 import { MidiButton } from "@/components/midi/midi-button";
 import { FallbackDetails, ListenersNote } from "@/components/recording/listeners-note";
+import type { Backing } from "@/components/recording/backing";
 import { Recorder } from "@/components/recording/recorder";
 import { SubmitToggle } from "@/components/homework/submit-button";
 import { PartButton } from "@/components/repertoire/part-button";
@@ -29,6 +30,7 @@ import {
 import { isManager } from "@/lib/permissions";
 import { myRecorder, rosterTakes, liveTakeCount } from "@/lib/homework/recordings";
 import { withMyPart } from "@/lib/repertoire";
+import { audioForPiece } from "@/lib/repertoire-audio";
 import { homeworkMidi } from "@/lib/repertoire-midi";
 import { listenersFor } from "@/lib/review/scope";
 import { storageConfigured } from "@/lib/storage/driver";
@@ -85,16 +87,28 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
 
   let singer: React.ReactNode = null;
   if ((eligible && !cancelled) || mine?.submittedAt) {
-    const [email, [withPart], recorder, listeners, maxMs, warning, midi, usage] = await Promise.all([
-      getRecordingEmail(),
-      withMyPart([{ id: a.pieceId }], viewer.voicePart),
-      myRecorder(a.id, viewer.id),
-      listenersFor({ id: viewer.id, voicePart: viewer.voicePart }),
-      recorderMaxMs(),
-      storageWarning(),
-      homeworkMidi(a.pieceId, viewer.voicePart),
-      cachedUsage(),
-    ]);
+    const [email, [withPart], recorder, listeners, maxMs, warning, midi, usage, audio] =
+      await Promise.all([
+        getRecordingEmail(),
+        withMyPart([{ id: a.pieceId }], viewer.voicePart),
+        myRecorder(a.id, viewer.id),
+        listenersFor({ id: viewer.id, voicePart: viewer.voicePart }),
+        recorderMaxMs(),
+        storageWarning(),
+        homeworkMidi(a.pieceId, viewer.voicePart),
+        cachedUsage(),
+        audioForPiece(a.pieceId, viewer.voicePart),
+      ]);
+    // Play-along: my part's rehearsal audio, else the MIDI the page offers, else a Tutti recording.
+    const myAudio = audio.find((r) => r.voicePart !== null && r.voicePart === viewer.voicePart);
+    const tuttiAudio = audio.find((r) => r.voicePart === null);
+    const backing: Backing | null = myAudio
+      ? { kind: "audio", id: myAudio.id, label: `Ses kaydı: ${myAudio.title}` }
+      : midi
+        ? { kind: "midi", id: midi.row.id, label: `MIDI: ${midi.row.title}`, emphasize: midi.emphasize }
+        : tuttiAudio
+          ? { kind: "audio", id: tuttiAudio.id, label: `Ses kaydı: ${tuttiAudio.title} (Tutti)` }
+          : null;
     const subject = viewer.voicePart ? homeworkSubject(a, viewer.voicePart, viewer.name) : "";
     const mailto = email ? mailtoHref(email, subject, homeworkBody(a, a.dueAt, viewer.name)) : null;
     const submitted = Boolean(mine?.submittedAt);
@@ -156,6 +170,8 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
           uploadsUsed={recorder.uploadsUsed}
           canUpload={recorder.canUpload && !cancelled}
           canDelete={recorder.canDelete && !cancelled}
+          backing={backing}
+          voicePart={viewer.voicePart}
         />
         {showTransparency && <ListenersNote names={listeners} />}
         {!recorder.locked && !cancelled && (

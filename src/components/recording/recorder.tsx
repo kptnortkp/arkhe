@@ -28,7 +28,9 @@ import {
 import { MSG } from "@/lib/storage/messages";
 import { dayInstant, formatAuditDate, formatShortDateTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import type { VoicePart } from "@/db/schema";
 import { AudioPlayer, clock } from "./audio-player";
+import { prepareBacking, type Backing } from "./backing";
 import { clearTake, getTake, setTake, takeKey, type Take } from "./take-store";
 import { uploadBlob } from "./upload";
 import { recorderSupported, useMediaRecorder, type MicProblem } from "./use-media-recorder";
@@ -132,6 +134,8 @@ export function Recorder({
   uploadsUsed,
   canUpload,
   canDelete,
+  backing = null,
+  voicePart = null,
 }: {
   assignmentId: string;
   userId: string;
@@ -148,6 +152,9 @@ export function Recorder({
   uploadsUsed: number;
   canUpload: boolean;
   canDelete: boolean;
+  /** Played from the speaker while recording, so the take holds the voice with it. */
+  backing?: Backing | null;
+  voicePart?: VoicePart | null;
 }) {
   const router = useRouter();
   const key = takeKey(userId, assignmentId);
@@ -165,6 +172,7 @@ export function Recorder({
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [askPermission, setAskPermission] = useState(false);
   const [retried, setRetried] = useState(false);
+  const [playAlong, setPlayAlong] = useState(true);
   const [pending, run] = useRunAction();
   const supported = useSyncExternalStore(noop, recorderSupported, () => true);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -179,6 +187,7 @@ export function Recorder({
 
   const rec = useMediaRecorder({
     maxMs,
+    prepare: backing && playAlong ? (ctx) => prepareBacking(backing, voicePart, ctx) : undefined,
     onDone: ({ blob, durationMs, reason }) => {
       const t: Take = { blob, durationMs, uploadId: crypto.randomUUID(), source: "record" };
       setTake(key, t);
@@ -441,7 +450,26 @@ export function Recorder({
           <p className="text-xs text-muted-foreground">Yeni kaydı gönderince eskisi silinir.</p>
         )}
         {errorLine}
-        {supported && (
+        {supported && backing && (
+          <label
+            className={cn(box, "flex min-h-11 cursor-pointer items-start gap-3")}
+            data-testid="play-along"
+          >
+            <input
+              type="checkbox"
+              checked={playAlong}
+              onChange={(e) => setPlayAlong(e.target.checked)}
+              className="mt-0.5 size-5 shrink-0 accent-primary"
+            />
+            <span className="space-y-0.5">
+              <span className="block text-sm font-medium">Kaydederken partisyonu çal</span>
+              <span className="block text-xs text-muted-foreground">
+                {backing.label}. Kayıt başlayınca telefondan çalar ve sesinle birlikte kayda girer.
+              </span>
+            </span>
+          </label>
+        )}
+        {supported && !backing && (
           <p className="text-xs text-muted-foreground">
             Kulaklık takarsan MIDI&apos;yi dinlerken kayıt yapabilirsin.
           </p>

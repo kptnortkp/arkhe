@@ -222,7 +222,8 @@ async function suite(browser, shots) {
     (await korist.getByRole("button", { name: "Kaydını dinle" }).isVisible()) &&
       (await korist.getByRole("button", { name: "Kaydı gönder" }).isVisible()) &&
       (await korist.getByRole("button", { name: "Yeniden kaydet" }).isVisible()) &&
-      !log.some((r) => r.url.includes("/api/dosya/")),
+      // Play-along may fetch the part (GET); the take itself is not uploaded yet.
+      !log.some((r) => r.url.includes("/api/dosya/") && r.method === "POST"),
     "AC7 stopped: Dinle, Gönder, Yeniden kaydet; still no upload request",
   );
   if (shots) await korist.screenshot({ path: `${shots}/p9-recorder-recorded.png`, fullPage: true });

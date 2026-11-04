@@ -73,6 +73,21 @@ const PRESETS = {
   minus: (tracks: Track[], mine: number[]) => defaults(tracks).map((m, i) => ({ ...m, on: !mine.includes(i) })),
 };
 const gainOf = (m: Mix[number]) => (m.on ? m.level / 100 : 0);
+
+/** A parsed file for playing along while recording, with the player's opening mix. */
+export async function backingMidi(id: string, myPart: VoicePart | null, emphasize: boolean) {
+  if (!files.has(id)) files.set(id, load(id));
+  const p = await files.get(id)!.catch((e: unknown) => {
+    files.delete(id);
+    throw e;
+  });
+  const mine = mineOf(p.tracks, myPart);
+  const mix =
+    emphasize && mine.length > 0 && mine.length < p.tracks.length
+      ? PRESETS.front(p.tracks, mine)
+      : defaults(p.tracks);
+  return { notes: p.notes, gains: mix.map(gainOf), duration: p.duration };
+}
 const same = (a: Mix, b: Mix) => a.length === b.length && a.every((m, i) => m.on === b[i].on && m.level === b[i].level);
 
 async function load(id: string): Promise<Parsed> {
