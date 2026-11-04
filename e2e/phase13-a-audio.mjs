@@ -81,6 +81,16 @@ async function suite(browser) {
   await go(korist, `${BASE}/repertuvar/${pieceId}`);
   const parts = await korist.locator("[data-testid=audio-row]").evaluateAll((els) => els.map((e) => e.dataset.part));
   check(JSON.stringify(parts) === JSON.stringify(["tutti", "alto"]), `audio: the alto member sees Tutti and Alto by default (${parts})`);
+  const heroText = await korist.getByTestId("audio-hero").innerText().catch(() => "");
+  check(
+    heroText.includes("Alto · Hızlı") &&
+      (await korist.getByRole("button", { name: "Partisyonumu dinle (Alto)" }).count()) === 1 &&
+      (await korist.getByText("için partisyon kaydı yok").count()) === 0,
+    "audio: with only uploaded audio, the hero plays my part instead of saying there is none",
+  );
+  await go(korist, `${BASE}/repertuvar`);
+  const listButton = korist.locator(`a[href="/repertuvar/${pieceId}#ses-kayitlari"]`);
+  check((await listButton.count()) > 0, "audio: the list's Partisyonum leads to the piece's audio");
   await go(korist, `${BASE}/repertuvar/${pieceId}?partisyon=tumu`);
   check((await korist.locator("[data-testid=audio-row]").count()) === 3, "audio: Tümü shows every part");
   const fetched = korist.waitForResponse((r) => r.url().includes(`/api/dosya/ses/`) && r.status() === 200, { timeout: 10000 }).catch(() => null);

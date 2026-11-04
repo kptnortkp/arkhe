@@ -41,3 +41,18 @@ export async function audioForPiece(pieceId: string, part: VoicePart | "all" | n
   );
   return rows.map(toRow);
 }
+
+/** Uploaded audio a member can play as "Partisyonum": files for the part, else Tutti files. */
+export async function audioCountsFor(pieceIds: string[], part: VoicePart | null) {
+  const counts = new Map<string, number>();
+  if (!part || pieceIds.length === 0) return counts;
+  const rows = await db.all<{ piece: string; exact: number; tutti: number }>(sql`
+    select piece_id as piece, sum(voice_part = ${part}) as exact, sum(voice_part is null) as tutti
+    from piece_audio where piece_id in (${sql.join(
+      pieceIds.map((id) => sql`${id}`),
+      sql`, `,
+    )})
+    group by piece_id`);
+  for (const r of rows) counts.set(r.piece, Number(r.exact) || Number(r.tutti) || 0);
+  return counts;
+}

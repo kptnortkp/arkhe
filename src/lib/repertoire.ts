@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { pieceLinks, pieces, type PieceStatus, type VoicePart } from "@/db/schema";
 import { collator, searchKey } from "@/lib/format";
 import { resolveMyPart } from "@/lib/links";
+import { audioCountsFor } from "@/lib/repertoire-audio";
 
 export const LIST_VIEWS = ["calisiliyor", "program", "hazir", "arsiv", "tumu"] as const;
 export type ListView = (typeof LIST_VIEWS)[number];
@@ -34,7 +35,8 @@ export type PartFile = {
   url: string;
   position: number;
 };
-export type MyPart = { links: PartFile[]; tutti: boolean } | null;
+/** `audio`: uploaded rehearsal files for the part (else Tutti); the button opens the piece page. */
+export type MyPart = { links: PartFile[]; tutti: boolean; audio?: number } | null;
 
 async function listAllPieces() {
   return db.select(listColumns).from(pieces);
@@ -63,11 +65,15 @@ async function partFilesOf(ids: string[]) {
 }
 
 export async function withMyPart<T extends { id: string }>(rows: T[], myPart: VoicePart | null) {
-  const files = myPart ? await partFilesOf(rows.map((r) => r.id)) : new Map<string, PartFile[]>();
-  return rows.map((r) => ({
-    ...r,
-    myPart: resolveMyPart(files.get(r.id) ?? [], myPart) as MyPart,
-  }));
+  const ids = rows.map((r) => r.id);
+  const [files, audio] = await Promise.all([
+    myPart ? partFilesOf(ids) : new Map<string, PartFile[]>(),
+    audioCountsFor(ids, myPart),
+  ]);
+  return rows.map((r) => {
+    const resolved = resolveMyPart(files.get(r.id) ?? [], myPart);
+    return { ...r, myPart: (resolved && { ...resolved, audio: audio.get(r.id) ?? 0 }) as MyPart };
+  });
 }
 
 export async function listPieces(view: ListView, q: string) {

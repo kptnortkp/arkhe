@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import { FilterChip } from "@/components/filter-chip";
 import { AudioList } from "@/components/audio/audio-list";
+import { AudioPlayer } from "@/components/recording/audio-player";
 import { MidiButton } from "@/components/midi/midi-button";
 import { MidiList } from "@/components/midi/midi-list";
 import { ScoreSection } from "@/components/midi/score-row";
@@ -98,6 +99,10 @@ export default async function PiecePage({ params, searchParams }: PageProps<"/re
     audioForPiece(piece.id, filter ?? "all"),
   ]);
 
+  // Without MIDI or Drive part links, the first uploaded file for my part (else Tutti) is the hero.
+  const heroAudio =
+    audioRows.find((a) => a.voicePart === mine) ?? audioRows.find((a) => a.voicePart === null);
+
   const chipHref = (value: string | null) =>
     value === null ? `/repertuvar/${piece.id}` : `/repertuvar/${piece.id}?partisyon=${value}`;
 
@@ -149,6 +154,19 @@ export default async function PiecePage({ params, searchParams }: PageProps<"/re
               Drive&apos;daki partisyon kaydı aşağıda, “Partisyon kayıtları” bölümünde.
             </p>
           )}
+        </div>
+      ) : heroAudio && mine && myPart?.links.length === 0 ? (
+        <div className="space-y-2" data-testid="audio-hero">
+          <AudioPlayer
+            src={`/api/dosya/ses/${heroAudio.id}`}
+            durationMs={null}
+            label={`Partisyonumu dinle (${VOICE_PART_LABELS[mine]})`}
+          />
+          <p className="text-xs text-muted-foreground">
+            {heroAudio.voicePart ? VOICE_PART_LABELS[heroAudio.voicePart] : "Tutti"}
+            {heroAudio.label ? ` · ${heroAudio.label}` : ""}. Diğer kayıtlar aşağıda, “Ses
+            kayıtları” bölümünde.
+          </p>
         </div>
       ) : (
         <PartButton myPart={myPart} voicePart={mine} pieceId={piece.id} title={piece.title} hero />

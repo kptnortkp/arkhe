@@ -47,7 +47,12 @@ export function AudioItem({ a, extra, after }: { a: AudioRow; extra?: string; af
 export function AudioList({ rows }: { rows: AudioRow[] }) {
   if (rows.length === 0) return null;
   return (
-    <section aria-labelledby="group-audio" className="space-y-2" data-testid="audio-list">
+    <section
+      aria-labelledby="group-audio"
+      id="ses-kayitlari"
+      className="scroll-mt-20 space-y-2 md:scroll-mt-6"
+      data-testid="audio-list"
+    >
       <h2 id="group-audio" className={eyebrow}>
         Ses kayıtları <span className="tabular-nums">{rows.length}</span>
       </h2>

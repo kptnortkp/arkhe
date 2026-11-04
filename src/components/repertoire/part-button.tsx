@@ -1,4 +1,5 @@
 import { ArrowUpRight } from "lucide-react";
+import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import type { VoicePart } from "@/db/schema";
 import { VOICE_PART_LABELS } from "@/lib/labels";
@@ -37,6 +38,18 @@ export function PartButton({
       : "h-11 w-[116px] shrink-0 justify-center rounded-full px-3 text-sm";
   const variant = asLink ? "ghost" : hero && !quiet ? "default" : "outline";
 
+  if (myPart.links.length === 0 && myPart.audio) {
+    // Uploaded rehearsal audio only: it plays on the piece page.
+    return (
+      <Link
+        href={`/repertuvar/${pieceId}#ses-kayitlari`}
+        className={cn(buttonVariants({ variant }), base, "gap-2")}
+      >
+        {text}
+        <span className="sr-only">{` (${partName}): ${title}, ses kayıtları`}</span>
+      </Link>
+    );
+  }
   if (myPart.links.length === 0) {
     return (
       <button
