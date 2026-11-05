@@ -38,6 +38,7 @@ export const KINDS = [
   "backup_failed",
   "storage_80",
   "storage_95",
+  "storage_100",
   "test",
   "morning",
 ] as const;

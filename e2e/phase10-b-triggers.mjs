@@ -443,8 +443,10 @@ async function dues(browser) {
 }
 
 async function system() {
-  // AC 45: a failing cron backup alerts sef@ only; AC 46: storage crossings.
+  // AC 45: a failing cron backup alerts sef@ only; AC 46: storage crossings reach sef@ and yk@.
   const sefId = await userId("sef@arkhe.local");
+  const ykId = await userId("yk@arkhe.local");
+  const managers = (rows) => rows.length === 2 && sameSet(new Set(rows.map((r) => r.user_id)), new Set([sefId, ykId]));
   await resetBackup();
   await setRecipients(["p10@e2e.test"]);
   const outbox = path.join(ROOT, "data/outbox");
@@ -484,20 +486,34 @@ async function system() {
   await fill(812_000_000 - (await stored()));
   await runAt(istanbulDate(0));
   let s = await rowsOf("kind like 'storage_%'");
-  check(s.length === 1 && s[0].title === "Kayıt alanı %81 dolu" && s[0].user_id === sefId, `AC46 81% alerts sef@ once (${s.map((r) => r.title)})`);
+  check(managers(s) && s.every((r) => r.title === "Kayıt alanı %81 dolu"), `AC46 81% alerts sef@ and yk@ once (${s.map((r) => r.title)})`);
   await fill(10_000_000);
   await runAt(istanbulDate(1));
-  check((await rowsOf("kind like 'storage_%'")).length === 1, "AC46 82% the next day sends nothing");
+  check((await rowsOf("kind like 'storage_%'")).length === 2, "AC46 82% the next day sends nothing");
   await db.execute("delete from storage_deletions");
   await runAt(istanbulDate(2));
   await fill(812_000_000 - (await stored()));
   await runAt(istanbulDate(3));
-  check((await rowsOf("kind = 'storage_80'")).length === 2, "AC46 after a run below 80%, 81% alerts again");
+  check((await rowsOf("kind = 'storage_80'")).length === 4, "AC46 after a run below 80%, 81% alerts again");
   await fill(960_000_000 - (await stored()));
   await runAt(istanbulDate(4));
   s = await rowsOf("kind = 'storage_95'");
-  check(s.length === 1 && s[0].title === "Kayıt alanı dolu", "AC46 96% sends Kayıt alanı dolu once");
+  check(managers(s) && s.every((r) => r.title === "Kayıt alanı dolu"), "AC46 96% sends Kayıt alanı dolu once");
   await db.execute("delete from storage_deletions");
+
+  // Playback stops at 100% of the 30-day transfer (each delivery counts twice its bytes).
+  await runAt(istanbulDate(5));
+  await db.execute("delete from storage_events where kind = 'get'");
+  const gets = [];
+  for (let i = 0; i < 1200; i++) {
+    gets.push({ sql: "insert into storage_events (kind, area, bytes, at) values ('get', 'recording', 4194304, unixepoch())", args: [] });
+  }
+  await db.batch(gets, "write");
+  await runAt(istanbulDate(6));
+  s = await rowsOf("kind = 'storage_100'");
+  check(managers(s) && s.every((r) => r.title === "Dinleme durdu"), `AC46 a full listening quota sends Dinleme durdu (${s.map((r) => r.title)})`);
+  await db.execute("delete from storage_events where kind = 'get'");
+  await runAt(istanbulDate(7));
   await db.execute("delete from storage_sweeps");
 }
 

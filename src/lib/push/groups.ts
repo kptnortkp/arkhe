@@ -62,11 +62,10 @@ export function groupVisible(group: PushGroup, a: Audience, duesOn: boolean) {
       return a.role === "conductor" || a.assistant;
     case "yonetim":
     case "butce":
+    case "sistem":
       return a.role === "conductor" || a.role === "board";
     case "aidat":
       return duesOn;
-    case "sistem":
-      return a.role === "conductor";
   }
 }
 

@@ -105,12 +105,11 @@ async function authorization(browser, ids, sefSubId) {
   const refusedPrefs = [];
   refusedPrefs.push(await callForm(korist, ids.savePushPref, [], { key: "yonetim", on: "1" }));
   refusedPrefs.push(await callForm(korist, ids.savePushPref, [], { key: "dinleme", on: "1" }));
+  refusedPrefs.push(await callForm(korist, ids.savePushPref, [], { key: "sistem", on: "1" }));
   refusedPrefs.push(await callForm(korist, ids.setDuesPush, [], { on: "1" }));
-  const yk = await as(browser, "yk@arkhe.local");
-  refusedPrefs.push(await callForm(yk, ids.savePushPref, [], { key: "sistem", on: "1" }));
   check(
     refusedPrefs.every((t) => t.includes("Bu ayar sana açık değil.") || t.includes(FORBIDDEN)),
-    "AC5 groups the role doesn't show are refused (korist yonetim/dinleme, yk sistem); member can't flip dues",
+    "AC5 groups the role doesn't show are refused (korist yonetim/dinleme/sistem); member can't flip dues",
   );
   check(
     (await scalar("select count(*) from notification_prefs")) === 0 &&
@@ -120,6 +119,11 @@ async function authorization(browser, ids, sefSubId) {
   check(
     (await callForm(korist, ids.savePushPref, [], { key: "devamsizlik", on: "1" })).includes("Kaydedildi."),
     "AC16 a visible switch saves (Kaydedildi.)",
+  );
+  const yk = await as(browser, "yk@arkhe.local");
+  check(
+    (await callForm(yk, ids.savePushPref, [], { key: "sistem", on: "0" })).includes("Kaydedildi."),
+    "AC5 the board sees the storage alerts switch (sistem)",
   );
   await db.execute("delete from notification_prefs");
   await yk.context().close();
