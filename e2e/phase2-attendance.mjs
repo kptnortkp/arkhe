@@ -45,9 +45,10 @@ export default async function phase2(browser, shots) {
     (await seededRow("Barış Güneş")).includes("Uyarı"),
     "AC26 the seeded flagged member has the Uyarı badge",
   );
+  const ceren = await seededRow("Ceren Polat");
   check(
-    !(await seededRow("Ceren Polat")).includes("Uyarı"),
-    "AC26 a member with only excused misses is not flagged",
+    ceren.includes("Uyarı") && ceren.includes("mazeretli)"),
+    "AC26 excused misses count as absences",
   );
 
   // AC1: single rehearsal

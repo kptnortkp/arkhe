@@ -183,7 +183,8 @@ export default async function ReportsPage({ searchParams }: PageProps<"/raporlar
                   <td className="col-span-2 pt-1 md:px-4 md:py-3">
                     <AttendanceStrip statuses={m.history.slice(0, 8).map((h) => h.status)} />
                     <span className="ml-2 text-xs text-muted-foreground md:hidden">
-                      {m.late} geç · {m.excused} mazeretli · {m.absent} gelmedi
+                      {m.late} geç · {m.absent} gelmedi
+                      {m.excused > 0 && ` (${m.excused} mazeretli)`}
                     </span>
                   </td>
                 </tr>

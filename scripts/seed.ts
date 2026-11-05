@@ -3,7 +3,7 @@
 // Expected report numbers for the current term ("2026–27 Güz") once yesterday's forgotten rehearsal
 // has auto-closed (six counted rehearsals):
 //   Barış Güneş (tenor): absent at two Wednesdays → 4/6 = %67, flagged.
-//   Ceren Polat (alto): excused at two Wednesdays → 4/4 = %100, not flagged.
+//   Ceren Polat (alto): excused at two Wednesdays → still absences → 4/6 = %67, flagged.
 //   Demo Korist (alto): late once → 6/6 = %100.
 //   Kaan Özdemir, Selin Çelik: unmarked yesterday → absent → 5/6 = %83.
 //   Everyone else: 6/6 = %100.

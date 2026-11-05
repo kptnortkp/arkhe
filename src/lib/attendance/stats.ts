@@ -10,9 +10,10 @@ export type MemberStats = {
   name: string;
   voicePart: VoicePart | null;
   attended: number; // present + late
-  expected: number; // counted rehearsals minus excused ones: the denominator
+  expected: number; // every counted rehearsal: the denominator
   percent: number | null;
   late: number;
+  /** Absences that came with an excuse; already included in `absent`. */
   excused: number;
   absent: number;
   warning: boolean;
@@ -79,16 +80,18 @@ export async function attendanceStats({
     history.reverse();
     const late = history.filter((h) => h.status === "late").length;
     const attended = history.filter((h) => h.status === "present").length + late;
+    // An excuse is only a note on an absence: it counts like any other absence.
+    const missed = (h: { status: AttendanceStatus }) =>
+      h.status === "absent" || h.status === "excused";
     const excused = history.filter((h) => h.status === "excused").length;
-    const absent = history.filter((h) => h.status === "absent").length;
-    const expected = history.length - excused;
+    const absent = history.filter(missed).length;
+    const expected = history.length;
     const percent = expected > 0 ? Math.round((attended / expected) * 100) : null;
-    const lastCounted = history.filter((h) => h.status !== "excused").slice(0, WARN_OF_LAST);
+    const lastCounted = history.slice(0, WARN_OF_LAST);
     const warns = (recentAbsent: number, counted: number, pct: number | null) =>
       recentAbsent >= WARN_ABSENT ||
       (counted >= WARN_MIN_COUNTED && pct !== null && pct < WARN_BELOW_PERCENT);
-    const absentOf = (list: { status: AttendanceStatus }[]) =>
-      list.filter((h) => h.status === "absent").length;
+    const absentOf = (list: { status: AttendanceStatus }[]) => list.filter(missed).length;
     const warning = warns(absentOf(lastCounted), expected, percent);
     // Near: missing the next rehearsal alone would raise the warning.
     const near = warns(

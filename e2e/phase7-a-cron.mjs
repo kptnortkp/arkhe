@@ -395,7 +395,7 @@ export default async function phase7Cron(browser) {
     const s1 = devamRows.find((r) => r[0] === "E2E Ayla Faz");
     const s3 = devamRows.find((r) => r[0] === "E2E Cem Faz");
     check(
-      s1?.[2] === "2" && s1?.[3] === "2" && s3?.[3] === "1",
+      s1?.[2] === "2" && s1?.[3] === "2" && s3?.[3] === "2",
       `AC6/9 31 Jan 23:30 counts, 1 Feb 00:30 doesn't: Ayla Geldi/Beklenen ${s1?.[2]}/${s1?.[3]}`,
     );
 

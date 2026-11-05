@@ -108,8 +108,8 @@ export default async function RehearsalsPage({ searchParams }: PageProps<"/calis
               {mine.percent === null ? "—" : `%${mine.percent}`}
             </span>
             <span className="text-sm text-muted-foreground">
-              {mine.attended}/{mine.expected} çalışma · {mine.late} geç · {mine.excused} mazeretli ·{" "}
-              {mine.absent} gelmedi
+              {mine.attended}/{mine.expected} çalışma · {mine.late} geç · {mine.absent} gelmedi
+              {mine.excused > 0 && ` (${mine.excused} mazeretli)`}
             </span>
           </div>
           <AttendanceStrip statuses={mine.history.slice(0, 12).map((h) => h.status)} />
