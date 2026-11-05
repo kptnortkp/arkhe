@@ -104,6 +104,17 @@ async function suite(browser) {
     "play-along: stopping the take stops Tutti; the take can be sent",
   );
   check(asked === 2, `play-along: each audio file is fetched once, even across takes (${asked} requests)`);
+  // Stored on the phone: a reload (or reopening the app) plays from there.
+  await go(korist, `${BASE}/odevler/${hw.id}`);
+  await korist.getByTestId("along-part").click();
+  await korist.getByRole("button", { name: /^Partisyonu durdur/ }).waitFor({ timeout: 15000 });
+  check(asked === 2, `play-along: after a reload the part plays from the phone (${asked} requests)`);
+  const stored = () => korist.evaluate(async () => (await indexedDB.databases()).some((d) => d.name === "arkhe-audio"));
+  const before = await stored();
+  await go(korist, `${BASE}/profil`);
+  await korist.getByRole("button", { name: "Çıkış yap" }).first().click();
+  await korist.waitForURL(/\/giris/);
+  check(before && !(await stored()), "play-along: logging out drops the audio stored on the phone");
   await korist.context().close();
 
   // With the option: Tutti loads in the count-in and starts with the take.
