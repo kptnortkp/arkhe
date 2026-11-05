@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CopyButton, useCopy } from "@/components/copy-button";
+import { DownloadLink } from "@/components/download-link";
 import { MoneyAmount } from "@/components/finance/money-amount";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -589,14 +590,14 @@ export function ImportFlow({
             {result.hint && (
               <div className="space-y-2 rounded-xl bg-card p-3">
                 <p className="text-sm">{result.hint}</p>
-                <a
+                <DownloadLink
                   href="/ice-aktar/uye-listesi"
                   download
                   className={cn(buttonVariants({ variant: "outline" }), "h-11 rounded-xl px-4")}
                 >
                   <Download aria-hidden />
                   Üye listesini indir
-                </a>
+                </DownloadLink>
               </div>
             )}
             <div className="flex flex-wrap gap-2">

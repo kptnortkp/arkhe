@@ -2,6 +2,7 @@ import { ChevronDown, ChevronLeft, Download, FileText, TriangleAlert, Users } fr
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CopyButton } from "@/components/copy-button";
+import { DownloadLink } from "@/components/download-link";
 import { ColumnTable } from "@/components/import/column-table";
 import { ImportFlow } from "@/components/import/import-flow";
 import { buttonVariants } from "@/components/ui/button";
@@ -169,25 +170,25 @@ export default async function ImportTypePage({ params }: PageProps<"/ice-aktar/[
             className="w-full md:w-auto"
           />
           <div className="flex gap-2">
-            <a
+            <DownloadLink
               href={`/ice-aktar/${def.slug}/ornek`}
               download={`${fileBase(def)}.csv`}
               className={cn(buttonVariants({ variant: "outline" }), OUTLINE)}
             >
               <Download aria-hidden />
               Örnek dosyayı indir
-            </a>
-            <a
+            </DownloadLink>
+            <DownloadLink
               href={`/ice-aktar/${def.slug}/talimat`}
               download={`${fileBase(def)}.md`}
               className={cn(buttonVariants({ variant: "outline" }), OUTLINE)}
             >
               <FileText aria-hidden />
               Talimatı indir
-            </a>
+            </DownloadLink>
           </div>
           {memberList && (
-            <a
+            <DownloadLink
               href="/ice-aktar/uye-listesi"
               download
               className={cn(buttonVariants({ variant: "outline" }), "h-11 shrink-0 rounded-xl px-3 md:px-4")}
@@ -195,7 +196,7 @@ export default async function ImportTypePage({ params }: PageProps<"/ice-aktar/[
             >
               <Users aria-hidden />
               Üye listesini indir
-            </a>
+            </DownloadLink>
           )}
         </div>
         {memberList && (

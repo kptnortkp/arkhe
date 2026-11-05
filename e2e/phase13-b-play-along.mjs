@@ -103,6 +103,7 @@ async function suite(browser) {
     (await korist.getByRole("button", { name: /durdur/ }).count()) === 0,
     "play-along: stopping the take stops Tutti; the take can be sent",
   );
+  check(asked === 2, `play-along: each audio file is fetched once, even across takes (${asked} requests)`);
   await korist.context().close();
 
   // With the option: Tutti loads in the count-in and starts with the take.

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { MSG } from "@/lib/storage/messages";
 import { cn } from "@/lib/utils";
+import { AudioFetchError, fetchAudio } from "./audio-cache";
 import { claimPlayback, releasePlayback } from "./media-bus";
 
 type PlayerState = "idle" | "loading" | "playing" | "paused" | "error";
@@ -85,12 +86,14 @@ export function AudioPlayer({
     if (!recordingId && !src) return null;
     let res: Response;
     try {
-      res = src
-        ? await fetch(src)
-        : await fetch(`/api/dosya/kayit/${recordingId}`, { cache: "no-store" });
-    } catch {
-      setError(MSG.playbackFailed);
-      return null;
+      if (src) return (urlRef.current = URL.createObjectURL(await fetchAudio(src)));
+      res = await fetch(`/api/dosya/kayit/${recordingId}`, { cache: "no-store" });
+    } catch (error) {
+      if (!(error instanceof AudioFetchError)) {
+        setError(MSG.playbackFailed);
+        return null;
+      }
+      res = error.response;
     }
     if (res.status === 410) {
       router.refresh();

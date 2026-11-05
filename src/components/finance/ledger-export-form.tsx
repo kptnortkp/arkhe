@@ -3,6 +3,7 @@
 import { FileSpreadsheet, FileText, FileType } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { needsShareSheet, saveInApp } from "@/components/download-link";
 import { Field } from "@/components/forms/field";
 
 const FORMATS = [
@@ -25,7 +26,19 @@ export function LedgerExportForm({ from, to }: { from: string; to: string }) {
           e.preventDefault();
           setError("Bitiş başlangıçtan önce olamaz.");
           requestAnimationFrame(() => document.getElementById("to")?.focus());
-        } else setError(null);
+          return;
+        }
+        setError(null);
+        if (needsShareSheet()) {
+          e.preventDefault();
+          const submitter = e.nativeEvent.submitter as HTMLButtonElement | null;
+          const url = new URL(submitter?.formAction || e.currentTarget.action);
+          url.search = new URLSearchParams({
+            from: String(fd.get("from")),
+            to: String(fd.get("to")),
+          }).toString();
+          void saveInApp(url.href);
+        }
       }}
     >
       <div className="grid grid-cols-2 gap-3">

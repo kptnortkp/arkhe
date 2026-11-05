@@ -1,6 +1,7 @@
 import { FileSpreadsheet, FileText, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { AttendanceStrip } from "@/components/attendance/status-chip";
+import { DownloadLink } from "@/components/download-link";
 import { TermsDialog } from "@/components/attendance/terms-dialog";
 import { ExportMenu } from "@/components/export-menu";
 import { buttonVariants } from "@/components/ui/button";
@@ -207,22 +208,22 @@ export default async function ReportsPage({ searchParams }: PageProps<"/raporlar
           ödevler, muhasebe, aidat, bütçeler ve repertuvar.
         </p>
         <div className="flex flex-wrap gap-2">
-          <a
+          <DownloadLink
             href="/raporlar/toplu/xlsx"
             download
             className={cn(buttonVariants(), "h-11 rounded-full px-5")}
           >
             <FileSpreadsheet />
             Excel
-          </a>
-          <a
+          </DownloadLink>
+          <DownloadLink
             href="/raporlar/toplu/pdf"
             download
             className={cn(buttonVariants({ variant: "outline" }), "h-11 rounded-full px-5")}
           >
             <FileText />
             PDF
-          </a>
+          </DownloadLink>
         </div>
         <p className="text-xs text-muted-foreground">
           Excel&apos;de her bölüm ayrı sayfada; PDF&apos;te her bölüm yeni sayfadan başlar.

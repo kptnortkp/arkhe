@@ -1,5 +1,6 @@
 import { Check, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import Link from "next/link";
+import { DownloadLink } from "@/components/download-link";
 import { buttonVariants } from "@/components/ui/button";
 import { importIndex } from "@/lib/import/queries";
 import { formatKurus } from "@/lib/money";
@@ -70,14 +71,14 @@ export default async function ImportIndexPage() {
             </span>
           </li>
         </ol>
-        <a
+        <DownloadLink
           href="/ice-aktar/uye-listesi"
           download
           className={cn(buttonVariants({ variant: "outline" }), "h-11 rounded-xl px-4")}
         >
           <Download aria-hidden />
           Üye listesini indir
-        </a>
+        </DownloadLink>
         <p className="text-xs text-muted-foreground">
           Listede adlar ve e-postalar var. Yapay zekâya yalnızca işin için gerekeni ver.
         </p>

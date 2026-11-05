@@ -2,6 +2,7 @@
 
 import { Menu } from "@base-ui/react/menu";
 import { ChevronDown, Download, FileSpreadsheet, FileText, FileType } from "lucide-react";
+import { downloadInApp } from "@/components/download-link";
 import { buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -44,6 +45,7 @@ export function ExportMenu({
             key={format}
             href={`${base}/${format}${query ? `?${query}` : ""}`}
             download
+            onClick={downloadInApp}
             closeOnClick
             data-testid={`export-${format}`}
             className="flex h-10 items-center gap-2 rounded-md px-2 text-sm outline-hidden select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0"
