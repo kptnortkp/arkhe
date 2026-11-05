@@ -25,6 +25,8 @@ const nextConfig: NextConfig = {
   logging: { serverFunctions: false },
   // A 1 MB import file plus multipart overhead; every action still validates its own input.
   experimental: { serverActions: { bodySizeLimit: "1100kb" } },
+  // PDF exports read their fonts from disk at runtime.
+  outputFileTracingIncludes: { "/**/pdf": ["src/lib/exports/fonts/*.ttf"] },
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },

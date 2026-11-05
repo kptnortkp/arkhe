@@ -77,11 +77,11 @@ export default async function LedgerPage({ searchParams }: PageProps<"/finans/ha
             Ekle
           </Link>
           <Link
-            href="/finans/rapor#csv"
+            href="/finans/rapor#disa-aktar"
             className={cn(buttonVariants({ variant: "outline" }), "h-11 rounded-full px-4")}
           >
             <Download />
-            CSV
+            Dışa aktar
           </Link>
         </div>
       </div>

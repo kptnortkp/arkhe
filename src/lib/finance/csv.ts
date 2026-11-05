@@ -6,8 +6,7 @@ import {
   ENTRY_KIND_LABELS,
   VOICE_PART_LABELS,
 } from "@/lib/labels";
-import { csvNum, type CsvValue } from "@/lib/csv";
-import { csvAmount } from "@/lib/money";
+import { day, money, pct, type CsvValue } from "@/lib/csv";
 import type { BudgetTotal, ComputedReport } from "./budget";
 import type { VoicePart } from "@/db/schema";
 import type { Account, Category, DuesRate, EntryKind } from "./categories";
@@ -50,9 +49,9 @@ export type LedgerCsvRow = {
   creatorName: string | null;
 };
 
-export function ledgerRows(rows: LedgerCsvRow[]) {
+export function ledgerRows(rows: LedgerCsvRow[]): CsvValue[][] {
   return rows.map((e) => [
-    e.occurredOn,
+    day(e.occurredOn),
     ENTRY_KIND_LABELS[e.kind],
     e.category ? CATEGORY_LABELS[e.category] : "",
     e.description,
@@ -64,9 +63,9 @@ export function ledgerRows(rows: LedgerCsvRow[]) {
     e.toAccount
       ? `${ACCOUNT_LABELS[e.account]} → ${ACCOUNT_LABELS[e.toAccount]}`
       : ACCOUNT_LABELS[e.account],
-    e.kind === "income" ? csvAmount(e.amountKurus) : "",
-    e.kind === "expense" ? csvAmount(e.amountKurus) : "",
-    e.kind === "transfer" || e.kind === "opening" ? csvAmount(e.amountKurus) : "",
+    e.kind === "income" ? money(e.amountKurus) : "",
+    e.kind === "expense" ? money(e.amountKurus) : "",
+    e.kind === "transfer" || e.kind === "opening" ? money(e.amountKurus) : "",
     e.documentUrl,
     e.creatorName,
     e.id,
@@ -83,7 +82,7 @@ type DuesCsvMember = {
 };
 
 /** One period's rows, sorted by name, for everyone who owes or paid it. */
-export function duesRows(members: DuesCsvMember[], periodId: string) {
+export function duesRows(members: DuesCsvMember[], periodId: string): CsvValue[][] {
   return members
     .filter((m) => m.cells.has(periodId))
     .sort((a, b) => collator.compare(a.name, b.name))
@@ -93,9 +92,9 @@ export function duesRows(members: DuesCsvMember[], periodId: string) {
         m.name,
         m.voicePart ? VOICE_PART_LABELS[m.voicePart] : "",
         DUES_RATE_LABELS[m.rate],
-        csvAmount(s.owed),
-        csvAmount(s.paid),
-        csvAmount(s.remaining),
+        money(s.owed),
+        money(s.paid),
+        money(s.remaining),
         s.label,
       ];
     });
@@ -111,8 +110,8 @@ export const BUDGET_HEADER = [
   "Durum",
 ];
 
-const amountCell = (kurus: number) => csvNum(csvAmount(kurus));
-const pctCell = (pct: number | null) => (pct === null ? "" : `%${pct}`);
+const amountCell = money;
+const pctCell = (value: number | null) => (value === null ? "" : pct(value));
 
 /** AC 37: shown lines per side, each side's total, then the net; Fark is actual − plan, signed. */
 export function budgetRows(report: ComputedReport): CsvValue[][] {

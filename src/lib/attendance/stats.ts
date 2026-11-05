@@ -16,6 +16,8 @@ export type MemberStats = {
   excused: number;
   absent: number;
   warning: boolean;
+  /** over: warned; near: one more absence or a low percent away; null: nothing counted yet. */
+  level: "ok" | "near" | "over" | null;
   /** Newest first: what happened at each counted rehearsal. */
   history: { rehearsalId: string; startsAt: Date; status: AttendanceStatus }[];
 };
@@ -82,9 +84,19 @@ export async function attendanceStats({
     const expected = history.length - excused;
     const percent = expected > 0 ? Math.round((attended / expected) * 100) : null;
     const lastCounted = history.filter((h) => h.status !== "excused").slice(0, WARN_OF_LAST);
-    const warning =
-      lastCounted.filter((h) => h.status === "absent").length >= WARN_ABSENT ||
-      (expected >= WARN_MIN_COUNTED && percent !== null && percent < WARN_BELOW_PERCENT);
+    const warns = (recentAbsent: number, counted: number, pct: number | null) =>
+      recentAbsent >= WARN_ABSENT ||
+      (counted >= WARN_MIN_COUNTED && pct !== null && pct < WARN_BELOW_PERCENT);
+    const absentOf = (list: { status: AttendanceStatus }[]) =>
+      list.filter((h) => h.status === "absent").length;
+    const warning = warns(absentOf(lastCounted), expected, percent);
+    // Near: missing the next rehearsal alone would raise the warning.
+    const near = warns(
+      absentOf([{ status: "absent" }, ...lastCounted.slice(0, WARN_OF_LAST - 1)]),
+      expected + 1,
+      Math.round((attended / (expected + 1)) * 100),
+    );
+    const level = warning ? "over" : percent === null ? null : near ? "near" : "ok";
     result.push({
       userId: person.id,
       name: person.name,
@@ -96,6 +108,7 @@ export async function attendanceStats({
       excused,
       absent,
       warning,
+      level,
       history,
     });
   }

@@ -1,5 +1,5 @@
 import { Download } from "lucide-react";
-import { CsvRangeForm } from "@/components/finance/csv-range-form";
+import { LedgerExportForm } from "@/components/finance/ledger-export-form";
 import { eyebrow, FinanceNav } from "@/components/finance/finance-nav";
 import { MoneyAmount } from "@/components/finance/money-amount";
 import { FilterChip } from "@/components/filter-chip";
@@ -84,11 +84,11 @@ export default async function ReportPage({ searchParams }: PageProps<"/finans/ra
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h1 className="text-4xl font-medium">Rapor</h1>
         <a
-          href="#csv"
+          href="#disa-aktar"
           className={cn(buttonVariants({ variant: "outline" }), "h-11 rounded-full px-4")}
         >
           <Download />
-          Muhasebe CSV
+          Muhasebe dökümü
         </a>
       </div>
       <FinanceNav active="rapor" />
@@ -279,14 +279,14 @@ export default async function ReportPage({ searchParams }: PageProps<"/finans/ra
       </section>
 
       <section
-        id="csv"
-        aria-labelledby="csv-baslik"
+        id="disa-aktar"
+        aria-labelledby="disa-aktar-baslik"
         className="scroll-mt-20 space-y-3 rounded-2xl border bg-card p-4"
       >
-        <h2 id="csv-baslik" className="text-xl font-medium">
-          Muhasebe CSV
+        <h2 id="disa-aktar-baslik" className="text-xl font-medium">
+          Muhasebe dökümü
         </h2>
-        <CsvRangeForm from={`${year}-01-01`} to={`${year}-12-31`} />
+        <LedgerExportForm from={`${year}-01-01`} to={`${year}-12-31`} />
       </section>
     </div>
   );

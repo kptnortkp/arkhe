@@ -951,7 +951,7 @@ export default async function phase5(browser, shots) {
   await goto(yk, "/finans/rapor");
   await yk.fill("input[name=from]", `${year}-06-01`);
   await yk.fill("input[name=to]", `${year}-01-01`);
-  await yk.getByRole("button", { name: "CSV indir" }).click();
+  await yk.getByRole("button", { name: "Excel" }).click();
   check(
     (await yk.locator("#to-error").textContent({ timeout: 5000 })) ===
       "Bitiş başlangıçtan önce olamaz.",

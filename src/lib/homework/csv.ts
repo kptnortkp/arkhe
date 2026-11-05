@@ -1,4 +1,4 @@
-import { csvDocument } from "@/lib/csv";
+import { csvDocument, type CsvValue } from "@/lib/csv";
 import { HOMEWORK_STATE_LABELS, VOICE_PART_LABELS } from "@/lib/labels";
 import { formatAuditDateTime } from "@/lib/time";
 import type { VoicePart } from "@/db/schema";
@@ -26,17 +26,18 @@ type HomeworkCsvRow = {
 };
 
 /** Rows must already be sorted by due date, then name. */
+export function homeworkRows(rows: HomeworkCsvRow[]): CsvValue[][] {
+  return rows.map((r) => [
+    barsLabel(r.barFrom, r.barTo),
+    r.pieceTitle,
+    formatAuditDateTime(r.dueAt),
+    r.name,
+    r.part ? VOICE_PART_LABELS[r.part] : "",
+    HOMEWORK_STATE_LABELS[r.state],
+    r.submittedAt ? formatAuditDateTime(r.submittedAt) : "",
+  ]);
+}
+
 export function homeworkCsv(rows: HomeworkCsvRow[]) {
-  return csvDocument(
-    HOMEWORK_HEADER,
-    rows.map((r) => [
-      barsLabel(r.barFrom, r.barTo),
-      r.pieceTitle,
-      formatAuditDateTime(r.dueAt),
-      r.name,
-      r.part ? VOICE_PART_LABELS[r.part] : "",
-      HOMEWORK_STATE_LABELS[r.state],
-      r.submittedAt ? formatAuditDateTime(r.submittedAt) : "",
-    ]),
-  );
+  return csvDocument(HOMEWORK_HEADER, homeworkRows(rows));
 }

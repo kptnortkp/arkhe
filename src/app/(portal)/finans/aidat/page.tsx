@@ -1,4 +1,4 @@
-import { CalendarRange, Download } from "lucide-react";
+import { CalendarRange } from "lucide-react";
 import Link from "next/link";
 import { z } from "zod";
 import { DuesChip } from "@/components/finance/dues-chip";
@@ -11,6 +11,7 @@ import {
   WaiverForm,
 } from "@/components/finance/member-dues-forms";
 import { FilterChip } from "@/components/filter-chip";
+import { ExportMenu } from "@/components/export-menu";
 import { buttonVariants } from "@/components/ui/button";
 import { requireManager } from "@/lib/auth/dal";
 import {
@@ -102,13 +103,7 @@ export default async function DuesPage({ searchParams }: PageProps<"/finans/aida
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h1 className="text-4xl font-medium">Aidat</h1>
-        <a
-          href={`/finans/aidat/csv?donem=${selected.id}`}
-          className={cn(buttonVariants({ variant: "outline" }), "h-11 rounded-full px-4")}
-        >
-          <Download />
-          CSV
-        </a>
+        <ExportMenu base="/finans/aidat" query={`donem=${selected.id}`} />
       </div>
       <FinanceNav active="aidat" />
 

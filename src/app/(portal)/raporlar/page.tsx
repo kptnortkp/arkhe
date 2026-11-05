@@ -1,7 +1,8 @@
-import { Download, TriangleAlert } from "lucide-react";
+import { FileSpreadsheet, FileText, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { AttendanceStrip } from "@/components/attendance/status-chip";
 import { TermsDialog } from "@/components/attendance/terms-dialog";
+import { ExportMenu } from "@/components/export-menu";
 import { buttonVariants } from "@/components/ui/button";
 import { VoicePartBadge } from "@/components/voice-part-badge";
 import { VOICE_PARTS } from "@/db/schema";
@@ -51,14 +52,7 @@ export default async function ReportsPage({ searchParams }: PageProps<"/raporlar
         </div>
         <div className="flex flex-wrap gap-2">
           <TermsDialog terms={period.terms} />
-          <a
-            href={`/raporlar/csv?${query({})}`}
-            className={cn(buttonVariants({ variant: "outline" }), "h-10 rounded-full px-4")}
-            data-testid="csv-link"
-          >
-            <Download />
-            CSV indir
-          </a>
+          <ExportMenu base="/raporlar" query={query({})} className="h-10" />
         </div>
       </div>
 
@@ -198,6 +192,41 @@ export default async function ReportsPage({ searchParams }: PageProps<"/raporlar
           </table>
         </div>
       )}
+
+      <section
+        aria-labelledby="toplu-rapor"
+        className="space-y-3 rounded-2xl border bg-card p-4"
+        data-testid="full-report"
+      >
+        <h2 id="toplu-rapor" className="text-xl font-medium">
+          Toplu rapor
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Başlangıçtan bugüne her şey tek dosyada: özet, üyeler, devam (tümü ve dönem dönem),
+          ödevler, muhasebe, aidat, bütçeler ve repertuvar.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <a
+            href="/raporlar/toplu/xlsx"
+            download
+            className={cn(buttonVariants(), "h-11 rounded-full px-5")}
+          >
+            <FileSpreadsheet />
+            Excel
+          </a>
+          <a
+            href="/raporlar/toplu/pdf"
+            download
+            className={cn(buttonVariants({ variant: "outline" }), "h-11 rounded-full px-5")}
+          >
+            <FileText />
+            PDF
+          </a>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Excel&apos;de her bölüm ayrı sayfada; PDF&apos;te her bölüm yeni sayfadan başlar.
+        </p>
+      </section>
     </div>
   );
 }

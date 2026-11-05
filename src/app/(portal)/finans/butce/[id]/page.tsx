@@ -1,8 +1,9 @@
-import { Download, NotebookPen, Pencil } from "lucide-react";
+import { NotebookPen, Pencil } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BackLink } from "@/components/board/back-link";
 import { ApproveButton, DeleteBudgetButton } from "@/components/budget/budget-actions";
+import { ExportMenu } from "@/components/export-menu";
 import { CurrentChip, History, LineCard, StatusChip, Summary } from "@/components/budget/report";
 import { buttonVariants } from "@/components/ui/button";
 import { CASH_NOTE } from "@/lib/finance/budget";
@@ -21,7 +22,7 @@ export default async function BudgetReportPage({ params }: PageProps<"/finans/bu
   if (!r) notFound();
   const draft = r.status === "draft";
   const outline = cn(buttonVariants({ variant: "outline" }), "h-11 rounded-full px-4");
-  const csv = `/finans/butce/${r.id}/csv`;
+  const exportBase = `/finans/butce/${r.id}`;
   const groups = [
     { kind: "income" as const, title: "Gelir" },
     { kind: "expense" as const, title: "Gider" },
@@ -53,10 +54,7 @@ export default async function BudgetReportPage({ params }: PageProps<"/finans/bu
             Planı değiştir
           </Link>
         )}
-        <a href={csv} download className={cn(outline, "max-lg:hidden")}>
-          <Download />
-          CSV indir
-        </a>
+        <ExportMenu base={exportBase} className="max-lg:hidden" />
       </div>
 
       {draft && (
@@ -129,13 +127,9 @@ export default async function BudgetReportPage({ params }: PageProps<"/finans/bu
             <NotebookPen />
             {draft ? "Bilgileri düzenle" : "Notu düzenle"}
           </Link>
-          <a href={csv} download className={cn(outline, "lg:hidden")}>
-            <Download />
-            CSV indir
-          </a>
+          <ExportMenu base={exportBase} className="lg:hidden" />
           {draft && <DeleteBudgetButton id={r.id} name={r.name} />}
         </div>
-        <p className="text-xs text-muted-foreground lg:hidden">CSV, Excel&apos;de Türkçe açılır.</p>
       </section>
     </div>
   );

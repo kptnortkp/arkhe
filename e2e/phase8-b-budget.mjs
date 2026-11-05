@@ -815,7 +815,7 @@ async function upcoming(browser, ids, by) {
       );
       check(
         top.join(",") === "Onayla" &&
-          toolNames.join(",") === "Planı düzenle,Bilgileri düzenle,CSV indir,Sil" &&
+          toolNames.join(",") === "Planı düzenle,Bilgileri düzenle,İndir,Sil" &&
           (await yk.evaluate(() => {
             const s = document.querySelector("section[aria-labelledby=islemler]");
             return !s.nextElementSibling;
