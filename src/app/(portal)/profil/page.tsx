@@ -5,6 +5,7 @@ import {
   DatabaseBackup,
   FileUp,
   LogOut,
+  Megaphone,
   MessageSquareWarning,
   Wallet,
 } from "lucide-react";
@@ -50,6 +51,15 @@ export default async function ProfilePage() {
       <NotificationsSection userId={user.id} />
 
       <MyDuesSection />
+
+      <nav aria-label="Duyurular" data-testid="profile-announcements">
+        <ProfileRow
+          href="/duyurular"
+          label="Duyurular"
+          hint="Şef ve yönetimden gelen duyurular"
+          icon={Megaphone}
+        />
+      </nav>
 
       <section className="space-y-4">
         <div>

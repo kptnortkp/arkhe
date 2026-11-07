@@ -2,6 +2,7 @@ import { CalendarClock, ChevronRight, MapPin, Radio } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import stageChoir from "../../../public/brand/stage-choir.webp";
+import { AnnouncementsHomeCard } from "@/components/announcements/home-card";
 import { CheckInPanel } from "@/components/attendance/check-in-panel";
 import { BackupBanner } from "@/components/backup/backup-banner";
 import { BoardHomeCard } from "@/components/board/home-card";
@@ -117,6 +118,7 @@ export default async function HomePage() {
 
       <BackupBanner state={await bannerState} />
       {manager && <StorageBanner conductor={user.role === "conductor"} />}
+      <AnnouncementsHomeCard viewer={user} />
 
       <section
         className="on-stage relative overflow-hidden rounded-3xl bg-stage p-6 text-stage-foreground ring-1 ring-white/5 md:p-8"

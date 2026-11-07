@@ -141,6 +141,13 @@
       "when": 1794060634477,
       "tag": "0019_phase15_sections_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1794079132481,
+      "tag": "0020_phase16_announcements",
+      "breakpoints": true
     }
   ]
 }

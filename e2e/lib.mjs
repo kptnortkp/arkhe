@@ -168,6 +168,10 @@ export async function cleanup() {
     "delete from piece_links where piece_id in (select id from pieces where title like 'E2E%')",
   );
   await db.execute("delete from pieces where title like 'E2E%'");
+  // Announcements reference their sender with restrict: E2E ones and any sent by @e2e.test users.
+  await db.execute(
+    "delete from announcements where title like 'E2E%' or created_by in (select id from users where email like '%@e2e.test')",
+  );
   // Notes, takes, appointments and MIDI rows that point at @e2e.test users go before the users.
   await clearE2eMedia(db);
   await db.execute(

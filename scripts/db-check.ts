@@ -60,6 +60,13 @@ async function main() {
     if (Number(empty.rows[0][0]) > 0) problems.push("live import batches without items");
   }
 
+  if (tables.has("announcement_parts")) {
+    const mismatched = await client.execute(
+      "select count(*) from announcements a where (a.audience = 'parts') <> exists (select 1 from announcement_parts p where p.announcement_id = a.id)",
+    );
+    if (Number(mismatched.rows[0][0]) > 0) problems.push("announcement parts don't match their audience");
+  }
+
   if (tables.has("recordings")) {
     const checks: [string, string, number][] = [
       [

@@ -1955,3 +1955,81 @@ export const reportImageDeletions = sqliteTable(
     check("report_image_deletions_not_before", sql`not_before is null or state = 'pending'`),
   ],
 );
+
+// Announcements ("Duyurular"): managers write, readers only see what is addressed to them.
+export const ANNOUNCEMENT_AUDIENCES = ["all", "parts", "board"] as const;
+export type AnnouncementAudience = (typeof ANNOUNCEMENT_AUDIENCES)[number];
+
+export const announcements = sqliteTable(
+  "announcements",
+  {
+    id: id(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    audience: text("audience", { enum: ANNOUNCEMENT_AUDIENCES }).notNull(),
+    important: integer("important", { mode: "boolean" }).notNull().default(false),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    createdAt: createdAt(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(now),
+    /** Last Istanbul day the home card shows it; the list keeps it afterwards. */
+    showUntil: text("show_until").notNull(),
+    /** Soft delete: hidden everywhere, push rows and reads stay. */
+    deletedAt: integer("deleted_at", { mode: "timestamp" }),
+  },
+  (t) => [
+    index("announcements_created_idx")
+      .on(t.createdAt)
+      .where(sql`deleted_at is null`),
+    index("announcements_created_by_idx").on(t.createdBy),
+    check("announcements_id_check", uuidPart("id")),
+    check(
+      "announcements_title_check",
+      sql`title = trim(title) and length(title) between 3 and 80`,
+    ),
+    check(
+      "announcements_body_check",
+      sql`length(trim(body)) between 1 and 1000 and length(body) <= 1000`,
+    ),
+    check("announcements_audience_check", sql`audience in (${inList(ANNOUNCEMENT_AUDIENCES)})`),
+    check("announcements_important_check", sql`important in (0, 1)`),
+    check(
+      "announcements_show_until_check",
+      sql`${day("show_until")} and date(show_until) is show_until`,
+    ),
+  ],
+);
+
+/** Rows only for audience = 'parts': whole parts, 1–4 per announcement (the app checks the count). */
+export const announcementParts = sqliteTable(
+  "announcement_parts",
+  {
+    announcementId: text("announcement_id")
+      .notNull()
+      .references(() => announcements.id, { onDelete: "cascade" }),
+    voicePart: text("voice_part", { enum: VOICE_PARTS }).notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.announcementId, t.voicePart] }),
+    check("announcement_parts_voice_check", sql`voice_part in (${inList(VOICE_PARTS)})`),
+  ],
+);
+
+/** "Tamam" on the home card. */
+export const announcementReads = sqliteTable(
+  "announcement_reads",
+  {
+    announcementId: text("announcement_id")
+      .notNull()
+      .references(() => announcements.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    readAt: integer("read_at", { mode: "timestamp" }).notNull().default(now),
+  },
+  (t) => [
+    primaryKey({ columns: [t.announcementId, t.userId] }),
+    index("announcement_reads_user_idx").on(t.userId, t.announcementId),
+  ],
+);

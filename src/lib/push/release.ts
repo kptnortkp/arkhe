@@ -38,6 +38,8 @@ export async function announceRelease(sha: string, message?: string | null) {
       line: `Yeni sürüm canlıda · ${sha7}`,
       url: "/",
       tag: "surum",
+      // The release is news right now; quiet hours must not hold it until the morning digest.
+      urgent: true,
       expiresAt: new Date(now.getTime() + DAY_MS),
     }));
     await notify(items, { now, fault: null, latencyMs: 0 });

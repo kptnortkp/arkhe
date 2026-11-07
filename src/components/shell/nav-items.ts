@@ -4,6 +4,7 @@ import {
   ChartColumn,
   House,
   Library,
+  Megaphone,
   Mic,
   SquareKanban,
   Users,
@@ -31,6 +32,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/calismalar", label: "Çalışmalar", icon: CalendarCheck },
   { href: "/repertuvar", label: "Repertuvar", icon: Library },
   { href: "/odevler", label: "Ödevler", icon: Mic, badge: "homework" },
+  { href: "/duyurular", label: "Duyurular", icon: Megaphone, sidebarOnly: true },
   {
     href: "/raporlar",
     label: "Raporlar",

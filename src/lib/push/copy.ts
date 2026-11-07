@@ -4,6 +4,7 @@ import type { PushGroup } from "./groups";
 
 /** §4 order: the combined morning notification lists lines in this order. */
 export const KINDS = [
+  "announcement",
   "attendance_open",
   "rehearsal_today",
   "concert_tomorrow",
