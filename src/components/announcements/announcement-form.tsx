@@ -248,7 +248,7 @@ export function AnnouncementForm(props: Props) {
             aria-describedby="important-hint"
             className="size-5 accent-primary"
           />
-          Acil duyuru
+          Önemli
         </label>
         <p id="important-hint" className="pl-8 text-xs text-muted-foreground">
           Gece sessiz saatlerinde (22:00–08:00) ve bildirimlerini kapatanlara da hemen gider; ana sayfada kırmızı görünür.

@@ -263,7 +263,7 @@ export default async function run(browser) {
   check(r5.includes('"ok":true') && !p5.some((p) => p.user_id === koristId) && p5.length === activeIds.length - 2, "a normal one respects the calisma switch");
   await go(korist, `${BASE}/`);
   check((await homeItem(korist, a4.id).getAttribute("data-important")) === "true", "the important card is marked (red tokens)");
-  check((await homeItem(korist, a4.id).locator("[data-testid=announcement-important]").textContent())?.includes("Acil"), "with the Acil chip");
+  check((await homeItem(korist, a4.id).locator("[data-testid=announcement-important]").textContent())?.includes("Önemli"), "with the Önemli chip");
 
   // --- home: at most 3, then "N duyuru daha"; sef@ has a1, a3, a4, a5 unread
   await go(sef, `${BASE}/`);

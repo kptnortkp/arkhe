@@ -11,7 +11,7 @@ export function ImportantChip({ className }: { className?: string }) {
       )}
     >
       <TriangleAlert aria-hidden className="size-3.5" />
-      Acil
+      Önemli
     </span>
   );
 }
