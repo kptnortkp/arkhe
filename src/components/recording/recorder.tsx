@@ -123,6 +123,30 @@ function fileDuration(file: Blob): Promise<number | null> {
 
 const box = "space-y-2 rounded-2xl border p-3 text-sm";
 
+// The "Tutti with the take" choice outlives the recorder: sending a take remounts it, and a retake
+// from there has no checkbox on screen.
+const TUTTI_KEY = "arkhe-tutti-with-take";
+const tuttiListeners = new Set<() => void>();
+let tuttiMemory = false;
+function readTuttiPref() {
+  try {
+    return localStorage.getItem(TUTTI_KEY) === "1";
+  } catch {
+    return tuttiMemory;
+  }
+}
+function subscribeTuttiPref(listener: () => void) {
+  tuttiListeners.add(listener);
+  return () => void tuttiListeners.delete(listener);
+}
+function saveTuttiPref(on: boolean) {
+  tuttiMemory = on;
+  try {
+    localStorage.setItem(TUTTI_KEY, on ? "1" : "0");
+  } catch {}
+  tuttiListeners.forEach((l) => l());
+}
+
 export function Recorder({
   assignmentId,
   userId,
@@ -183,7 +207,7 @@ export function Recorder({
   });
   const alongStop = useRef<(() => void) | null>(null);
   const idleCtx = useRef<AudioContext | null>(null);
-  const [tuttiWithTake, setTuttiWithTake] = useState(false);
+  const tuttiWithTake = useSyncExternalStore(subscribeTuttiPref, readTuttiPref, () => false);
   const autoTutti = useRef(false);
   const [pending, run] = useRunAction();
   const supported = useSyncExternalStore(noop, recorderSupported, () => true);
@@ -584,7 +608,7 @@ export function Recorder({
             <input
               type="checkbox"
               checked={tuttiWithTake}
-              onChange={(e) => setTuttiWithTake(e.target.checked)}
+              onChange={(e) => saveTuttiPref(e.target.checked)}
               className="mt-0.5 size-5 shrink-0 accent-primary"
             />
             <span className="space-y-0.5">
