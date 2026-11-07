@@ -1,5 +1,5 @@
 import "server-only";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import webpush from "web-push";
@@ -24,9 +24,13 @@ export type SendMeta = {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** A Topic header must be ≤ 32 base64url characters. */
+/**
+ * A Topic header must be ≤ 32 base64url characters, and Apple also rejects one that isn't valid
+ * base64 (e.g. the 5-letter "sabah": BadWebPushTopic). A hash of the tag is always 32 valid
+ * characters and still maps one tag to one topic, so a newer push keeps replacing an older one.
+ */
 export function topicOf(tag: string) {
-  return tag.replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 32);
+  return createHash("sha256").update(tag).digest("base64url").slice(0, 32);
 }
 
 async function writeOutbox(entry: object) {
