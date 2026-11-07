@@ -11,21 +11,28 @@ export class AudioFetchError extends Error {
 // across app restarts: the browser's HTTP cache can't be relied on for large files (iOS home-screen
 // apps), and every fetch counts toward the choir's 30-day listening quota. IndexedDB rather than
 // Cache Storage, because the service worker drops caches that aren't its own on every update.
+// Bytes rather than Blobs: WebKit can hand back stored Blobs that no longer read after a restart.
 const DB_NAME = "arkhe-audio";
+// 2: entries hold an ArrayBuffer; version 1 Blob entries are dropped on upgrade.
+const DB_VERSION = 2;
 const STORE = "files";
 /** Least recently played files go first beyond this; one file is at most 4 MB. */
 const MAX_BYTES = 200_000_000;
 const MAX_IDLE_MS = 60 * 24 * 3_600_000;
 
-type Entry = { src: string; blob: Blob; size: number; usedAt: number };
+type Entry = { src: string; data: ArrayBuffer; type: string; size: number; usedAt: number };
 
 const memory = new Map<string, Promise<Blob>>();
 
 function open(): Promise<IDBDatabase> | null {
   if (typeof indexedDB === "undefined") return null;
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = () => req.result.createObjectStore(STORE, { keyPath: "src" });
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (db.objectStoreNames.contains(STORE)) db.deleteObjectStore(STORE);
+      db.createObjectStore(STORE, { keyPath: "src" });
+    };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
@@ -54,11 +61,11 @@ async function withStore<T>(
 async function readStored(src: string): Promise<Blob | null> {
   try {
     const entry = (await withStore<Entry>("readonly", (s) => s.get(src))) as Entry | undefined;
-    if (!entry) return null;
+    if (!(entry?.data instanceof ArrayBuffer) || entry.data.byteLength !== entry.size) return null;
     void withStore("readwrite", (s) => {
       s.put({ ...entry, usedAt: Date.now() });
     }).catch(() => {});
-    return entry.blob;
+    return new Blob([entry.data], { type: entry.type });
   } catch {
     return null;
   }
@@ -66,8 +73,15 @@ async function readStored(src: string): Promise<Blob | null> {
 
 async function store(src: string, blob: Blob) {
   try {
+    const data = await blob.arrayBuffer();
     await withStore("readwrite", (s) => {
-      s.put({ src, blob, size: blob.size, usedAt: Date.now() } satisfies Entry);
+      s.put({
+        src,
+        data,
+        type: blob.type,
+        size: data.byteLength,
+        usedAt: Date.now(),
+      } satisfies Entry);
     });
     await prune();
   } catch {
@@ -92,8 +106,8 @@ async function prune() {
   });
 }
 
-async function load(src: string): Promise<Blob> {
-  const stored = await readStored(src);
+async function load(src: string, fresh: boolean): Promise<Blob> {
+  const stored = fresh ? null : await readStored(src);
   if (stored) return stored;
   const res = await fetch(src);
   if (!res.ok) throw new AudioFetchError(res);
@@ -102,10 +116,11 @@ async function load(src: string): Promise<Blob> {
   return blob;
 }
 
-export function fetchAudio(src: string): Promise<Blob> {
-  let pending = memory.get(src);
+/** `fresh` skips the stored copy: the caller found it unplayable and wants it from the server. */
+export function fetchAudio(src: string, { fresh = false } = {}): Promise<Blob> {
+  let pending = fresh ? undefined : memory.get(src);
   if (!pending) {
-    pending = load(src);
+    pending = load(src, fresh);
     // A failure is not kept: the next tap asks again.
     pending.catch(() => memory.delete(src));
     memory.set(src, pending);

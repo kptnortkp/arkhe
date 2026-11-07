@@ -109,6 +109,41 @@ async function suite(browser) {
   await korist.getByTestId("along-part").click();
   await korist.getByRole("button", { name: /^Partisyonu durdur/ }).waitFor({ timeout: 15000 });
   check(asked === 2, `play-along: after a reload the part plays from the phone (${asked} requests)`);
+  // A stored copy that no longer plays (WebKit can lose stored bytes) is fetched once more.
+  const corrupt = () =>
+    korist.evaluate(
+      () =>
+        new Promise((resolve, reject) => {
+          const req = indexedDB.open("arkhe-audio");
+          req.onsuccess = () => {
+            const db = req.result;
+            const tx = db.transaction("files", "readwrite");
+            const all = tx.objectStore("files").getAll();
+            all.onsuccess = () => {
+              for (const e of all.result) tx.objectStore("files").put({ ...e, data: new ArrayBuffer(e.size) });
+            };
+            tx.oncomplete = () => {
+              db.close();
+              resolve(all.result.length);
+            };
+            tx.onerror = () => reject(tx.error);
+          };
+        }),
+    );
+  check((await corrupt()) === 2, "play-along: both files are stored as bytes");
+  await go(korist, `${BASE}/odevler/${hw.id}`);
+  await korist.getByTestId("along-part").click();
+  await korist.getByRole("button", { name: /^Partisyonu durdur/ }).waitFor({ timeout: 15000 });
+  check(asked === 3, `play-along: a stored part that won't decode is fetched again and plays (${asked} requests)`);
+  await corrupt();
+  await go(korist, `${BASE}/repertuvar/${hw.piece}`);
+  const listen = korist.getByRole("button", { name: /^Dinle: / }).first();
+  await listen.click();
+  await korist.locator("[data-audio-player][data-state=playing]").first().waitFor({ timeout: 15000 });
+  check(
+    asked === 4 && (await korist.getByRole("alert").filter({ hasText: /açılamıyor|çalmıyor/ }).count()) === 0,
+    `play-along: on the piece page a stored file that won't play is fetched again, no error shows (${asked} requests)`,
+  );
   const stored = () => korist.evaluate(async () => (await indexedDB.databases()).some((d) => d.name === "arkhe-audio"));
   const before = await stored();
   await go(korist, `${BASE}/profil`);

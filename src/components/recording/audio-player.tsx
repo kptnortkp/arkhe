@@ -56,6 +56,7 @@ export function AudioPlayer({
   const known = durationMs !== null ? durationMs / 1000 : null;
   const total = known ?? mediaDuration;
   const self = useRef({ pause: () => audioRef.current?.pause() });
+  const recovery = useRef<Promise<boolean> | null>(null);
 
   useEffect(() => {
     const player = self.current;
@@ -108,6 +109,33 @@ export function AudioPlayer({
     return (urlRef.current = URL.createObjectURL(await res.blob()));
   }
 
+  /** Once per player: a stored copy that won't play is replaced by a fresh one from the server. */
+  function recover(): Promise<boolean> {
+    if (!src) return Promise.resolve(false);
+    return (recovery.current ??= (async () => {
+      const audio = audioRef.current;
+      if (!audio) return false;
+      setState("loading");
+      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+      urlRef.current = null;
+      try {
+        audio.src = urlRef.current = URL.createObjectURL(await fetchAudio(src, { fresh: true }));
+      } catch {
+        return false;
+      }
+      try {
+        await audio.play();
+        setError(null);
+      } catch (e) {
+        if ((e as DOMException)?.name !== "NotAllowedError") return false;
+        setState("paused");
+        setNeedsTap(true);
+        buttonRef.current?.focus();
+      }
+      return true;
+    })());
+  }
+
   async function toggle() {
     const audio = audioRef.current;
     if (!audio) return;
@@ -133,10 +161,13 @@ export function AudioPlayer({
     } catch (e) {
       // iOS: the tap's activation may expire during the fetch; the next tap plays.
       setState("paused");
-      if ((e as DOMException)?.name === "NotAllowedError") {
+      const name = (e as DOMException)?.name;
+      if (name === "NotAllowedError") {
         setNeedsTap(true);
         buttonRef.current?.focus();
-      } else {
+      } else if (name === "AbortError") {
+        // Another player took over (or this one paused) before playback started: not a failure.
+      } else if (!(await recover())) {
         setState("error");
         setError(MSG.playbackFailed);
       }
@@ -230,8 +261,11 @@ export function AudioPlayer({
         }}
         onError={() => {
           if (!loaded) return;
-          setState("error");
-          setError(downloadHint ? `${unplayable} İndir ile bilgisayarda dinleyebilirsin.` : unplayable);
+          void recover().then((ok) => {
+            if (ok) return;
+            setState("error");
+            setError(downloadHint ? `${unplayable} İndir ile bilgisayarda dinleyebilirsin.` : unplayable);
+          });
         }}
       />
       {needsTap && (

@@ -1,5 +1,5 @@
 import type { VoicePart } from "@/db/schema";
-import { fetchAudio } from "./audio-cache";
+import { AudioFetchError, fetchAudio } from "./audio-cache";
 
 /** What plays from the speaker while recording, so it lands in the take with the voice. */
 export type Backing =
@@ -20,8 +20,14 @@ export async function prepareBacking(
 ): Promise<StartBacking> {
   if (backing.kind === "audio") {
     // Every take has its own context, so the bytes are cached and decoded per context.
-    const file = await fetchAudio(`/api/dosya/ses/${backing.id}`);
-    const buffer = await ctx.decodeAudioData(await file.arrayBuffer());
+    const src = `/api/dosya/ses/${backing.id}`;
+    const decode = async (fresh: boolean) =>
+      ctx.decodeAudioData(await (await fetchAudio(src, { fresh })).arrayBuffer());
+    // A stored copy that won't decode is fetched once more from the server.
+    const buffer = await decode(false).catch((error) => {
+      if (error instanceof AudioFetchError) throw error;
+      return decode(true);
+    });
     return () => {
       const source = ctx.createBufferSource();
       source.buffer = buffer;
