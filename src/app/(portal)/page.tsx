@@ -14,6 +14,7 @@ import { PieceRow } from "@/components/repertoire/piece-row";
 import { ReviewHomeCard } from "@/components/review/home-card";
 import { StorageBanner } from "@/components/storage/storage-banner";
 import { PushNudge } from "@/components/notifications/push-nudge";
+import { SectionPrompt } from "@/components/section-picker";
 import { VOICE_PARTS } from "@/db/schema";
 import { autoCloseStale } from "@/lib/attendance/close";
 import { resolvePeriod } from "@/lib/attendance/period";
@@ -198,6 +199,9 @@ export default async function HomePage() {
         )}
       </section>
 
+      {user.role !== "conductor" && user.voicePart && user.voiceSection === null && (
+        <SectionPrompt part={user.voicePart} />
+      )}
       {pushKey && <PushNudge publicKey={pushKey} userId={user.id} />}
       {manager && <BoardHomeCard />}
       <ReviewHomeCard user={user} />

@@ -356,7 +356,7 @@ async function morning(all) {
   const piece = await scalar("select id from pieces where status <> 'archive' order by created_at limit 1");
   const due2 = crypto.randomUUID();
   await db.execute({ sql: "insert into assignments (id, piece_id, due_at, description, created_at, updated_at) values (?, ?, ?, 'E2E push due', unixepoch() - 86400, unixepoch())", args: [due2, piece, ts(istanbulDate(3), "21:00")] });
-  await db.execute({ sql: "insert into assignment_parts values (?, 'alto')", args: [due2] });
+  await db.execute({ sql: "insert into assignment_parts (assignment_id, voice_part) values (?, 'alto')", args: [due2] });
   const nazli = await userId("nazli.koc@arkhe.local");
   await db.execute({ sql: "insert into submissions (assignment_id, user_id, submitted_at, method) values (?, ?, unixepoch(), 'self')", args: [due2, nazli] });
   // Tickets for yk@: 1 today, 1 tomorrow, 2 overdue, 1 overdue but done.

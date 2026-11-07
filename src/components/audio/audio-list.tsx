@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { DownloadLink } from "@/components/download-link";
 import { AudioPlayer } from "@/components/recording/audio-player";
 import { buttonVariants } from "@/components/ui/button";
-import { VOICE_PART_LABELS, VOICE_PART_STYLES } from "@/lib/labels";
+import { VOICE_PART_STYLES, partLabel } from "@/lib/labels";
 import type { AudioRow } from "@/lib/repertoire-audio";
 import { cn } from "@/lib/utils";
 
@@ -11,7 +11,7 @@ const eyebrow = "font-sans text-xs font-medium tracking-[0.2em] text-muted-foreg
 
 /** Title plus the part (dot and name); the part line is left out when the title already is it. */
 function AudioHead({ a, extra }: { a: AudioRow; extra?: string }) {
-  const part = a.voicePart ? VOICE_PART_LABELS[a.voicePart] : "Tutti";
+  const part = a.voicePart ? partLabel(a.voicePart, a.section) : "Tutti";
   const sub = [a.label ? part : null, extra].filter(Boolean).join(" · ");
   return (
     <span className="min-w-0 flex-1">
@@ -63,6 +63,7 @@ export function AudioList({ rows }: { rows: AudioRow[] }) {
             className="px-4 py-2.5"
             data-testid="audio-row"
             data-part={a.voicePart ?? "tutti"}
+            data-section={a.section ?? ""}
           >
             <AudioItem
               a={a}

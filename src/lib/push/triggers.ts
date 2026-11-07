@@ -222,15 +222,16 @@ async function homeworkHead(assignmentId: string) {
 async function homeworkSingers(assignmentId: string) {
   const parts = (
     await db
-      .select({ p: assignmentParts.voicePart })
+      .select({ part: assignmentParts.voicePart, section: assignmentParts.section })
       .from(assignmentParts)
       .where(eq(assignmentParts.assignmentId, assignmentId))
-  ).map((r) => r.p);
+  ).map((r) => ({ part: r.part, section: r.section ?? null }));
   const singers = await db
     .select({
       id: users.id,
       role: users.role,
       voicePart: users.voicePart,
+      voiceSection: users.voiceSection,
       joinedAt: users.joinedAt,
       leftAt: users.leftAt,
     })

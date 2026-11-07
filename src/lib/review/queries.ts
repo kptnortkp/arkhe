@@ -8,8 +8,9 @@ import {
   type Role,
   type SubmissionMethod,
   type VoicePart,
+  type VoiceSection,
 } from "@/db/schema";
-import { isEligible } from "@/lib/homework/eligibility";
+import { isEligible, parseTargets } from "@/lib/homework/eligibility";
 import { collator } from "@/lib/format";
 import { COMMENTED_LIST_MAX, NO_TAKE_WINDOW_MS } from "@/lib/storage/limits";
 import { now } from "@/lib/time";
@@ -435,6 +436,7 @@ async function head(assignmentId: string, singerId: string) {
     name: string;
     role: Role;
     part: VoicePart | null;
+    section: VoiceSection | null;
     joined: number;
     left_at: number | null;
     sat: number | null;
@@ -442,8 +444,8 @@ async function head(assignmentId: string, singerId: string) {
     has_sub: number;
   }>(sql`
     select p.title, asg.bar_from as bf, asg.bar_to as bt, asg.due_at as due,
-      (select group_concat(voice_part) from assignment_parts where assignment_id = asg.id) as parts,
-      s.name, s.role, s.voice_part as part, s.joined_at as joined, s.left_at,
+      (select group_concat(voice_part || ':' || coalesce(section, '')) from assignment_parts where assignment_id = asg.id) as parts,
+      s.name, s.role, s.voice_part as part, s.voice_section as section, s.joined_at as joined, s.left_at,
       sub.submitted_at as sat, sub.method, sub.user_id is not null as has_sub
     from assignments asg
     join pieces p on p.id = asg.piece_id
@@ -453,10 +455,15 @@ async function head(assignmentId: string, singerId: string) {
   if (!r) return null;
   const dueAt = toDate(r.due)!;
   const submittedAt = toDate(r.sat);
-  const parts = (r.parts ?? "").split(",").filter(Boolean) as VoicePart[];
   const eligible = isEligible(
-    { role: r.role, voicePart: r.part, joinedAt: toDate(r.joined)!, leftAt: toDate(r.left_at) },
-    parts,
+    {
+      role: r.role,
+      voicePart: r.part,
+      voiceSection: r.section,
+      joinedAt: toDate(r.joined)!,
+      leftAt: toDate(r.left_at),
+    },
+    parseTargets(r.parts),
   );
   const value: Head = {
     assignment: { id: assignmentId, pieceTitle: r.title, barFrom: r.bf, barTo: r.bt, dueAt },

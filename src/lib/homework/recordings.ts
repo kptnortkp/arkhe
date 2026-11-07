@@ -6,17 +6,18 @@ import type {
   RecordingType,
   SubmissionMethod,
   VoicePart,
+  VoiceSection,
 } from "@/db/schema";
 import type { Q } from "@/db/write-tx";
 import { MAX_UPLOADS_PER_SLOT } from "@/lib/storage/limits";
-import { isEligible, type Singer } from "./eligibility";
+import { isEligible, parseTargets, type PartTarget, type Singer } from "./eligibility";
 
 const toDate = (s: unknown) => (s === null || s === undefined ? null : new Date(Number(s) * 1000));
 
 export type Slot = {
   dueAt: Date;
   cancelled: boolean;
-  parts: VoicePart[];
+  parts: PartTarget[];
   singer: (Singer & { id: string }) | null;
   eligible: boolean;
   submittedAt: Date | null;
@@ -37,16 +38,19 @@ export async function loadSlot(q: Q, assignmentId: string, userId: string): Prom
     cancelled_at: number | null;
     parts: string | null;
   }>(sql`
-    select asg.due_at, asg.cancelled_at, (select group_concat(voice_part) from assignment_parts where assignment_id = asg.id) as parts
+    select asg.due_at, asg.cancelled_at, (select group_concat(voice_part || ':' || coalesce(section, '')) from assignment_parts where assignment_id = asg.id) as parts
     from assignments asg where asg.id = ${assignmentId}`);
   if (!a || !a.parts) return null;
   const [u] = await q.all<{
     id: string;
     role: Singer["role"];
     voice_part: VoicePart | null;
+    voice_section: VoiceSection | null;
     joined_at: number;
     left_at: number | null;
-  }>(sql`select id, role, voice_part, joined_at, left_at from users where id = ${userId}`);
+  }>(
+    sql`select id, role, voice_part, voice_section, joined_at, left_at from users where id = ${userId}`,
+  );
   const [sub] = await q.all<{
     submitted_at: number | null;
     method: SubmissionMethod | null;
@@ -65,12 +69,13 @@ export async function loadSlot(q: Q, assignmentId: string, userId: string): Prom
       c.id, c.storage_key, c.audio_deleted_at, c.uploaded_at
     from (select 1) left join recordings c
       on c.assignment_id = ${assignmentId} and c.user_id = ${userId} and c.replaced_at is null`);
-  const parts = a.parts.split(",") as VoicePart[];
+  const parts = parseTargets(a.parts);
   const singer = u
     ? {
         id: u.id,
         role: u.role,
         voicePart: u.voice_part,
+        voiceSection: u.voice_section,
         joinedAt: toDate(u.joined_at)!,
         leftAt: toDate(u.left_at),
       }

@@ -10,6 +10,9 @@ const DEV_CRON_SECRET = process.env.CRON_SECRET ?? "dev-only-cron-secret";
 const TRIGGERS = [
   "budgets_no_overlap_insert",
   "budgets_no_overlap_update",
+  "issue_report_images_key_final",
+  "issue_report_images_max",
+  "issue_report_images_queue_on_delete",
   "midi_files_queue_on_delete",
   "piece_audio_queue_on_delete",
   "piece_scores_queue_on_delete",

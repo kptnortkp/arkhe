@@ -1,8 +1,17 @@
-import type { VoicePart } from "@/db/schema";
-import { VOICE_PART_LABELS, VOICE_PART_STYLES } from "@/lib/labels";
+import type { VoicePart, VoiceSection } from "@/db/schema";
+import { VOICE_PART_STYLES, partLabel } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 
-export function VoicePartBadge({ part, className }: { part: VoicePart; className?: string }) {
+export function VoicePartBadge({
+  part,
+  section = null,
+  className,
+}: {
+  part: VoicePart;
+  /** Shown as "Bas 2" when set. */
+  section?: VoiceSection | null;
+  className?: string;
+}) {
   const style = VOICE_PART_STYLES[part];
   return (
     <span
@@ -14,7 +23,7 @@ export function VoicePartBadge({ part, className }: { part: VoicePart; className
       )}
     >
       <span className={cn("size-1.5 rounded-full", style.dot)} />
-      {VOICE_PART_LABELS[part]}
+      {partLabel(part, section)}
     </span>
   );
 }

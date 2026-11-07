@@ -121,6 +121,25 @@ async function main() {
         ],
       );
     }
+    if (tables.has("issue_report_images")) {
+      checks.push(
+        [
+          "select count(*) from sqlite_master where type = 'trigger' and name in ('issue_report_images_queue_on_delete', 'issue_report_images_max', 'issue_report_images_key_final')",
+          "report image triggers missing",
+          3,
+        ],
+        [
+          "select count(*) from report_image_deletions d where exists (select 1 from issue_report_images i where i.storage_key = d.storage_key)",
+          "live report image keys queued for deletion",
+          0,
+        ],
+        [
+          "select count(*) from users where voice_section is not null and voice_part is null",
+          "voice sections without a voice part",
+          0,
+        ],
+      );
+    }
     for (const [query, problem, want] of checks) {
       const n = Number((await client.execute(query)).rows[0][0]);
       if (n !== want) problems.push(problem);

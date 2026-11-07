@@ -16,7 +16,7 @@ import { PieceMenu } from "@/components/repertoire/piece-menu";
 import { buttonVariants } from "@/components/ui/button";
 import { LINK_KINDS, type VoicePart } from "@/db/schema";
 import { requireUser } from "@/lib/auth/dal";
-import { LINK_KIND_GROUPS, VOICE_PART_LABELS } from "@/lib/labels";
+import { LINK_KIND_GROUPS, VOICE_PART_LABELS, partLabel } from "@/lib/labels";
 import { hostLabel, parseLink, resolveMyPart } from "@/lib/links";
 import { isManager } from "@/lib/permissions";
 import { DeadlineChip, DueLine } from "@/components/homework/deadline-chip";
@@ -24,7 +24,7 @@ import { managerBadge } from "@/lib/homework/deadline";
 import { barsLabel } from "@/lib/homework/mail";
 import { openHomeworkForPiece } from "@/lib/homework/queries";
 import { getPiece, programRank } from "@/lib/repertoire";
-import { audioForPiece } from "@/lib/repertoire-audio";
+import { audioForPiece, pickMyAudio } from "@/lib/repertoire-audio";
 import { heroMidi, midiForPiece, scoreForPiece } from "@/lib/repertoire-midi";
 import { now } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -96,12 +96,12 @@ export default async function PiecePage({ params, searchParams }: PageProps<"/re
     mine ? heroMidi(piece.id, mine) : null,
     midiForPiece(piece.id, filter ?? "all"),
     scoreForPiece(piece.id),
-    audioForPiece(piece.id, filter ?? "all"),
+    audioForPiece(piece.id, filter ?? "all", user.voiceSection),
   ]);
 
-  // Without MIDI or Drive part links, the first uploaded file for my part (else Tutti) is the hero.
+  // Without MIDI or Drive part links, my uploaded part file (my sub-part first, else Tutti) is the hero.
   const heroAudio =
-    audioRows.find((a) => a.voicePart === mine) ?? audioRows.find((a) => a.voicePart === null);
+    pickMyAudio(audioRows, mine, user.voiceSection) ?? audioRows.find((a) => a.voicePart === null);
 
   const chipHref = (value: string | null) =>
     value === null ? `/repertuvar/${piece.id}` : `/repertuvar/${piece.id}?partisyon=${value}`;
@@ -160,10 +160,10 @@ export default async function PiecePage({ params, searchParams }: PageProps<"/re
           <AudioPlayer
             src={`/api/dosya/ses/${heroAudio.id}`}
             durationMs={null}
-            label={`Partisyonumu dinle (${VOICE_PART_LABELS[mine]})`}
+            label={`Partisyonumu dinle (${partLabel(mine, user.voiceSection)})`}
           />
-          <p className="text-xs text-muted-foreground">
-            {heroAudio.voicePart ? VOICE_PART_LABELS[heroAudio.voicePart] : "Tutti"}
+          <p className="text-xs text-muted-foreground" data-testid="audio-hero-source">
+            {heroAudio.voicePart ? partLabel(heroAudio.voicePart, heroAudio.section) : "Tutti"}
             {heroAudio.label ? ` · ${heroAudio.label}` : ""}. Diğer kayıtlar aşağıda, “Ses
             kayıtları” bölümünde.
           </p>

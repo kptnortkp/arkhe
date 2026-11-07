@@ -213,6 +213,7 @@ const members: Undo = async (t, actor, batch, items) => {
             or exists (select 1 from listening_assistants la where la.created_by = "users"."id")
             or exists (select 1 from midi_files mf where mf.created_by = "users"."id")
             or exists (select 1 from piece_audio pa where pa.created_by = "users"."id")
+            or exists (select 1 from issue_reports ir where ir.reporter_id = "users"."id")
             or exists (select 1 from import_batches ib where "users"."id" in (ib.created_by, ib.undone_by)))`,
         ),
       ),
@@ -285,6 +286,8 @@ const members: Undo = async (t, actor, batch, items) => {
             leftAt: before.leftAt === null ? null : new Date(before.leftAt * 1000),
             isActive: before.isActive === 1,
             voicePart: before.voicePart,
+            // The sub-part isn't in the snapshot; it can't outlive a part change.
+            ...(before.voicePart !== u.voicePart ? { voiceSection: null } : {}),
           })
           .where(eq(users.id, u.id)),
       );

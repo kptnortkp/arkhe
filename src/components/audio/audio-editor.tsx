@@ -4,7 +4,7 @@ import { Download, MoreHorizontal, Trash2, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { deleteAudio } from "@/app/(portal)/repertuvar/audio-actions";
+import { deleteAudio, setAudioSection } from "@/app/(portal)/repertuvar/audio-actions";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { downloadInApp } from "@/components/download-link";
 import { AudioItem } from "@/components/audio/audio-list";
@@ -30,11 +30,14 @@ import {
 import { MSG } from "@/lib/storage/messages";
 
 type Part = VoicePart | "tutti";
+/** "" = the whole part. */
+type Section = "" | "1" | "2";
 type QueueState = "ready" | "uploading" | "done" | "failed";
 type Queued = {
   key: string;
   file: File;
   part: Part;
+  section: Section;
   label: string;
   state: QueueState;
   error: string | null;
@@ -50,18 +53,30 @@ const PART_WORDS: [Part, RegExp][] = [
   ["tutti", /^(toplu|tutti|hepsi|tumu)$/],
 ];
 
-/** The part from the file name's words; the piece title is left out so it can't match. */
-export function guessAudio(fileName: string, pieceTitle: string): { part: Part; label: string } {
+/** The part (and B2-style sub-part) from the file name's words; the piece title can't match. */
+export function guessAudio(
+  fileName: string,
+  pieceTitle: string,
+): { part: Part; section: Section; label: string } {
   const base = fileName.replace(/\.[a-z0-9]{2,4}$/i, "");
   const title = searchKey(pieceTitle).trim();
   const words = base.split(/[\s_\-–.,()+]+/).filter(Boolean);
   const kept = words.filter((w) => !title.split(/\s+/).includes(searchKey(w)));
   const found = new Set<Part>();
-  for (const w of kept) {
+  const sections = new Set<Section>();
+  kept.forEach((w, i) => {
     const k = searchKey(w);
-    for (const [part, re] of PART_WORDS) if (re.test(k)) found.add(part);
-  }
+    for (const [part, re] of PART_WORDS) {
+      if (!re.test(k)) continue;
+      found.add(part);
+      // "Bas2", "B2" or "Bas 2"
+      const next = kept[i + 1];
+      const digit = k.match(/[12]$/)?.[0] ?? (next === "1" || next === "2" ? next : "");
+      if (part !== "tutti") sections.add(digit as Section);
+    }
+  });
   const part = found.size === 1 ? [...found][0] : "tutti";
+  const section = part !== "tutti" && sections.size === 1 ? [...sections][0] : "";
   // Drop the piece title from the label: the page already shows it.
   let label = base;
   if (title) {
@@ -70,8 +85,9 @@ export function guessAudio(fileName: string, pieceTitle: string): { part: Part; 
   }
   label = label.replace(/^[\s_\-–.,|]+|[\s_\-–.,|]+$/g, "").replace(/\s{2,}/g, " ");
   // Just the part word: no label, the row is named by its part.
-  if (PART_WORDS.some(([, re]) => re.test(searchKey(label)))) label = "";
-  return { part, label: label.slice(0, MIDI_LABEL_MAX) };
+  const bare = searchKey(label).replace(/\s+([12])$/, "$1");
+  if (PART_WORDS.some(([, re]) => re.test(bare))) label = "";
+  return { part, section, label: label.slice(0, MIDI_LABEL_MAX) };
 }
 
 function FileMenu({ a, onDelete }: { a: AudioRow; onDelete: () => void }) {
@@ -102,6 +118,32 @@ function FileMenu({ a, onDelete }: { a: AudioRow; onDelete: () => void }) {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+function SectionSelect({
+  label,
+  value,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: Section;
+  disabled?: boolean;
+  onChange: (section: Section) => void;
+}) {
+  return (
+    <select
+      aria-label={label}
+      className="h-11 w-28 shrink-0 rounded-xl border border-input bg-card px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
+      value={value}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.value as Section)}
+    >
+      <option value="">Tümü</option>
+      <option value="1">1</option>
+      <option value="2">2</option>
+    </select>
   );
 }
 
@@ -167,6 +209,7 @@ function UploadQueue({
       update(item.key, { state: "uploading", error: null });
       setProgress(0);
       const q = new URLSearchParams({ eser: pieceId, ses: item.part });
+      if (item.part !== "tutti" && item.section) q.set("alt", item.section);
       if (item.label.trim()) q.set("etiket", item.label.trim());
       const res = await uploadBlob(`/api/dosya/ses?${q}`, item.file, {
         headers: { [UPLOAD_ID_HEADER]: item.uploadId },
@@ -270,21 +313,36 @@ function UploadQueue({
                 )}
               </div>
               {item.state === "ready" && (
-                <div className="grid gap-2 sm:grid-cols-[10rem_1fr]">
-                  <select
-                    aria-label={`Partisyon: ${item.file.name}`}
-                    className={select}
-                    value={item.part}
-                    disabled={busy}
-                    onChange={(e) => update(item.key, { part: e.target.value as Part })}
-                  >
-                    <option value="tutti">Tutti</option>
-                    {VOICE_PARTS.map((p) => (
-                      <option key={p} value={p}>
-                        {VOICE_PART_LABELS[p]}
-                      </option>
-                    ))}
-                  </select>
+                <div className="grid gap-2 sm:grid-cols-[10rem_auto_1fr]">
+                  <div className="flex gap-2 sm:contents">
+                    <select
+                      aria-label={`Partisyon: ${item.file.name}`}
+                      className={select}
+                      value={item.part}
+                      disabled={busy}
+                      onChange={(e) =>
+                        update(item.key, {
+                          part: e.target.value as Part,
+                          ...(e.target.value === "tutti" ? { section: "" as const } : {}),
+                        })
+                      }
+                    >
+                      <option value="tutti">Tutti</option>
+                      {VOICE_PARTS.map((p) => (
+                        <option key={p} value={p}>
+                          {VOICE_PART_LABELS[p]}
+                        </option>
+                      ))}
+                    </select>
+                    {item.part !== "tutti" && (
+                      <SectionSelect
+                        label={`${item.file.name} için alt partisyon`}
+                        value={item.section}
+                        disabled={busy}
+                        onChange={(section) => update(item.key, { section })}
+                      />
+                    )}
+                  </div>
                   <input
                     aria-label={`Etiket: ${item.file.name}`}
                     className={select}
@@ -364,6 +422,17 @@ export function AudioEditor({
                 extra={formatBytes(a.sizeBytes)}
                 after={<FileMenu a={a} onDelete={() => setDoomed(a)} />}
               />
+              {a.voicePart && (
+                <label className="mt-1 flex items-center gap-2 pl-4 text-xs text-muted-foreground">
+                  Alt partisyon
+                  <SectionSelect
+                    label={`${a.title} için alt partisyon`}
+                    value={a.section ? (String(a.section) as Section) : ""}
+                    disabled={pending}
+                    onChange={(v) => run(() => setAudioSection(a.id, v ? Number(v) : null))}
+                  />
+                </label>
+              )}
             </li>
           ))}
         </ul>

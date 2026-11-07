@@ -10,14 +10,21 @@ import {
   pieces,
   submissions,
   users,
-  VOICE_PARTS,
   type Role,
   type SubmissionMethod,
   type VoicePart,
 } from "@/db/schema";
 import { collator } from "@/lib/format";
 import { now } from "@/lib/time";
-import { isEligible, isExpected, type Singer } from "./eligibility";
+import {
+  ALL_PARTS,
+  inTargets,
+  isEligible,
+  isExpected,
+  sortTargets,
+  type PartTarget,
+  type Singer,
+} from "./eligibility";
 import { RECORDING_EMAIL_RE } from "./mail";
 
 export const CURRENT_WINDOW_MS = 7 * 24 * 3_600_000;
@@ -34,6 +41,7 @@ export const loadViewer = cache(async (id: string): Promise<Viewer | null> => {
       name: users.name,
       role: users.role,
       voicePart: users.voicePart,
+      voiceSection: users.voiceSection,
       joinedAt: users.joinedAt,
       leftAt: users.leftAt,
     })
@@ -53,7 +61,7 @@ export async function getRecordingEmail() {
 /** Expected, unsubmitted homework in Güncel; shared by the tab badge and the home card. */
 export const openHomeworkCount = cache(async (userId: string) => {
   const viewer = await loadViewer(userId);
-  if (!viewer || !isEligible(viewer, VOICE_PARTS)) return 0;
+  if (!viewer || !isEligible(viewer, ALL_PARTS)) return 0;
   const since = new Date(now().getTime() - CURRENT_WINDOW_MS);
   const [row] = await db
     .select({ n: sql<number>`count(*)` })
@@ -63,6 +71,7 @@ export const openHomeworkCount = cache(async (userId: string) => {
       and(
         eq(assignmentParts.assignmentId, assignments.id),
         eq(assignmentParts.voicePart, viewer.voicePart!),
+        sql`(${assignmentParts.section} is null or ${assignmentParts.section} = ${viewer.voiceSection})`,
       ),
     )
     .where(
@@ -88,15 +97,19 @@ const baseColumns = {
 };
 
 async function partsOf(ids: string[]) {
-  const map = new Map<string, VoicePart[]>();
+  const map = new Map<string, PartTarget[]>();
   if (ids.length === 0) return map;
   const rows = await db
     .select()
     .from(assignmentParts)
     .where(inArray(assignmentParts.assignmentId, ids));
-  for (const r of rows) map.set(r.assignmentId, [...(map.get(r.assignmentId) ?? []), r.voicePart]);
-  for (const parts of map.values())
-    parts.sort((a, b) => VOICE_PARTS.indexOf(a) - VOICE_PARTS.indexOf(b));
+  for (const r of rows) {
+    map.set(r.assignmentId, [
+      ...(map.get(r.assignmentId) ?? []),
+      { part: r.voicePart, section: r.section ?? null },
+    ]);
+  }
+  for (const parts of map.values()) sortTargets(parts);
   return map;
 }
 
@@ -150,6 +163,7 @@ async function loadRoster(): Promise<RosterUser[]> {
       name: users.name,
       role: users.role,
       voicePart: users.voicePart,
+      voiceSection: users.voiceSection,
       joinedAt: users.joinedAt,
       leftAt: users.leftAt,
       isActive: users.isActive,
@@ -160,11 +174,11 @@ async function loadRoster(): Promise<RosterUser[]> {
 export type PartCount = { part: VoicePart; done: number; total: number };
 
 function countsFor(
-  a: { id: string; parts: VoicePart[]; createdAt: Date },
+  a: { id: string; parts: PartTarget[]; createdAt: Date },
   roster: RosterUser[],
   submitted: Set<string>,
 ) {
-  const perPart: PartCount[] = a.parts.map((part) => ({ part, done: 0, total: 0 }));
+  const perPart: PartCount[] = a.parts.map(({ part }) => ({ part, done: 0, total: 0 }));
   for (const u of roster) {
     const has = submitted.has(`${a.id}:${u.id}`);
     // Denominator = expected singers plus anyone else who submitted and is still in the choir.
@@ -276,7 +290,7 @@ export type RosterEntry = {
 
 /** Manager-only: who is expected, who submitted, and every private note on one homework. */
 export async function rosterFor(
-  a: { id: string; parts: VoicePart[]; createdAt: Date; dueAt: Date },
+  a: { id: string; parts: PartTarget[]; createdAt: Date; dueAt: Date },
   at: Date,
 ) {
   const author = alias(users, "author");
@@ -409,6 +423,26 @@ export async function submissionCount(assignmentId: string) {
   return Number(row?.n ?? 0);
 }
 
+/** Active singers per part who haven't picked a sub-part: they miss a section-only homework. */
+export async function unsectionedCounts() {
+  const rows = await db
+    .select({ part: users.voicePart, n: sql<number>`count(*)` })
+    .from(users)
+    .where(
+      and(
+        isNull(users.leftAt),
+        eq(users.isActive, true),
+        inArray(users.role, ["member", "board"]),
+        isNotNull(users.voicePart),
+        isNull(users.voiceSection),
+      ),
+    )
+    .groupBy(users.voicePart);
+  const counts: Partial<Record<VoicePart, number>> = {};
+  for (const r of rows) if (r.part) counts[r.part] = Number(r.n);
+  return counts;
+}
+
 export async function pieceOptions(currentId?: string) {
   const rows = await db
     .select({ id: pieces.id, title: pieces.title, status: pieces.status })
@@ -467,7 +501,7 @@ export async function homeworkDueBetween(from: Date, to: Date, at: Date) {
     for (const u of roster) {
       const sub = submittedAt.get(`${a.id}:${u.id}`) ?? null;
       const expected = isExpected(u, withParts);
-      const inParts = u.voicePart !== null && withParts.parts.includes(u.voicePart);
+      const inParts = inTargets(u, withParts.parts);
       if (!expected && !(sub && inParts)) continue;
       people.push({
         assignmentId: a.id,

@@ -363,7 +363,11 @@ export async function insertAssignment({ dueDays, parts = ["soprano", "alto", "t
         sql: "insert into assignments (id, piece_id, description, due_at, created_at, updated_at) values (?, ?, 'E2E kayıt', ?, ?, ?)",
         args: [id, piece, now + Math.round(dueDays * 86400), now - 60 * 86400, now - 60 * 86400],
       },
-      ...parts.map((p) => ({ sql: "insert into assignment_parts values (?, ?)", args: [id, p] })),
+      // "bass:1" narrows a part to one sub-part.
+      ...parts.map((p) => ({
+        sql: "insert into assignment_parts (assignment_id, voice_part, section) values (?, ?, ?)",
+        args: [id, p.split(":")[0], p.includes(":") ? Number(p.split(":")[1]) : null],
+      })),
     ],
     "write",
   );

@@ -6,6 +6,7 @@ import type {
   RehearsalType,
   Role,
   VoicePart,
+  VoiceSection,
 } from "@/db/schema";
 import type { Account, Category, DuesRate, EntryKind } from "@/lib/finance/categories";
 
@@ -21,6 +22,11 @@ export const VOICE_PART_LABELS: Record<VoicePart, string> = {
   tenor: "Tenor",
   bass: "Bas",
 };
+
+/** "Bas 2" with a sub-part, else just "Bas". */
+export function partLabel(part: VoicePart, section: VoiceSection | null | undefined) {
+  return section ? `${VOICE_PART_LABELS[part]} ${section}` : VOICE_PART_LABELS[part];
+}
 
 // Static class names so Tailwind can see them.
 export const VOICE_PART_STYLES: Record<VoicePart, { dot: string; soft: string; text: string }> = {

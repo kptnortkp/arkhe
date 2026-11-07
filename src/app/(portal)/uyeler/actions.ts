@@ -41,6 +41,7 @@ async function loadTarget(id: string) {
       email: users.email,
       phone: users.phone,
       role: users.role,
+      voicePart: users.voicePart,
       passwordHash: users.passwordHash,
       isActive: users.isActive,
     })
@@ -120,9 +121,17 @@ export async function updateMember(
     };
   }
 
+  // The form clears the sub-part when the part changes. With the same part, an untouched field
+  // keeps whatever the singer picked in Profil meanwhile.
+  const { voiceSection, ...fields } = rest;
+  const touched = String(formData.get("voiceSection") ?? "") !== formData.get("voiceSectionWas");
   await db
     .update(users)
-    .set({ ...rest, joinedAt: joinedOn })
+    .set({
+      ...fields,
+      joinedAt: joinedOn,
+      ...(data.voicePart !== target.voicePart || touched || !data.voicePart ? { voiceSection } : {}),
+    })
     .where(eq(users.id, id));
   revalidatePath("/uyeler");
   revalidatePath(`/uyeler/${id}`);

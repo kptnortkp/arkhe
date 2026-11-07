@@ -223,6 +223,16 @@ A manager adds rehearsal audio to a piece on its edit page (`Ses kayıtları`): 
 - **Storage:** files live under `recordings/` with area `recording`, so deletion, the sweep and the monthly playback stop treat them like takes; retention never touches them (it only reads the `recordings` table). Deleting a file or its piece queues the file (0018 trigger).
 - **Playback:** `/api/dosya/ses/<id>`, cached by the browser for a week; 30 per hour and 60 per day per listener.
 
+## Sorun bildirimleri (`/sorun-bildir`, `/sorunlar`)
+
+Everyone signed in can file an issue report at `/sorun-bildir` (also linked from Profil and the desktop sidebar), with up to 3 screenshots. Only the reporter and the **handler** see a report.
+
+- **Who handles reports:** the users with `users.handles_reports = 1`. There is no UI for it; set it with SQL (Turso shell in production, `sqlite3 data/arkhe.db` locally): `update users set handles_reports = 1 where email = '<e-posta>';` (and `= 0` on the previous handler). Migration 0019 set it for Mert Temiz; the seed sets it for `yk@arkhe.local`. The flag is read fresh on every request, so it takes effect at once.
+- **Handler:** sees `Sorunlar` (sidebar with the open count, or `Profilim › Sorunlar` on a phone), sets the status and a reply in one save, and gets the `Yeni sorun bildirimi` push (switch `sistem`). The reporter gets `Sorun #N güncellendi` whenever the status or the reply changes. Anyone else gets the ordinary 404 on `/sorunlar`.
+- **Screenshots:** downscaled in the browser (≤1600 px, JPEG), ≤2 MB each, stored under `reports/` in the same Blob store and counted in the storage meter; uploads stop at 95% like every other upload. Served only to the reporter and the handler by `/api/dosya/sorun/<id>` (`private, no-store`). The daily sweep deletes the screenshots of reports closed for 90 days; the text stays.
+- **Limits:** 10 reports per person per day.
+- **IT:** the same flag makes a person the choir's IT contact: an `IT` badge next to their name (`/uyeler`, their own Profil), and the `Canlıya çıktı` push when a new build goes live. That push is sent once per commit after the deploy workflow's health probe (`/api/saglik`, `VERCEL_GIT_COMMIT_SHA` + first line of `VERCEL_GIT_COMMIT_MESSAGE`); the last announced commit is `notification_state` key `surum`. Locally (no commit sha) nothing is sent.
+
 ## Otomatik MIDI (nota PDF'inden, GitHub Actions)
 
 A manager uploads a piece's score PDF (`Nota ve otomatik MIDI` on the edit page); members can open and download it. `MIDI'ye çevir` starts `.github/workflows/omr.yml` on `kptnortkp/arkhe`: Audiveris 5.11.0 reads the PDF, `omr/convert.py` writes one multi-track MIDI, and the result comes back as a **draft** that only managers see until one of them taps `Yayınla` (which also notifies the choir). Free: Actions minutes of the private repo (2,000/month; the portal allows 40 conversions per 30 days and 10 per manager per day).

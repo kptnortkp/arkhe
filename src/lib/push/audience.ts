@@ -17,6 +17,7 @@ export type Person = {
   role: Role;
   voicePart: VoicePart | null;
   assistant: boolean;
+  handlesReports: boolean;
   prefs: Map<PushPrefKey, boolean>;
   devices: number;
 };
@@ -40,6 +41,7 @@ export async function loadPeople(ids: string[] | null, opts: { withDevicesOnly?:
       id: users.id,
       role: users.role,
       voicePart: users.voicePart,
+      handlesReports: users.handlesReports,
       // Spelled out: drizzle renders a bare "id" for columns inside select fields.
       devices: sql<number>`(select count(*) from push_subscriptions s where s.user_id = "users"."id")`,
       assistant: sql<number>`exists (select 1 from listening_assistants la where la.user_id = "users"."id")`,
@@ -55,6 +57,7 @@ export async function loadPeople(ids: string[] | null, opts: { withDevicesOnly?:
       voicePart: r.voicePart,
       // D9: appointments of the conductor or of non-singers are ignored.
       assistant: Boolean(Number(r.assistant)) && r.role !== "conductor",
+      handlesReports: r.handlesReports,
       prefs: new Map(),
       devices: Number(r.devices),
     });

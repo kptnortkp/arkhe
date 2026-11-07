@@ -246,7 +246,7 @@ export async function seedMedia(client, T = new Date()) {
 
 /**
  * Deletes every file under the uploads root that no live row references (and no in-flight upload
- * holds). Never touches anything outside <root>/recordings, <root>/midi and <root>/scores.
+ * holds). Never touches anything outside <root>/recordings, <root>/midi, <root>/scores and <root>/reports.
  */
 export async function reconcileLocalUploads(client) {
   assertFixtureTarget(client);
@@ -258,11 +258,13 @@ export async function reconcileLocalUploads(client) {
          union all select storage_key from midi_files
          union all select storage_key from piece_scores
          union all select storage_key from piece_audio
-         union all select storage_key from storage_deletions where state = 'pending' and not_before > unixepoch()`,
+         union all select storage_key from issue_report_images
+         union all select storage_key from storage_deletions where state = 'pending' and not_before > unixepoch()
+         union all select storage_key from report_image_deletions where state = 'pending' and not_before > unixepoch()`,
       )
     ).rows.map((r) => String(r[0])),
   );
-  for (const dir of ["recordings", "midi", "scores"]) {
+  for (const dir of ["recordings", "midi", "scores", "reports"]) {
     let names = [];
     try {
       names = await readdir(path.join(root, dir));
@@ -288,6 +290,7 @@ export async function clearE2eMedia(client) {
       `delete from listening_assistants where user_id in (${e2e}) or created_by in (${e2e})`,
       `delete from midi_files where created_by in (${e2e})`,
       `delete from piece_audio where created_by in (${e2e})`,
+      `delete from issue_reports where reporter_id in (${e2e})`,
     ],
     "write",
   );

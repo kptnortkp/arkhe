@@ -187,7 +187,13 @@ export async function cleanup() {
   await seedHomework(db, new Date());
   // Storage bookkeeping last; the files are reconciled against the live rows (data/uploads*).
   await db.batch(
-    ["delete from storage_deletions", "delete from storage_events", "delete from storage_sweeps"],
+    [
+      "delete from issue_reports where title like 'E2E%'",
+      "delete from storage_deletions",
+      "delete from report_image_deletions",
+      "delete from storage_events",
+      "delete from storage_sweeps",
+    ],
     "write",
   );
   await reconcileLocalUploads(db);

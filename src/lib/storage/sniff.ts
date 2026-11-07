@@ -143,3 +143,13 @@ export function checkMidi(b: Uint8Array) {
   }
   return mtrk > 0 && b.length - at < 8;
 }
+
+/** A report screenshot: JPEG, PNG or WebP by its signature, never by the declared type. */
+export function sniffImage(b: Uint8Array): "image/jpeg" | "image/png" | "image/webp" | null {
+  if (b.length >= 4 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
+  if (b.length >= 16 && u32(b, 0) === 0x89504e47 && u32(b, 4) === 0x0d0a1a0a && ascii(b, 12, "IHDR"))
+    return "image/png";
+  if (b.length >= 16 && ascii(b, 0, "RIFF") && ascii(b, 8, "WEBP") && ascii(b, 12, "VP8"))
+    return "image/webp";
+  return null;
+}

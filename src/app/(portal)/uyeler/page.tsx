@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FilterChip } from "@/components/filter-chip";
 import { UserAvatar } from "@/components/shell/user-menu";
 import { buttonVariants } from "@/components/ui/button";
+import { ItBadge } from "@/components/it-badge";
 import { VoicePartBadge } from "@/components/voice-part-badge";
 import { db } from "@/db";
 import { users, VOICE_PARTS, type VoicePart } from "@/db/schema";
@@ -31,6 +32,7 @@ export default async function MembersPage({ searchParams }: PageProps<"/uyeler">
       email: users.email,
       role: users.role,
       voicePart: users.voicePart,
+      handlesReports: users.handlesReports,
       isActive: users.isActive,
       hasPassword: sql<boolean>`${users.passwordHash} is not null`.mapWith(Boolean),
     })
@@ -120,7 +122,10 @@ export default async function MembersPage({ searchParams }: PageProps<"/uyeler">
               >
                 <UserAvatar name={m.name} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{m.name}</p>
+                  <p className="flex min-w-0 items-center gap-1.5 font-medium">
+                    <span className="truncate">{m.name}</span>
+                    {m.handlesReports && <ItBadge />}
+                  </p>
                   <p className="truncate text-xs text-muted-foreground">
                     {!m.hasPassword && m.isActive && (
                       <span className="font-medium text-accent-foreground sm:hidden">

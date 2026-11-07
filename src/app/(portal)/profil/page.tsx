@@ -1,8 +1,19 @@
-import { ChartColumn, ChevronRight, DatabaseBackup, FileUp, LogOut, Wallet } from "lucide-react";
+import {
+  Bug,
+  ChartColumn,
+  ChevronRight,
+  DatabaseBackup,
+  FileUp,
+  LogOut,
+  MessageSquareWarning,
+  Wallet,
+} from "lucide-react";
 import Link from "next/link";
 import { LogoutForm } from "@/components/shell/logout-form";
 import { UserAvatar } from "@/components/shell/user-menu";
 import { Button } from "@/components/ui/button";
+import { ItBadge } from "@/components/it-badge";
+import { SectionPicker } from "@/components/section-picker";
 import { VoicePartBadge } from "@/components/voice-part-badge";
 import { requireUser } from "@/lib/auth/dal";
 import { MyDuesSection } from "@/components/finance/my-dues";
@@ -10,12 +21,14 @@ import { InstallCard } from "@/components/install-card";
 import { NotificationsSection } from "@/components/notifications/notifications-section";
 import { ROLE_LABELS } from "@/lib/labels";
 import { isManager } from "@/lib/permissions";
+import { reportNavCount } from "@/lib/reports/queries";
 import { PasswordForm, ProfileForm } from "./profile-forms";
 
 export const metadata = { title: "Profilim" };
 
 export default async function ProfilePage() {
   const user = await requireUser();
+  const openReports = await reportNavCount(user.id);
   return (
     <div className="max-w-xl space-y-10">
       <div className="flex items-center gap-4">
@@ -24,7 +37,10 @@ export default async function ProfilePage() {
           <h1 className="text-3xl font-medium">{user.name}</h1>
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             {ROLE_LABELS[user.role]}
-            {user.voicePart && <VoicePartBadge part={user.voicePart} />}
+            {openReports !== null && <ItBadge />}
+            {user.voicePart && (
+              <VoicePartBadge part={user.voicePart} section={user.voiceSection} />
+            )}
           </div>
         </div>
       </div>
@@ -42,6 +58,7 @@ export default async function ProfilePage() {
             E-posta: {user.email}. E-posta, rol ve partisyonu yönetim değiştirebilir.
           </p>
         </div>
+        {user.voicePart && <SectionPicker part={user.voicePart} section={user.voiceSection} />}
         <ProfileForm name={user.name} phone={user.phone} />
       </section>
 
@@ -76,6 +93,23 @@ export default async function ProfilePage() {
         </nav>
       )}
 
+      <nav aria-label="Destek" className="space-y-2" data-testid="profile-support-links">
+        {openReports !== null && (
+          <ProfileRow
+            href="/sorunlar"
+            label="Sorunlar"
+            hint={openReports > 0 ? `${openReports} açık bildirim` : "Açık bildirim yok"}
+            icon={Bug}
+          />
+        )}
+        <ProfileRow
+          href="/sorun-bildir"
+          label="Sorun bildir"
+          hint="Portalda bir şey ters gittiyse yaz"
+          icon={MessageSquareWarning}
+        />
+      </nav>
+
       <LogoutForm className="border-t pt-6">
         <Button
           type="submit"
@@ -87,5 +121,31 @@ export default async function ProfilePage() {
         </Button>
       </LogoutForm>
     </div>
+  );
+}
+
+function ProfileRow({
+  href,
+  label,
+  hint,
+  icon: Icon,
+}: {
+  href: string;
+  label: string;
+  hint: string;
+  icon: typeof Bug;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex min-h-14 items-center gap-3 rounded-2xl border bg-card px-4 transition-colors hover:bg-muted/50"
+    >
+      <Icon className="size-5 text-muted-foreground" aria-hidden />
+      <span className="flex-1">
+        <span className="block font-medium">{label}</span>
+        <span className="block text-sm text-muted-foreground">{hint}</span>
+      </span>
+      <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+    </Link>
   );
 }

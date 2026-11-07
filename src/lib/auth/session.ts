@@ -64,6 +64,7 @@ export const getSessionUser = cache(async () => {
       phone: users.phone,
       role: users.role,
       voicePart: users.voicePart,
+      voiceSection: users.voiceSection,
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))

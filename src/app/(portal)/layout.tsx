@@ -12,18 +12,20 @@ import { reviewBadgeCount } from "@/lib/review/queries";
 import { openHomeworkCount } from "@/lib/homework/queries";
 import { ROLE_LABELS } from "@/lib/labels";
 import { isManager } from "@/lib/permissions";
+import { reportNavCount } from "@/lib/reports/queries";
 
 export default async function PortalLayout({ children }: LayoutProps<"/">) {
   const user = await requireUser();
   const canManage = isManager(user.role);
-  const [homework, board, review, flash] = await Promise.all([
+  const [homework, board, review, reports, flash] = await Promise.all([
     openHomeworkCount(user.id),
     boardBadgeCount(),
     // The conductor only: assistant-noted takes waiting for the comment (D14).
     user.role === "conductor" ? reviewBadgeCount() : 0,
+    reportNavCount(user.id),
     readFlash(),
   ]);
-  const badges = { homework, board, review };
+  const badges = { homework, board, review, reports };
 
   return (
     <>
@@ -70,7 +72,9 @@ export default async function PortalLayout({ children }: LayoutProps<"/">) {
               <ArkheWordmark className="h-5" density="small" />
             </Link>
             <Link href="/profil" className="flex items-center gap-2" aria-label="Profilim">
-              {user.voicePart && <VoicePartBadge part={user.voicePart} />}
+              {user.voicePart && (
+                <VoicePartBadge part={user.voicePart} section={user.voiceSection} />
+              )}
               <UserAvatar name={user.name} className="size-8" />
             </Link>
           </header>

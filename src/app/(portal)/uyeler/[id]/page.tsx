@@ -1,4 +1,5 @@
 import { eq, sql } from "drizzle-orm";
+import { ItBadge } from "@/components/it-badge";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -24,6 +25,8 @@ export default async function MemberPage({ params }: PageProps<"/uyeler/[id]">) 
       phone: users.phone,
       role: users.role,
       voicePart: users.voicePart,
+      voiceSection: users.voiceSection,
+      handlesReports: users.handlesReports,
       isActive: users.isActive,
       joinedAt: users.joinedAt,
       hasPassword: sql<boolean>`${users.passwordHash} is not null`.mapWith(Boolean),
@@ -46,7 +49,10 @@ export default async function MemberPage({ params }: PageProps<"/uyeler/[id]">) 
           <ChevronLeft className="size-4" />
           Üyeler
         </Link>
-        <h1 className="text-4xl font-medium">{member.name}</h1>
+        <h1 className="text-4xl font-medium">
+          {member.name}
+          {member.handlesReports && <ItBadge className="ml-2" />}
+        </h1>
         {!member.isActive && (
           <p className="w-fit rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
             Pasif üye
@@ -63,6 +69,7 @@ export default async function MemberPage({ params }: PageProps<"/uyeler/[id]">) 
               phone: member.phone,
               role: member.role,
               voicePart: member.voicePart,
+              voiceSection: member.voiceSection,
               joinedOn: istanbulDateOf(member.joinedAt),
             }}
             actorRole={actor.role}

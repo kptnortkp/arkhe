@@ -523,7 +523,7 @@ export default async function phase4(browser, shots) {
         sql: "insert into assignments (id, piece_id, description, due_at, created_at, updated_at) values (?, ?, 'E2E sınır', ?, ?, ?)",
         args: [id, pieceE2E, nowSec + dueOffsetSec, nowSec - 60, nowSec - 60],
       },
-      { sql: "insert into assignment_parts values (?, 'alto')", args: [id] },
+      { sql: "insert into assignment_parts (assignment_id, voice_part) values (?, 'alto')", args: [id] },
     ]);
     return id;
   }

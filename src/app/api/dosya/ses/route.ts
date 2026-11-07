@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { connection } from "next/server";
 import { z } from "zod";
 import { db } from "@/db";
-import { pieceAudio, storageDeletions, VOICE_PARTS } from "@/db/schema";
+import { pieceAudio, storageDeletions, VOICE_PARTS, type VoiceSection } from "@/db/schema";
 import { writeTx } from "@/db/write-tx";
 import { sameOrigin } from "@/lib/api";
 import { consumeAttempt } from "@/lib/auth/rate-limit";
@@ -81,7 +81,7 @@ function overCap(t: Totals | undefined, incoming: number) {
 }
 
 /**
- * POST /api/dosya/ses?eser=<pieceId>&ses=<tutti|part>&etiket=<label>: a manager's rehearsal audio
+ * POST /api/dosya/ses?eser=<pieceId>&ses=<tutti|part>&alt=<1|2>&etiket=<label>: a manager's rehearsal audio
  * as the raw body. A route handler because server actions stop at 1100 kb. `X-Upload-Id` makes a
  * retried upload a no-op.
  */
@@ -99,6 +99,10 @@ export async function POST(request: Request) {
   const partValue = params.get("ses") ?? "tutti";
   const voicePart = VOICE_PARTS.find((p) => p === partValue) ?? null;
   if (partValue !== "tutti" && !voicePart) return fail(400, MSG.generic, "bad_request");
+  const sectionValue = params.get("alt") ?? "";
+  if (!["", "1", "2"].includes(sectionValue)) return fail(400, MSG.generic, "bad_request");
+  // A Tutti file never has a sub-part.
+  const section = voicePart && sectionValue ? (Number(sectionValue) as VoiceSection) : null;
   const label = cleanLine(params.get("etiket") ?? "").trim() || null;
   if (label && label.length > MIDI_LABEL_MAX) return fail(400, MSG.midiLabelTooLong, "bad_request");
 
@@ -170,6 +174,7 @@ export async function POST(request: Request) {
         id: uploadId.data,
         pieceId,
         voicePart,
+        section,
         label,
         storageKey: key,
         contentType: type,

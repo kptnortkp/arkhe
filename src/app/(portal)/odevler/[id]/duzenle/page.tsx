@@ -6,7 +6,12 @@ import { updateAssignment } from "@/app/(portal)/odevler/actions";
 import { AssignmentForm } from "@/components/homework/assignment-form";
 import { requireManager } from "@/lib/auth/dal";
 import { barsLabel } from "@/lib/homework/mail";
-import { getAssignment, pieceOptions, submissionCount } from "@/lib/homework/queries";
+import {
+  getAssignment,
+  pieceOptions,
+  submissionCount,
+  unsectionedCounts,
+} from "@/lib/homework/queries";
 import { istanbulDateOf, istanbulTimeOf } from "@/lib/time";
 
 export const metadata = { title: "Ödevi düzenle" };
@@ -17,7 +22,11 @@ export default async function EditAssignmentPage({ params }: PageProps<"/odevler
   if (!z.uuid().safeParse(id).success) notFound();
   const a = await getAssignment(id);
   if (!a) notFound();
-  const [pieces, submitted] = await Promise.all([pieceOptions(a.pieceId), submissionCount(a.id)]);
+  const [pieces, submitted, unsectioned] = await Promise.all([
+    pieceOptions(a.pieceId),
+    submissionCount(a.id),
+    unsectionedCounts(),
+  ]);
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <Link
@@ -39,6 +48,7 @@ export default async function EditAssignmentPage({ params }: PageProps<"/odevler
         submitLabel="Değişiklikleri kaydet"
         pieces={pieces}
         submittedCount={submitted}
+        unsectioned={unsectioned}
         defaults={{
           pieceId: a.pieceId,
           barFrom: a.barFrom?.toString() ?? "",

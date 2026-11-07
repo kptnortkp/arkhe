@@ -28,6 +28,7 @@ import {
   type PieceStatus,
   type Role,
   type VoicePart,
+  type VoiceSection,
 } from "../src/db/schema";
 import { hashPassword } from "../src/lib/auth/password";
 import { addDays, istanbulDateOf, istanbulToUtc } from "../src/lib/time";
@@ -47,6 +48,15 @@ const MEMBERS: Record<VoicePart, string[]> = {
   alto: ["Ayşe Öztürk", "Melis Aydın", "Nazlı Koç", "Buse Kurt", "Ceren Polat"],
   tenor: ["Can Erdoğan", "Emre Aksoy", "Kaan Özdemir", "Barış Güneş"],
   bass: ["Ozan Yılmaz", "Mert Doğan", "Burak Kılıç", "Deniz Aslan", "Onur Çetin"],
+};
+
+// Demo sub-parts: a few singers know theirs, the rest (korist@ included) still get the home prompt.
+const SECTIONS: Record<string, VoiceSection> = {
+  "Elif Yıldız": 1,
+  "Zeynep Kaya": 2,
+  "Can Erdoğan": 1,
+  "Ozan Yılmaz": 1,
+  "Mert Doğan": 2,
 };
 
 function slug(name: string) {
@@ -221,13 +231,20 @@ async function main() {
   const passwordHash = await hashPassword(DEMO_PASSWORD);
 
   const people = [
-    ...LOGIN_ACCOUNTS.map((a) => ({ ...a, passwordHash, joinedAt: JOINED })),
+    ...LOGIN_ACCOUNTS.map((a) => ({
+      ...a,
+      passwordHash,
+      joinedAt: JOINED,
+      // The board demo account receives "Sorun bildir" reports.
+      handlesReports: a.email === "yk@arkhe.local",
+    })),
     ...Object.entries(MEMBERS).flatMap(([part, names]) =>
       names.map((name, i) => ({
         name,
         email: `${slug(name)}@arkhe.local`,
         role: "member" as const,
         voicePart: part as VoicePart,
+        voiceSection: SECTIONS[name] ?? null,
         joinedAt: JOINED,
         // Leave one per part without a password so "Davet bekliyor" shows up.
         passwordHash:

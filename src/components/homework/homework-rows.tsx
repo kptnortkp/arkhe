@@ -6,7 +6,7 @@ import { VOICE_PART_SHORT } from "@/lib/labels";
 import { CANCELLED_BADGE, deadlineBadge, managerBadge } from "@/lib/homework/deadline";
 import { barsLabel } from "@/lib/homework/mail";
 import type { MemberRow, PartCount } from "@/lib/homework/queries";
-import type { VoicePart } from "@/db/schema";
+import type { PartTarget } from "@/lib/homework/eligibility";
 import { DeadlineChip, DueLine, PartList } from "./deadline-chip";
 
 export function NewNote() {
@@ -94,7 +94,7 @@ export type ManagerRowData = {
   barTo: number | null;
   dueAt: Date;
   cancelledAt: Date | null;
-  parts: VoicePart[];
+  parts: PartTarget[];
   counts: { perPart: PartCount[]; done: number; total: number };
 };
 

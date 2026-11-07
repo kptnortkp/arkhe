@@ -43,7 +43,9 @@ export async function usage(): Promise<Usage> {
       + (select coalesce(sum(size_bytes), 0) from midi_files)
       + (select coalesce(sum(size_bytes), 0) from piece_scores)
       + (select coalesce(sum(size_bytes), 0) from piece_audio)
-      + (select coalesce(sum(size_bytes), 0) from storage_deletions where state = 'pending') as s,
+      + (select coalesce(sum(size_bytes), 0) from issue_report_images)
+      + (select coalesce(sum(size_bytes), 0) from storage_deletions where state = 'pending')
+      + (select coalesce(sum(size_bytes), 0) from report_image_deletions where state = 'pending') as s,
       (select count(*) from storage_events where kind = 'put' and at > ${since}) as u,
       g.r, g.t, g.rr, g.rt
     from (

@@ -1,4 +1,5 @@
 import {
+  Bug,
   CalendarCheck,
   ChartColumn,
   House,
@@ -19,8 +20,10 @@ export type NavItem = {
   sidebarOnly?: boolean;
   // The bottom bar's shorter label.
   shortLabel?: string;
-  // Which count badge the entry carries: open homework or new board tickets.
-  badge?: "homework" | "board";
+  // Only for the issue-report handler (users.handles_reports), whatever the role.
+  handlerOnly?: boolean;
+  // Which count badge the entry carries: open homework, new board tickets or open reports.
+  badge?: "homework" | "board" | "reports";
 };
 
 export const NAV_ITEMS: NavItem[] = [
@@ -51,4 +54,12 @@ export const NAV_ITEMS: NavItem[] = [
     badge: "board",
   },
   { href: "/uyeler", label: "Üyeler", icon: Users, managersOnly: true, sidebarOnly: true },
+  {
+    href: "/sorunlar",
+    label: "Sorunlar",
+    icon: Bug,
+    handlerOnly: true,
+    sidebarOnly: true,
+    badge: "reports",
+  },
 ];

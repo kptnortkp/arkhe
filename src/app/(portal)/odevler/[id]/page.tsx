@@ -27,10 +27,11 @@ import {
   rosterFor,
   submissionCount,
 } from "@/lib/homework/queries";
+import { partLabel } from "@/lib/labels";
 import { isManager } from "@/lib/permissions";
 import { myRecorder, rosterTakes, liveTakeCount } from "@/lib/homework/recordings";
 import { withMyPart } from "@/lib/repertoire";
-import { audioForPiece } from "@/lib/repertoire-audio";
+import { audioForPiece, pickMyAudio } from "@/lib/repertoire-audio";
 import { heroMidi, homeworkMidi, tuttiMidi } from "@/lib/repertoire-midi";
 import { listenersFor } from "@/lib/review/scope";
 import { storageConfigured } from "@/lib/storage/driver";
@@ -67,6 +68,7 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
   const at = now();
   const title = `${a.pieceTitle} · ${barsLabel(a.barFrom, a.barTo)}`;
   const eligible = isEligible(viewer, a.parts);
+  const narrowedForMe = a.parts.find((t) => t.part === viewer.voicePart && t.section !== null);
   const expected = isExpected(viewer, a);
   const mine = await mySubmission(a.id, viewer.id);
   const cancelled = a.cancelledAt !== null;
@@ -97,12 +99,12 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
         storageWarning(),
         homeworkMidi(a.pieceId, viewer.voicePart),
         cachedUsage(),
-        audioForPiece(a.pieceId, viewer.voicePart),
+        audioForPiece(a.pieceId, viewer.voicePart, viewer.voiceSection),
         viewer.voicePart ? heroMidi(a.pieceId, viewer.voicePart) : null,
         tuttiMidi(a.pieceId),
       ]);
     // Played on this page, before or during a take: rehearsal audio first, else the MIDI.
-    const myAudio = audio.find((r) => r.voicePart !== null && r.voicePart === viewer.voicePart);
+    const myAudio = pickMyAudio(audio, viewer.voicePart, viewer.voiceSection);
     const tuttiAudio = audio.find((r) => r.voicePart === null);
     const backings: Backings = {
       part: myAudio
@@ -277,7 +279,9 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
       (e) => e.state === "missing" || e.state === "pending",
     ).length;
     const groupParts: (VoicePart | null)[] = [
-      ...VOICE_PARTS.filter((p) => a.parts.includes(p) || entries.some((e) => e.part === p)),
+      ...VOICE_PARTS.filter(
+        (p) => a.parts.some((t) => t.part === p) || entries.some((e) => e.part === p),
+      ),
       ...(entries.some((e) => e.part === null) ? [null] : []),
     ];
     const groups: RosterGroup[] = groupParts.map((part) => {
@@ -421,8 +425,22 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
         !mine?.submittedAt &&
         viewer.voicePart &&
         viewer.role !== "conductor" && (
-          <p className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
-            Bu ödev senin partisyonun için değil.
+          <p
+            className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground"
+            data-testid="not-my-part"
+          >
+            {narrowedForMe && viewer.voiceSection === null ? (
+              <>
+                Bu ödev {partLabel(narrowedForMe.part, narrowedForMe.section)} için. Alt
+                partisyonunu{" "}
+                <Link href="/profil" className="font-medium text-primary underline">
+                  Profil
+                </Link>
+                &apos;den seçebilirsin.
+              </>
+            ) : (
+              "Bu ödev senin partisyonun için değil."
+            )}
           </p>
         )}
 

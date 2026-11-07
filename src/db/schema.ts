@@ -84,6 +84,9 @@ export type SubmissionMethod = (typeof SUBMISSION_METHODS)[number];
 export type SettingKey = (typeof SETTING_KEYS)[number];
 export type BackupTrigger = (typeof BACKUP_TRIGGERS)[number];
 export type BackupStatus = (typeof BACKUP_STATUSES)[number];
+// Sub-part within a voice part (Bas 1 / Bas 2). Null = unknown or, on targets, the whole part.
+export const VOICE_SECTIONS = [1, 2] as const;
+export type VoiceSection = (typeof VOICE_SECTIONS)[number];
 
 /** `'a', 'b'` for CHECK constraints; only ever fed our own constants. */
 const inList = (values: readonly string[]) => sql.raw(values.map((v) => `'${v}'`).join(", "));
@@ -121,6 +124,11 @@ export const users = sqliteTable(
     leftAt: integer("left_at", { mode: "timestamp" }),
     lastLoginAt: integer("last_login_at", { mode: "timestamp" }),
     createdAt: createdAt(),
+    // 0019 adds these with ADD COLUMN and writes their CHECKs by hand (a table check here would make
+    // drizzle rebuild users). App rule: voice_section is cleared whenever voice_part changes or clears.
+    voiceSection: integer("voice_section").$type<VoiceSection>(),
+    /** Receives and handles "Sorun bildir" reports; set in the DB, no UI. */
+    handlesReports: integer("handles_reports", { mode: "boolean" }).notNull().default(false),
   },
   () => [
     check("users_role_check", sql`role in (${inList(ROLES)})`),
@@ -414,6 +422,8 @@ export const assignmentParts = sqliteTable(
       .notNull()
       .references(() => assignments.id, { onDelete: "cascade" }),
     voicePart: text("voice_part", { enum: VOICE_PARTS }).notNull(),
+    // 0019, ADD COLUMN with a hand-written CHECK (1 or 2). Null = the whole part; one row per part.
+    section: integer("section").$type<VoiceSection>(),
   },
   (t) => [
     primaryKey({ columns: [t.assignmentId, t.voicePart] }),
@@ -1565,6 +1575,9 @@ export const pieceAudio = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
     createdAt: createdAt(),
+    // 0019, ADD COLUMN with a hand-written CHECK (1 or 2); backfilled from labels like "Bas 2 - Tek".
+    // Null = the whole part (or Tutti). Only meaningful with a voice_part.
+    section: integer("section").$type<VoiceSection>(),
   },
   (t) => [
     index("piece_audio_piece_idx").on(t.pieceId, t.voicePart),
@@ -1804,5 +1817,141 @@ export const pushRemoved = sqliteTable(
     index("push_removed_user_idx").on(t.userId),
     index("push_removed_at_idx").on(t.removedAt),
     check("push_removed_hash_check", sql`length(endpoint_hash) = 64`),
+  ],
+);
+
+// ------------------------------------------------- Phase 15: issue reports ("Sorun bildir")
+
+export const ISSUE_STATUSES = ["new", "in_progress", "done", "wontfix"] as const;
+export const ISSUE_CLOSED_STATUSES = ["done", "wontfix"] as const;
+export const ISSUE_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+export const ISSUE_IMAGE_EXTENSIONS = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+} as const satisfies Record<(typeof ISSUE_IMAGE_TYPES)[number], string>;
+export const ISSUE_IMAGE_MAX_BYTES = 2_000_000;
+export const ISSUE_IMAGES_PER_REPORT = 3;
+export type IssueStatus = (typeof ISSUE_STATUSES)[number];
+export type IssueImageType = (typeof ISSUE_IMAGE_TYPES)[number];
+
+const reportKey = sql.raw(
+  `substr(storage_key, 1, 8) = 'reports/' and length(substr(storage_key, 9, 36)) = 36 and substr(storage_key, 9, 36) not glob '*[^0-9a-f-]*' and substr(storage_key, 45) in (${ISSUE_IMAGE_TYPES.map((t) => `'.${ISSUE_IMAGE_EXTENSIONS[t]}'`).join(", ")})`,
+);
+
+// Never deleted by the app: the text stays after the 90-day image retention. Users are never deleted.
+export const issueReports = sqliteTable(
+  "issue_reports",
+  {
+    id: id(),
+    /** "Sorun #12": max + 1 inside the insert transaction; the unique index catches a race. */
+    number: integer("number").notNull(),
+    reporterId: text("reporter_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    status: text("status", { enum: ISSUE_STATUSES }).notNull().default("new"),
+    reply: text("reply"),
+    /** Path the reporter came from, e.g. "/odevler/abc". */
+    page: text("page"),
+    /** UA summary, standalone flag and build id. */
+    device: text("device"),
+    createdAt: createdAt(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(now),
+    /** Set exactly while the status is done or wontfix; drives the 90-day image retention. */
+    closedAt: integer("closed_at", { mode: "timestamp" }),
+  },
+  (t) => [
+    uniqueIndex("issue_reports_number_idx").on(t.number),
+    index("issue_reports_reporter_idx").on(t.reporterId, t.createdAt),
+    index("issue_reports_status_idx").on(t.status, t.createdAt),
+    check("issue_reports_id_check", uuidPart("id")),
+    check("issue_reports_number_check", sql`typeof(number) = 'integer' and number >= 1`),
+    check(
+      "issue_reports_title_check",
+      sql`title = trim(title) and length(title) between 3 and 120`,
+    ),
+    check(
+      "issue_reports_body_check",
+      sql`length(trim(body)) between 1 and 4000 and length(body) <= 4000`,
+    ),
+    check("issue_reports_status_check", sql`status in (${inList(ISSUE_STATUSES)})`),
+    check(
+      "issue_reports_reply_check",
+      sql`reply is null or (length(trim(reply)) between 1 and 2000 and length(reply) <= 2000)`,
+    ),
+    check("issue_reports_page_check", sql`page is null or length(page) between 1 and 300`),
+    check("issue_reports_device_check", sql`device is null or length(device) between 1 and 300`),
+    check(
+      "issue_reports_closed_check",
+      sql`(status in (${inList(ISSUE_CLOSED_STATUSES)})) = (closed_at is not null)`,
+    ),
+  ],
+);
+
+// Screenshots of a report, stored under reports/. At most 3 per report (0019 trigger). Deleting a
+// row queues its key in report_image_deletions (0019 trigger), like piece_audio does in storage_deletions.
+export const issueReportImages = sqliteTable(
+  "issue_report_images",
+  {
+    id: id(),
+    reportId: text("report_id")
+      .notNull()
+      .references(() => issueReports.id, { onDelete: "cascade" }),
+    storageKey: text("storage_key").notNull(),
+    contentType: text("content_type", { enum: ISSUE_IMAGE_TYPES }).notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("issue_report_images_report_idx").on(t.reportId, t.createdAt),
+    uniqueIndex("issue_report_images_storage_key_idx").on(t.storageKey),
+    check("issue_report_images_id_check", uuidPart("id")),
+    check(
+      "issue_report_images_content_type_check",
+      sql`content_type in (${inList(ISSUE_IMAGE_TYPES)})`,
+    ),
+    check(
+      "issue_report_images_storage_key_check",
+      sql`${reportKey} and substr(storage_key, 45) = '.' || case content_type ${sql.raw(ISSUE_IMAGE_TYPES.map((x) => `when '${x}' then '${ISSUE_IMAGE_EXTENSIONS[x]}'`).join(" "))} end`,
+    ),
+    check("issue_report_images_size_check", bytes("size_bytes", ISSUE_IMAGE_MAX_BYTES)),
+  ],
+);
+
+// The deletion queue for reports/ keys: storage_deletions' area and key CHECKs only admit
+// recordings/, midi/ and scores/, and widening them means a table rebuild (as 0014 did). Same
+// columns and semantics as storage_deletions minus `area`: hold rows before a put, trigger rows on delete.
+export const reportImageDeletions = sqliteTable(
+  "report_image_deletions",
+  {
+    storageKey: text("storage_key").primaryKey(),
+    // Still occupies the store until done: counted by the Depolama meter.
+    sizeBytes: integer("size_bytes").notNull(),
+    state: text("state", { enum: DELETION_STATES }).notNull().default("pending"),
+    requestedAt: integer("requested_at", { mode: "timestamp" }).notNull().default(now),
+    notBefore: integer("not_before", { mode: "timestamp" }),
+    attempts: integer("attempts").notNull().default(0),
+    lastAttemptAt: integer("last_attempt_at", { mode: "timestamp" }),
+    lastError: text("last_error", { enum: STORAGE_ERROR_KINDS }),
+    doneAt: integer("done_at", { mode: "timestamp" }),
+  },
+  (t) => [
+    index("report_image_deletions_pending_idx")
+      .on(t.requestedAt)
+      .where(sql`state = 'pending'`),
+    index("report_image_deletions_done_idx")
+      .on(t.doneAt)
+      .where(sql`state = 'done'`),
+    check("report_image_deletions_key_check", reportKey),
+    check("report_image_deletions_state_check", sql`state in (${inList(DELETION_STATES)})`),
+    check("report_image_deletions_size_check", bytes("size_bytes", ISSUE_IMAGE_MAX_BYTES)),
+    check("report_image_deletions_done", sql`(state = 'done') = (done_at is not null)`),
+    check(
+      "report_image_deletions_attempts",
+      sql`typeof(attempts) = 'integer' and attempts >= 0 and (attempts = 0) = (last_attempt_at is null) and (last_error is null or (last_error in (${inList(STORAGE_ERROR_KINDS)}) and attempts >= 1))`,
+    ),
+    check("report_image_deletions_not_before", sql`not_before is null or state = 'pending'`),
   ],
 );

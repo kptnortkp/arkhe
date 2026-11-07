@@ -5,7 +5,8 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS, type NavItem } from "./nav-items";
 
-export type NavBadges = { homework: number; board: number; review: number };
+/** `reports` is null for everyone but the issue-report handler. */
+export type NavBadges = { homework: number; board: number; review: number; reports: number | null };
 type BadgeKind = NonNullable<NavItem["badge"]> | "review";
 
 /** The Ödevler entry shows the homework count, else the conductor's review count (never both). */
@@ -29,7 +30,9 @@ function Badge({
       ? { "data-nav-badge": count }
       : kind === "review"
         ? { "data-review-badge": count }
-        : { "data-board-badge": count };
+        : kind === "reports"
+          ? { "data-reports-badge": count }
+          : { "data-board-badge": count };
   return (
     <span
       aria-hidden
@@ -47,8 +50,12 @@ function Badge({
 function badgeLabel(kind: BadgeKind, count: number) {
   if (count <= 0) return "";
   if (kind === "review") return `, ${count} kayıt asistan notuyla bekliyor`;
+  if (kind === "reports") return `, ${count} açık sorun bildirimi`;
   return kind === "homework" ? `, ${count} bekleyen ödev` : `, ${count} yeni iş`;
 }
+
+const visible = (item: NavItem, canManage: boolean, badges: NavBadges) =>
+  (canManage || !item.managersOnly) && (!item.handlerOnly || badges.reports !== null);
 
 function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -58,7 +65,7 @@ export function SidebarNav({ canManage, badges }: { canManage: boolean; badges: 
   const pathname = usePathname();
   return (
     <nav aria-label="Ana menü" className="flex flex-col gap-1">
-      {NAV_ITEMS.filter((item) => canManage || !item.managersOnly).map(
+      {NAV_ITEMS.filter((item) => visible(item, canManage, badges)).map(
         ({ href, label, icon: Icon, badge }) => (
           <Link
             key={href}
@@ -74,11 +81,11 @@ export function SidebarNav({ canManage, badges }: { canManage: boolean; badges: 
             {badge && (
               <>
                 <span className="sr-only">
-                  {badgeLabel(kindOf(badge, badges), badges[kindOf(badge, badges)])}
+                  {badgeLabel(kindOf(badge, badges), badges[kindOf(badge, badges)] ?? 0)}
                 </span>
                 <Badge
                   kind={kindOf(badge, badges)}
-                  count={badges[kindOf(badge, badges)]}
+                  count={badges[kindOf(badge, badges)] ?? 0}
                   className="ml-auto"
                 />
               </>
@@ -92,7 +99,7 @@ export function SidebarNav({ canManage, badges }: { canManage: boolean; badges: 
 
 export function BottomNav({ canManage, badges }: { canManage: boolean; badges: NavBadges }) {
   const pathname = usePathname();
-  const items = NAV_ITEMS.filter((item) => (canManage || !item.managersOnly) && !item.sidebarOnly);
+  const items = NAV_ITEMS.filter((item) => visible(item, canManage, badges) && !item.sidebarOnly);
   return (
     <nav
       aria-label="Ana menü"
@@ -121,7 +128,7 @@ export function BottomNav({ canManage, badges }: { canManage: boolean; badges: N
                 {badge && (
                   <Badge
                     kind={kindOf(badge, badges)}
-                    count={badges[kindOf(badge, badges)]}
+                    count={badges[kindOf(badge, badges)] ?? 0}
                     className="absolute -top-1 left-[calc(50%+6px)]"
                   />
                 )}
@@ -130,7 +137,7 @@ export function BottomNav({ canManage, badges }: { canManage: boolean; badges: N
                 {shortLabel ?? label}
                 {badge && (
                   <span className="sr-only">
-                    {badgeLabel(kindOf(badge, badges), badges[kindOf(badge, badges)])}
+                    {badgeLabel(kindOf(badge, badges), badges[kindOf(badge, badges)] ?? 0)}
                   </span>
                 )}
               </span>

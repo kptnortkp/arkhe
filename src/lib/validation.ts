@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ROLES, VOICE_PARTS } from "@/db/schema";
+import { ROLES, VOICE_PARTS, type VoiceSection } from "@/db/schema";
 import { PASSWORD_MIN_LENGTH } from "@/lib/auth/password-rules";
 import { cleanLine, cleanText } from "@/lib/text";
 import { istanbulToUtc } from "@/lib/time";
@@ -39,6 +39,10 @@ export const memberSchema = z
       .enum([...VOICE_PARTS, ""], "Bir partisyon seç.")
       .optional()
       .transform((v) => v || null),
+    voiceSection: z
+      .enum(["", "1", "2"], "Bir alt partisyon seç.")
+      .optional()
+      .transform((v) => (v ? (Number(v) as VoiceSection) : null)),
     joinedOn: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, "Bir tarih seç.")
@@ -47,7 +51,9 @@ export const memberSchema = z
   .refine((d) => d.role === "conductor" || d.voicePart !== null, {
     message: "Koristler ve yönetim kurulu için partisyon seçmek gerekli.",
     path: ["voicePart"],
-  });
+  })
+  // A sub-part only lives with a part.
+  .transform((d) => (d.voicePart ? d : { ...d, voiceSection: null }));
 
 export const optionalText = (max: number) =>
   z

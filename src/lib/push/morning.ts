@@ -5,7 +5,7 @@ import { rehearsals, users } from "@/db/schema";
 import { rehearsalTitle } from "@/lib/attendance/rehearsals";
 import { isExpected, loadRosterUsers, partsByRehearsal } from "@/lib/attendance/roster";
 import { loadDuesMatrix } from "@/lib/finance/queries-internal";
-import { isEligible } from "@/lib/homework/eligibility";
+import { isEligible, parseTargets } from "@/lib/homework/eligibility";
 import { assistantQueueCount, conductorCounts } from "@/lib/review/queries";
 import { loadScope } from "@/lib/review/scope";
 import { addDays, istanbulDayRange, istanbulToUtc } from "@/lib/time";
@@ -87,7 +87,7 @@ async function homeworkLines(day: string, now: Date): Promise<Item[]> {
   const [due2From, due2To] = istanbulDayRange(addDays(day, 2));
   const list = await db.all<{ id: string; due: number; piece: string; parts: string }>(sql`
     select a.id as id, a.due_at as due, p.title as piece,
-      (select group_concat(ap.voice_part) from assignment_parts ap where ap.assignment_id = a.id) as parts
+      (select group_concat(ap.voice_part || ':' || coalesce(ap.section, '')) from assignment_parts ap where ap.assignment_id = a.id) as parts
     from assignments a join pieces p on p.id = a.piece_id
     where a.cancelled_at is null
       and ((a.due_at >= ${secs(todayFrom)} and a.due_at < ${secs(todayTo)})
@@ -98,6 +98,7 @@ async function homeworkLines(day: string, now: Date): Promise<Item[]> {
       id: users.id,
       role: users.role,
       voicePart: users.voicePart,
+      voiceSection: users.voiceSection,
       joinedAt: users.joinedAt,
       leftAt: users.leftAt,
     })
@@ -115,7 +116,7 @@ async function homeworkLines(day: string, now: Date): Promise<Item[]> {
     const dueAt = new Date(Number(a.due) * 1000);
     if (dueAt <= now) continue;
     const today = dueAt < todayTo;
-    const parts = (a.parts ?? "").split(",").filter(Boolean) as never[];
+    const parts = parseTargets(a.parts);
     for (const u of singers) {
       if (!isEligible(u, parts) || done.has(`${a.id}:${u.id}`)) continue;
       items.push({

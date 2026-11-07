@@ -143,6 +143,7 @@ export const uyelerRules: Rules<ReturnType<typeof reads>> = {
       }
       if (partChanges) {
         set.voicePart = part;
+        set.voiceSection = null;
         changes.push(
           `partisyon ${user.voicePart ? VOICE_PART_LABELS[user.voicePart] : "—"} → ${VOICE_PART_LABELS[part!]}`,
         );

@@ -441,7 +441,11 @@ async function suite(browser, shots) {
       [...KORIST_GROUPS.slice(0, 3), "Dinleme kuyruğu", "Repertuvar ve yeni MIDI'ler"],
       false,
     ],
-    ["yk@arkhe.local", [...KORIST_GROUPS.slice(0, 4), "Yönetim işleri", "Bütçe"], true],
+    [
+      "yk@arkhe.local",
+      [...KORIST_GROUPS.slice(0, 4), "Yönetim işleri", "Bütçe", "Yedek ve depolama uyarıları"],
+      true,
+    ],
     [
       "sef@arkhe.local",
       [

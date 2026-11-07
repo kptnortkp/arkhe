@@ -15,6 +15,7 @@ export type SweepResult = {
 };
 
 const seconds = (d: Date) => Math.floor(d.getTime() / 1000);
+const REPORT_IMAGE_KEEP_DAYS = 90;
 
 /** Comment day + 30 <= today, in Istanbul days (backend §8.2). */
 export function earlyCleanCutoff(today: string) {
@@ -37,12 +38,26 @@ async function expire(reason: SweepReason, today: string) {
   return result.rowsAffected;
 }
 
+/** Screenshots of reports closed for 90 days; the report text stays. The 0019 trigger queues the keys. */
+async function expireReportImages() {
+  const cutoff = seconds(now()) - REPORT_IMAGE_KEEP_DAYS * 86_400;
+  const result = await writeTx((tx) =>
+    tx.run(sql`
+      delete from issue_report_images where report_id in (
+        select id from issue_reports where closed_at is not null and closed_at <= ${cutoff})`),
+  );
+  return result.rowsAffected;
+}
+
 async function prune() {
   const at = seconds(now());
   await writeTx(async (tx) => {
     await tx.run(sql`delete from storage_events where at < ${at - 40 * 86_400}`);
     await tx.run(
       sql`delete from storage_deletions where state = 'done' and done_at < ${at - 30 * 86_400}`,
+    );
+    await tx.run(
+      sql`delete from report_image_deletions where state = 'done' and done_at < ${at - 30 * 86_400}`,
     );
     await tx.run(
       sql`delete from storage_sweeps where id <= (select max(id) from storage_sweeps) - 60`,
@@ -73,6 +88,14 @@ export async function runStorageSweep(opts: {
   } catch (error) {
     stepsFailed++;
     console.error("storage sweep expire failed", { name: (error as Error)?.name });
+  }
+  if (opts.reason === "cron") {
+    try {
+      const images = await expireReportImages();
+      if (images > 0) console.log("report images expired", { images });
+    } catch (error) {
+      console.error("report image retention failed", { name: (error as Error)?.name });
+    }
   }
   try {
     ({ deleted, failed } = await drainQueue(opts.deadline));

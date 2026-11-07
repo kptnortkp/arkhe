@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { VOICE_PARTS, type PieceStatus, type VoicePart } from "@/db/schema";
+import { VOICE_PARTS, type PieceStatus, type VoicePart, type VoiceSection } from "@/db/schema";
+import { ALL_PARTS, type PartTarget } from "@/lib/homework/eligibility";
 import { VOICE_PART_LABELS } from "@/lib/labels";
 import type { FormState } from "@/lib/validation";
 
@@ -19,7 +20,7 @@ export type AssignmentDefaults = {
   pieceId: string;
   barFrom: string;
   barTo: string;
-  parts: VoicePart[];
+  parts: PartTarget[];
   dueDate: string;
   dueTime: string;
   description: string;
@@ -27,6 +28,15 @@ export type AssignmentDefaults = {
 
 const chip =
   "flex min-h-11 cursor-pointer items-center gap-2 rounded-full border bg-card px-4 text-sm transition-colors select-none hover:bg-muted has-checked:border-primary has-checked:bg-primary/8 has-checked:font-medium has-focus-visible:ring-3 has-focus-visible:ring-ring/50";
+const segment =
+  "flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-full px-3 text-sm transition-colors select-none hover:bg-muted has-checked:bg-primary has-checked:font-medium has-checked:text-primary-foreground has-focus-visible:ring-3 has-focus-visible:ring-ring/50";
+// Turkish locative suffix per part name, for the "nobody picked a sub-part" note.
+const IN_PART: Record<VoicePart, string> = {
+  soprano: "Soprano'da",
+  alto: "Alto'da",
+  tenor: "Tenor'da",
+  bass: "Bas'ta",
+};
 const selectClass =
   "h-12 w-full rounded-xl border border-input bg-card px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive md:text-sm";
 
@@ -47,6 +57,7 @@ export function AssignmentForm({
   version,
   minDate,
   submittedCount = 0,
+  unsectioned = {},
 }: {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
   defaults: AssignmentDefaults;
@@ -56,14 +67,28 @@ export function AssignmentForm({
   version?: number;
   minDate?: string;
   submittedCount?: number;
+  /** Active singers per part without a sub-part; they don't see a narrowed homework. */
+  unsectioned?: Partial<Record<VoicePart, number>>;
 }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(action, {});
   const formRef = useFocusError(state);
   const v = state.values;
   const errors = state.fieldErrors ?? {};
-  // Controlled, so a failed submit keeps the ticked parts.
-  const [parts, setParts] = useState<VoicePart[]>(defaults.parts);
+  // Controlled, so a failed submit keeps the ticked parts and their sub-parts.
+  const [targets, setTargets] = useState<PartTarget[]>(defaults.parts);
+  const parts = targets.map((t) => t.part);
+  const togglePart = (p: VoicePart) =>
+    setTargets((cur) =>
+      cur.some((t) => t.part === p)
+        ? cur.filter((t) => t.part !== p)
+        : ALL_PARTS.filter((t) => t.part === p || cur.some((c) => c.part === t.part)).map(
+            (t) => cur.find((c) => c.part === t.part) ?? t,
+          ),
+    );
+  const setSection = (p: VoicePart, section: VoiceSection | null) =>
+    setTargets((cur) => cur.map((t) => (t.part === p ? { ...t, section } : t)));
+  const missed = targets.filter((t) => t.section !== null && (unsectioned[t.part] ?? 0) > 0);
   const [description, setDescription] = useState(v?.description ?? defaults.description);
   const tuttiRef = useRef<HTMLInputElement>(null);
   const all = parts.length === VOICE_PARTS.length;
@@ -185,7 +210,11 @@ export function AssignmentForm({
               ref={tuttiRef}
               type="checkbox"
               checked={all}
-              onChange={() => setParts(all ? [] : [...VOICE_PARTS])}
+              onChange={() =>
+                setTargets(
+                  all ? [] : ALL_PARTS.map((t) => targets.find((x) => x.part === t.part) ?? t),
+                )
+              }
               className="sr-only"
             />
             <PartDot part={null} />
@@ -198,13 +227,7 @@ export function AssignmentForm({
                 name="parts"
                 value={p}
                 checked={parts.includes(p)}
-                onChange={() =>
-                  setParts((cur) =>
-                    cur.includes(p)
-                      ? cur.filter((x) => x !== p)
-                      : VOICE_PARTS.filter((x) => x === p || cur.includes(x)),
-                  )
-                }
+                onChange={() => togglePart(p)}
                 className="sr-only"
               />
               <PartDot part={p} />
@@ -213,6 +236,58 @@ export function AssignmentForm({
           ))}
         </div>
         <FieldError id="parts-error" errors={errors.parts} />
+        {targets.length > 0 && (
+          <div className="space-y-1.5 pt-1" data-testid="part-sections">
+            <p className="text-xs text-muted-foreground">
+              Alt partisyon: istersen ödevi Tenor 1 gibi yalnız birine ver.
+            </p>
+            {targets.map((t) => (
+              <div
+                key={t.part}
+                role="radiogroup"
+                aria-label={`${VOICE_PART_LABELS[t.part]} alt partisyonu`}
+                className="flex items-center gap-3"
+                data-testid={`section-${t.part}`}
+              >
+                <span className="flex w-20 items-center gap-1.5 text-sm">
+                  <PartDot part={t.part} />
+                  {VOICE_PART_LABELS[t.part]}
+                </span>
+                <div className="flex gap-1 rounded-full border bg-card p-0.5">
+                  {(
+                    [
+                      ["", "Tümü", null],
+                      ["1", "1", 1],
+                      ["2", "2", 2],
+                    ] as const
+                  ).map(([value, label, section]) => (
+                    <label key={value} className={segment}>
+                      <input
+                        type="radio"
+                        name={`section-${t.part}`}
+                        value={value}
+                        checked={t.section === section}
+                        onChange={() => setSection(t.part, section)}
+                        className="sr-only"
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {missed.map((t) => (
+              <p
+                key={t.part}
+                className="text-xs text-late-ink"
+                data-testid={`unsectioned-${t.part}`}
+              >
+                {IN_PART[t.part]} {unsectioned[t.part]} kişi alt partisyon seçmemiş; bu ödevi
+                görmeyecekler.
+              </p>
+            ))}
+          </div>
+        )}
       </fieldset>
 
       <fieldset className="space-y-2">

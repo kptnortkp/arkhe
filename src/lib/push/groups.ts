@@ -47,6 +47,8 @@ export type Audience = {
   role: Role;
   voicePart: VoicePart | null;
   assistant: boolean;
+  /** The issue-report handler gets "Yeni sorun bildirimi" in `sistem` whatever their role. */
+  handlesReports?: boolean;
 };
 
 /** Which switches a person sees, and therefore which groups can ever reach them (D72). */
@@ -62,8 +64,9 @@ export function groupVisible(group: PushGroup, a: Audience, duesOn: boolean) {
       return a.role === "conductor" || a.assistant;
     case "yonetim":
     case "butce":
-    case "sistem":
       return a.role === "conductor" || a.role === "board";
+    case "sistem":
+      return a.role === "conductor" || a.role === "board" || Boolean(a.handlesReports);
     case "aidat":
       return duesOn;
   }

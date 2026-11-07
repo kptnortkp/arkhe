@@ -2,9 +2,9 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createAssignment } from "@/app/(portal)/odevler/actions";
 import { AssignmentForm } from "@/components/homework/assignment-form";
-import { VOICE_PARTS } from "@/db/schema";
 import { requireManager } from "@/lib/auth/dal";
-import { pieceOptions } from "@/lib/homework/queries";
+import { ALL_PARTS } from "@/lib/homework/eligibility";
+import { pieceOptions, unsectionedCounts } from "@/lib/homework/queries";
 import { addDays, istanbulDateOf, now } from "@/lib/time";
 
 export const metadata = { title: "Ödev ver" };
@@ -12,7 +12,7 @@ export const metadata = { title: "Ödev ver" };
 export default async function NewAssignmentPage({ searchParams }: PageProps<"/odevler/yeni">) {
   await requireManager();
   const sp = await searchParams;
-  const pieces = await pieceOptions();
+  const [pieces, unsectioned] = await Promise.all([pieceOptions(), unsectionedCounts()]);
   const preset = typeof sp.eser === "string" ? sp.eser : "";
   const fromPiece = pieces.some((p) => p.id === preset && p.status !== "archive") ? preset : "";
   const today = istanbulDateOf(now());
@@ -32,11 +32,12 @@ export default async function NewAssignmentPage({ searchParams }: PageProps<"/od
         submitLabel="Ödevi ver"
         minDate={today}
         pieces={pieces.filter((p) => p.status !== "archive")}
+        unsectioned={unsectioned}
         defaults={{
           pieceId: fromPiece,
           barFrom: "",
           barTo: "",
-          parts: [...VOICE_PARTS],
+          parts: [...ALL_PARTS],
           dueDate: addDays(today, 7),
           dueTime: "23:59",
           description: "",

@@ -11,10 +11,11 @@ import {
   pieces,
   submissions,
   VOICE_PARTS,
+  type VoicePart,
 } from "@/db/schema";
 import { writeTx } from "@/db/write-tx";
 import { assertManager, assertUser } from "@/lib/auth/dal";
-import { isEligible } from "@/lib/homework/eligibility";
+import { isEligible, type PartTarget } from "@/lib/homework/eligibility";
 import { RECORDING_EMAIL_RE } from "@/lib/homework/mail";
 import { loadViewer } from "@/lib/homework/queries";
 import { withdrawTake } from "@/lib/homework/withdraw";
@@ -90,6 +91,16 @@ const assignmentSchema = z
     }
   });
 
+const sectionField = z.enum(["", "1", "2"]).catch("");
+
+/** `section-<part>` narrows a ticked part to one sub-part; empty = the whole part. */
+function targetsOf(parts: VoicePart[], formData: FormData) {
+  return parts.map((part): PartTarget => {
+    const v = sectionField.parse(formData.get(`section-${part}`) ?? "");
+    return { part, section: v === "1" ? 1 : v === "2" ? 2 : null };
+  });
+}
+
 function parseAssignment(formData: FormData) {
   return assignmentSchema.safeParse({
     ...Object.fromEntries(formData),
@@ -155,7 +166,13 @@ export async function createAssignment(_prev: FormState, formData: FormData): Pr
     }
     await tx
       .insert(assignmentParts)
-      .values(d.parts.map((voicePart) => ({ assignmentId: id.data, voicePart })));
+      .values(
+        targetsOf(d.parts, formData).map((t) => ({
+          assignmentId: id.data,
+          voicePart: t.part,
+          section: t.section,
+        })),
+      );
     fresh = true;
     return true;
   });
@@ -201,9 +218,13 @@ export async function updateAssignment(
       .returning({ id: assignments.id });
     if (updated.length === 0) return STALE;
     await tx.delete(assignmentParts).where(eq(assignmentParts.assignmentId, id));
-    await tx
-      .insert(assignmentParts)
-      .values(d.parts.map((voicePart) => ({ assignmentId: id, voicePart })));
+    await tx.insert(assignmentParts).values(
+      targetsOf(d.parts, formData).map((t) => ({
+        assignmentId: id,
+        voicePart: t.part,
+        section: t.section,
+      })),
+    );
     return null;
   });
   if (result) return { error: result, values: formValues(formData) };
@@ -264,12 +285,12 @@ async function isCancelled(id: string) {
   return Boolean(row?.at);
 }
 
-async function partsOfAssignment(id: string) {
+async function partsOfAssignment(id: string): Promise<PartTarget[]> {
   const rows = await db
-    .select({ part: assignmentParts.voicePart })
+    .select({ part: assignmentParts.voicePart, section: assignmentParts.section })
     .from(assignmentParts)
     .where(eq(assignmentParts.assignmentId, id));
-  return rows.map((r) => r.part);
+  return rows.map((r) => ({ part: r.part, section: r.section ?? null }));
 }
 
 /** The singer always comes from the session: there is no userId to tamper with. */

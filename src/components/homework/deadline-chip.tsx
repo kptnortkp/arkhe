@@ -7,10 +7,10 @@ import {
   Hourglass,
   type LucideIcon,
 } from "lucide-react";
-import type { VoicePart } from "@/db/schema";
 import type { DeadlineBadge } from "@/lib/homework/deadline";
+import type { PartTarget } from "@/lib/homework/eligibility";
 import { VOICE_PARTS } from "@/db/schema";
-import { VOICE_PART_LABELS } from "@/lib/labels";
+import { partLabel } from "@/lib/labels";
 import { formatDue } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { PartDot } from "@/components/part-dot";
@@ -68,9 +68,9 @@ export function DueLine({ dueAt, className }: { dueAt: Date; className?: string 
   );
 }
 
-/** Part chips; all four parts read as Tutti. */
-export function PartList({ parts }: { parts: VoicePart[] }) {
-  if (parts.length === VOICE_PARTS.length) {
+/** Part chips ("Tenor 1" when narrowed); all four whole parts read as Tutti. */
+export function PartList({ parts }: { parts: PartTarget[] }) {
+  if (parts.length === VOICE_PARTS.length && parts.every((t) => t.section === null)) {
     return (
       <span className="inline-flex items-center gap-1.5">
         <PartDot part={null} />
@@ -80,10 +80,10 @@ export function PartList({ parts }: { parts: VoicePart[] }) {
   }
   return (
     <span className="inline-flex flex-wrap items-center gap-x-2">
-      {parts.map((p) => (
-        <span key={p} className="inline-flex items-center gap-1.5">
-          <PartDot part={p} />
-          {VOICE_PART_LABELS[p]}
+      {parts.map((t) => (
+        <span key={t.part} className="inline-flex items-center gap-1.5">
+          <PartDot part={t.part} />
+          {partLabel(t.part, t.section)}
         </span>
       ))}
     </span>
