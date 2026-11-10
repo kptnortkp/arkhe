@@ -242,8 +242,8 @@ export function MarkingRoster({
             {unsaved && "*"}
           </p>
           <p className="text-sm text-muted-foreground">
-            {count("late")} geç · {count("excused")} mazeretli · {count("absent")} gelmedi ·{" "}
-            {count(null)} işaretlenmedi
+            {count("late")} geç · {count("absent") + count("excused")} gelmedi
+            {count("excused") > 0 && ` (${count("excused")} mazeretli)`} · {count(null)} işaretlenmedi
           </p>
         </div>
         {unsaved && (

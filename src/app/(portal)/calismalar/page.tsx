@@ -1,4 +1,4 @@
-import { ChartColumn, Plus } from "lucide-react";
+import { CalendarClock, ChartColumn, ChevronRight, Plus } from "lucide-react";
 import Link from "next/link";
 import { AttendanceStrip } from "@/components/attendance/status-chip";
 import { RehearsalRow } from "@/components/attendance/rehearsal-row";
@@ -8,6 +8,7 @@ import { autoCloseStale } from "@/lib/attendance/close";
 import { resolvePeriod } from "@/lib/attendance/period";
 import { expectedFor, listRehearsals, myMarks, type Rehearsal } from "@/lib/attendance/rehearsals";
 import { attendanceStats } from "@/lib/attendance/stats";
+import { upcomingAbsences } from "@/lib/attendance/upcoming";
 import { requireUser } from "@/lib/auth/dal";
 import { isManager } from "@/lib/permissions";
 import { addDays, formatDayMonth, istanbulDateOf, istanbulToUtc } from "@/lib/time";
@@ -53,6 +54,9 @@ export default async function RehearsalsPage({ searchParams }: PageProps<"/calis
     ? (await attendanceStats({ from: period.from, to: period.to, userId: user.id })).members[0]
     : null;
 
+  const ahead = canManage && !past ? await upcomingAbsences(todayStart) : null;
+  const aheadTotal = ahead?.reduce((s, x) => s + x.absences.length, 0) ?? 0;
+
   return (
     <div className="space-y-6">
       <div className="flex items-end justify-between gap-4">
@@ -97,6 +101,25 @@ export default async function RehearsalsPage({ searchParams }: PageProps<"/calis
           </Link>
         ))}
       </nav>
+
+      {ahead && ahead.length > 0 && (
+        <Link
+          href="/raporlar/gelecek"
+          className="flex min-h-14 items-center gap-3 rounded-2xl border bg-card px-4 py-3 text-sm hover:bg-muted/60"
+          data-testid="upcoming-link"
+        >
+          <CalendarClock className="size-5 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1">
+            <span className="font-medium">Gelecek çalışmalar</span>
+            <span className="block text-muted-foreground">
+              {aheadTotal === 0
+                ? "Henüz kimse gelemeyeceğini bildirmedi"
+                : `${ahead.filter((x) => x.absences.length > 0).length} çalışmaya ${aheadTotal} mazeret bildirildi`}
+            </span>
+          </span>
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+        </Link>
+      )}
 
       {mine && period && (
         <section className="space-y-3 rounded-2xl border bg-card p-5" aria-label="Devamın">

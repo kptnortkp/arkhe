@@ -64,7 +64,9 @@ export function RehearsalRow({
           {showMine && phase !== "cancelled" && expected === false && (
             <span className="text-xs text-muted-foreground">Senin partisyonun değil</span>
           )}
-          {showMine && expected !== false && myStatus && <StatusChip status={myStatus} />}
+          {showMine && expected !== false && myStatus && (
+            <StatusChip status={myStatus} upcoming={!r.closedAt} />
+          )}
         </div>
       </div>
       <ChevronRight className="size-4 shrink-0 text-muted-foreground" />

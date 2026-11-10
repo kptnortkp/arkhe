@@ -540,7 +540,7 @@ export default async function phase2(browser, shots) {
   check(body.charCodeAt(0) === 0xfeff, "AC28 CSV starts with a UTF-8 BOM");
   check(
     body.includes(
-      '"Ad soyad";"Partisyon";"Geldi";"Beklenen";"Yüzde";"Geç";"Mazeretli";"Gelmedi";"Uyarı"',
+      '"Ad soyad";"Partisyon";"Geldi";"Beklenen";"Yüzde";"Geç";"Gelmedi";"Gelmedi (mazeretli)";"Uyarı"',
     ),
     "AC28 CSV has the agreed header with ;",
   );

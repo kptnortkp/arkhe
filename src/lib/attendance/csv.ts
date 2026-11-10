@@ -9,8 +9,8 @@ export const ATTENDANCE_HEADER = [
   "Beklenen",
   "Yüzde",
   "Geç",
-  "Mazeretli",
   "Gelmedi",
+  "Gelmedi (mazeretli)",
   "Uyarı",
 ];
 
@@ -22,8 +22,8 @@ export function attendanceRows(rows: MemberStats[]): CsvValue[][] {
     m.expected,
     m.percent ?? "",
     m.late,
-    m.excused,
     m.absent,
+    m.excused,
     m.warning ? "Evet" : "",
   ]);
 }

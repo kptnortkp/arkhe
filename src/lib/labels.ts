@@ -53,7 +53,8 @@ export const REHEARSAL_TYPE_LABELS: Record<RehearsalType, string> = {
 export const STATUS_LABELS: Record<AttendanceStatus, string> = {
   present: "Geldi",
   late: "Geç geldi",
-  excused: "Mazeretli",
+  // An excuse is only a note on an absence.
+  excused: "Gelmedi · mazeretli",
   absent: "Gelmedi",
 };
 
@@ -81,10 +82,10 @@ export const STATUS_STYLES: Record<
     solid: "bg-late text-gold-foreground",
   },
   excused: {
-    dot: "bg-excused",
-    soft: "bg-excused/14",
-    text: "text-excused-ink",
-    solid: "bg-excused text-excused-foreground",
+    dot: "bg-absent",
+    soft: "bg-absent/12",
+    text: "text-absent-ink",
+    solid: "bg-absent text-absent-foreground",
   },
   absent: {
     dot: "bg-absent",

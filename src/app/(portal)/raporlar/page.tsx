@@ -1,4 +1,4 @@
-import { FileSpreadsheet, FileText, TriangleAlert } from "lucide-react";
+import { CalendarClock, FileSpreadsheet, FileText, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { AttendanceStrip } from "@/components/attendance/status-chip";
 import { DownloadLink } from "@/components/download-link";
@@ -52,6 +52,13 @@ export default async function ReportsPage({ searchParams }: PageProps<"/raporlar
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link
+            href="/raporlar/gelecek"
+            className={cn(buttonVariants({ variant: "outline" }), "h-10 rounded-full px-4")}
+          >
+            <CalendarClock />
+            Gelecek çalışmalar
+          </Link>
           <TermsDialog terms={period.terms} />
           <ExportMenu base="/raporlar" query={query({})} className="h-10" />
         </div>
@@ -138,7 +145,6 @@ export default async function ReportsPage({ searchParams }: PageProps<"/raporlar
                 <th className="px-4 py-3 text-right font-medium">Geldi / Beklenen</th>
                 <th className="px-4 py-3 text-right font-medium">Yüzde</th>
                 <th className="px-4 py-3 text-right font-medium">Geç</th>
-                <th className="px-4 py-3 text-right font-medium">Mazeretli</th>
                 <th className="px-4 py-3 text-right font-medium">Gelmedi</th>
                 <th className="px-4 py-3 font-medium">Son çalışmalar</th>
               </tr>
@@ -176,10 +182,12 @@ export default async function ReportsPage({ searchParams }: PageProps<"/raporlar
                     {m.late}
                   </td>
                   <td className="hidden text-right tabular-nums md:table-cell md:px-4 md:py-3">
-                    {m.excused}
-                  </td>
-                  <td className="hidden text-right tabular-nums md:table-cell md:px-4 md:py-3">
                     {m.absent}
+                    {m.excused > 0 && (
+                      <span className="block text-xs text-muted-foreground">
+                        {m.excused} mazeretli
+                      </span>
+                    )}
                   </td>
                   <td className="col-span-2 pt-1 md:px-4 md:py-3">
                     <AttendanceStrip statuses={m.history.slice(0, 8).map((h) => h.status)} />

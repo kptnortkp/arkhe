@@ -72,7 +72,8 @@ export const REHEARSAL_TYPE_CODES = codeTable<RehearsalType>(
 );
 export const STATUS_CODES = codeTable<AttendanceStatus>(
   ATTENDANCE_STATUSES,
-  (v) => STATUS_LABELS[v],
+  // The short label keeps "mazeretli" as the excused code that import files already use.
+  (v) => (v === "excused" ? STATUS_SHORT.excused : STATUS_LABELS[v]),
   { late: [STATUS_SHORT.late] },
 );
 export const ENTRY_KIND_CODES = codeTable<"income" | "expense" | "transfer">(

@@ -12,15 +12,18 @@ import { cn } from "@/lib/utils";
 export const STATUS_ICONS: Record<AttendanceStatus, LucideIcon> = {
   present: Check,
   late: Clock,
-  excused: MessageSquareText,
+  excused: X,
   absent: X,
 };
 
 export function StatusChip({
   status,
+  upcoming,
   className,
 }: {
   status: AttendanceStatus | null;
+  /** Before attendance closes an excuse is a plan, not yet an absence. */
+  upcoming?: boolean;
   className?: string;
 }) {
   if (!status) {
@@ -33,6 +36,19 @@ export function StatusChip({
       >
         <Minus className="size-3.5" />
         İşaretlenmedi
+      </span>
+    );
+  }
+  if (status === "excused" && upcoming) {
+    return (
+      <span
+        className={cn(
+          "inline-flex items-center gap-1 rounded-full bg-excused/14 px-2.5 py-0.5 text-xs font-medium text-excused-ink",
+          className,
+        )}
+      >
+        <MessageSquareText className="size-3.5" />
+        Gelemeyeceğim
       </span>
     );
   }
