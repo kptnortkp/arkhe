@@ -10,18 +10,18 @@ export const RELEASE_KEY = "surum";
 /**
  * After a health probe of a new build: IT users (handles_reports) get "Canlıya çıktı" once per
  * commit. The upsert changes the row only for a new sha, so concurrent probes send once.
- * Never throws: the probe must not fail or slow down because of it.
+ * Never throws: the probe must not fail or slow down because of it. True for a new build.
  */
 export async function announceRelease(sha: string, message?: string | null) {
   try {
     const sha7 = sha.slice(0, 7);
-    if (!/^[0-9a-f]{7,40}$/i.test(sha)) return;
+    if (!/^[0-9a-f]{7,40}$/i.test(sha)) return false;
     const changed = await db.all<{ key: string }>(sql`
       insert into notification_state (key, value) values (${RELEASE_KEY}, ${sha})
       on conflict (key) do update set value = excluded.value, updated_at = unixepoch()
         where notification_state.value <> excluded.value
       returning key`);
-    if (changed.length === 0) return;
+    if (changed.length === 0) return false;
     const firstLine = message?.split("\n")[0]?.trim();
     const it = await db
       .select({ id: users.id })
@@ -43,7 +43,9 @@ export async function announceRelease(sha: string, message?: string | null) {
       expiresAt: new Date(now.getTime() + DAY_MS),
     }));
     await notify(items, { now, fault: null, latencyMs: 0 });
+    return true;
   } catch (e) {
     console.error("release announcement failed", { name: (e as Error)?.name });
+    return false;
   }
 }
