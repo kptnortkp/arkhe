@@ -226,6 +226,10 @@ async function suite(browser, shots) {
       !log.some((r) => r.url.includes("/api/dosya/") && r.method === "POST"),
     "AC7 stopped: Dinle, Gönder, Yeniden kaydet; still no upload request",
   );
+  check(
+    await korist.getByRole("button", { name: "Bunun yerine dosya yükle" }).isVisible(),
+    "a recorded take still offers the file upload",
+  );
   if (shots) await korist.screenshot({ path: `${shots}/p9-recorder-recorded.png`, fullPage: true });
 
   await korist.route("**/api/dosya/kayit?**", async (route) => {
@@ -358,8 +362,12 @@ async function suite(browser, shots) {
 
   // AC 11 late: D is overdue.
   await go(korist, `${BASE}/odevler/${D}?k=${Date.now()}`);
+  // A take recorded and then swapped for a file through "Bunun yerine dosya yükle".
+  await record(korist, 1500);
+  await korist.getByRole("button", { name: "Bunun yerine dosya yükle" }).waitFor();
   await pickFile(korist, "gec.wav", wavBytes({ seconds: 2 }));
-  await waitState(korist, "recorded");
+  await korist.getByRole("button", { name: "Başka dosya seç" }).waitFor();
+  check(true, "a recorded take can be swapped for a file");
   await send(korist);
   const c11b = await chip(korist);
   check(c11b.text === `Geç teslim · ${today()}`, `AC11 an upload on overdue D is Geç teslim (${c11b.text})`);

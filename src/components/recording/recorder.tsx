@@ -919,6 +919,8 @@ export function Recorder({
           {local.source === "file" ? <Upload /> : <RotateCcw />}
           {local.source === "file" ? "Başka dosya seç" : "Yeniden kaydet"}
         </Button>
+        {/* Changing your mind about a take must not hide the file route; a cancelled pick keeps it. */}
+        {local.source === "record" && !blocked && fileButton("Bunun yerine dosya yükle")}
       </div>
     );
   }
@@ -993,6 +995,7 @@ export function Recorder({
         >
           {local.source === "file" ? "Başka dosya seç" : "Yeniden kaydet"}
         </Button>
+        {local.source === "record" && !blocked && fileButton("Bunun yerine dosya yükle")}
       </div>
     );
   }
