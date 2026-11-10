@@ -61,16 +61,20 @@ export async function generateMetadata({ params }: PageProps<"/odevler/[id]">) {
 export default async function AssignmentPage({ params, searchParams }: PageProps<"/odevler/[id]">) {
   const user = await requireUser();
   const { id } = await params;
-  const a = await load(id);
-  const sp = await searchParams;
-  const viewer = (await loadViewer(user.id))!;
+  // My own submission is read alongside: a stranger's id is refused by load() before it's used.
+  const [a, sp, viewerRow, mine] = await Promise.all([
+    load(id),
+    searchParams,
+    loadViewer(user.id),
+    mySubmission(id, user.id),
+  ]);
+  const viewer = viewerRow!;
   const manager = isManager(user.role);
   const at = now();
   const title = `${a.pieceTitle} · ${barsLabel(a.barFrom, a.barTo)}`;
   const eligible = isEligible(viewer, a.parts);
   const narrowedForMe = a.parts.find((t) => t.part === viewer.voicePart && t.section !== null);
   const expected = isExpected(viewer, a);
-  const mine = await mySubmission(a.id, viewer.id);
   const cancelled = a.cancelledAt !== null;
   // My own state when I sing it; the deadline itself for managers; nothing when it isn't my part.
   const headerBadge =
@@ -89,20 +93,31 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
 
   let singer: React.ReactNode = null;
   if ((eligible && !cancelled) || mine?.submittedAt) {
-    const [email, [withPart], recorder, listeners, maxMs, warning, midi, usage, audio, partMidi, allMidi] =
-      await Promise.all([
-        getRecordingEmail(),
-        withMyPart([{ id: a.pieceId }], viewer.voicePart),
-        myRecorder(a.id, viewer.id),
-        listenersFor({ id: viewer.id, voicePart: viewer.voicePart }),
-        recorderMaxMs(),
-        storageWarning(),
-        homeworkMidi(a.pieceId, viewer.voicePart),
-        cachedUsage(),
-        audioForPiece(a.pieceId, viewer.voicePart, viewer.voiceSection),
-        viewer.voicePart ? heroMidi(a.pieceId, viewer.voicePart) : null,
-        tuttiMidi(a.pieceId),
-      ]);
+    const [
+      email,
+      [withPart],
+      recorder,
+      listeners,
+      maxMs,
+      warning,
+      midi,
+      usage,
+      audio,
+      partMidi,
+      allMidi,
+    ] = await Promise.all([
+      getRecordingEmail(),
+      withMyPart([{ id: a.pieceId }], viewer.voicePart),
+      myRecorder(a.id, viewer.id),
+      listenersFor({ id: viewer.id, voicePart: viewer.voicePart }),
+      recorderMaxMs(),
+      storageWarning(),
+      homeworkMidi(a.pieceId, viewer.voicePart),
+      cachedUsage(),
+      audioForPiece(a.pieceId, viewer.voicePart, viewer.voiceSection),
+      viewer.voicePart ? heroMidi(a.pieceId, viewer.voicePart) : null,
+      tuttiMidi(a.pieceId),
+    ]);
     // Played on this page, before or during a take: rehearsal audio first, else the MIDI.
     const myAudio = pickMyAudio(audio, viewer.voicePart, viewer.voiceSection);
     const tuttiAudio = audio.find((r) => r.voicePart === null);

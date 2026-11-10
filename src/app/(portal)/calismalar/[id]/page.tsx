@@ -35,26 +35,26 @@ export default async function RehearsalPage({ params }: PageProps<"/calismalar/[
   const phase = phaseOf(r);
   const manager = isManager(user.role);
   const started = r.startsAt <= new Date();
-  const [marks, expected, imported] = await Promise.all([
+  // Independent reads run side by side: each awaited query is a round trip to the database.
+  const [marks, expected, imported, snapshot, [{ later }]] = await Promise.all([
     myMarks(user.id, [id]),
     expectedFor(user.id, [r]),
     manager ? rehearsalImported(id) : false,
+    manager && phase !== "cancelled" ? liveSnapshot(id, false) : null,
+    r.seriesId
+      ? db
+          .select({ later: count() })
+          .from(rehearsals)
+          .where(
+            and(
+              eq(rehearsals.seriesId, r.seriesId),
+              gt(rehearsals.startsAt, new Date(Math.max(now().getTime(), r.startsAt.getTime()))),
+            ),
+          )
+      : [{ later: 0 }],
   ]);
   const mine = marks.get(id);
-
-  const snapshot = manager && phase !== "cancelled" ? await liveSnapshot(id, false) : null;
   const unmarked = snapshot?.rows.filter((x) => x.onRoster && x.status === null).length ?? 0;
-  const [{ later }] = r.seriesId
-    ? await db
-        .select({ later: count() })
-        .from(rehearsals)
-        .where(
-          and(
-            eq(rehearsals.seriesId, r.seriesId),
-            gt(rehearsals.startsAt, new Date(Math.max(now().getTime(), r.startsAt.getTime()))),
-          ),
-        )
-    : [{ later: 0 }];
   const showRoster =
     snapshot && (phase === "open" || phase === "closed" || phase === "untaken" || started);
   const excusesAhead = snapshot?.rows.filter((x) => x.status === "excused") ?? [];

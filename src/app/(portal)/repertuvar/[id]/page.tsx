@@ -55,12 +55,14 @@ export async function generateMetadata({ params }: PageProps<"/repertuvar/[id]">
 export default async function PiecePage({ params, searchParams }: PageProps<"/repertuvar/[id]">) {
   const user = await requireUser();
   const { id } = await params;
-  const { piece, links } = await load(id);
-  const sp = await searchParams;
-  const manager = isManager(user.role);
-  const rank = piece.programPosition !== null ? await programRank(piece.id) : null;
   const at = now();
-  const homework = await openHomeworkForPiece(piece.id, at);
+  // Read alongside the piece; an unknown id still ends in load()'s notFound.
+  const [{ piece, links }, sp, homework] = await Promise.all([
+    load(id),
+    searchParams,
+    openHomeworkForPiece(id, at),
+  ]);
+  const manager = isManager(user.role);
 
   const mine = user.voicePart;
   const raw = typeof sp.partisyon === "string" ? sp.partisyon : undefined;
@@ -92,7 +94,8 @@ export default async function PiecePage({ params, searchParams }: PageProps<"/re
   const hiddenParts =
     links.some((l) => l.kind === "part") && !visible.some((l) => l.kind === "part");
 
-  const [hero, midiRows, score, audioRows] = await Promise.all([
+  const [rank, hero, midiRows, score, audioRows] = await Promise.all([
+    piece.programPosition !== null ? programRank(piece.id) : null,
     mine ? heroMidi(piece.id, mine) : null,
     midiForPiece(piece.id, filter ?? "all"),
     scoreForPiece(piece.id),

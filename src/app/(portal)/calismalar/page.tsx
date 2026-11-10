@@ -39,22 +39,38 @@ export default async function RehearsalsPage({ searchParams }: PageProps<"/calis
   const page = past ? pageParam(sayfa) : 1;
   const todayStart = istanbulToUtc(istanbulDateOf(new Date()));
 
-  // One extra row only says whether an older page exists.
-  const fetched = past
-    ? await listRehearsals({ to: todayStart, order: "desc", limit: PAGE + 1, offset: (page - 1) * PAGE })
-    : await listRehearsals({ from: todayStart, limit: PAGE });
-  const hasMore = past && fetched.length > PAGE;
-  const list = fetched.slice(0, PAGE);
-  const ids = list.map((r) => r.id);
-  const [marks, expected] = await Promise.all([myMarks(user.id, ids), expectedFor(user.id, list)]);
   const showMine = user.role !== "conductor";
-
-  const period = past && showMine && page === 1 ? await resolvePeriod() : null;
-  const mine = period
-    ? (await attendanceStats({ from: period.from, to: period.to, userId: user.id })).members[0]
-    : null;
-
-  const ahead = canManage && !past ? await upcomingAbsences(todayStart) : null;
+  // Independent reads run side by side: each awaited query is a round trip to the database.
+  const [rows, myStats, ahead] = await Promise.all([
+    (async () => {
+      // One extra row only says whether an older page exists.
+      const fetched = past
+        ? await listRehearsals({
+            to: todayStart,
+            order: "desc",
+            limit: PAGE + 1,
+            offset: (page - 1) * PAGE,
+          })
+        : await listRehearsals({ from: todayStart, limit: PAGE });
+      const list = fetched.slice(0, PAGE);
+      const ids = list.map((r) => r.id);
+      const [marks, expected] = await Promise.all([
+        myMarks(user.id, ids),
+        expectedFor(user.id, list),
+      ]);
+      return { list, marks, expected, hasMore: past && fetched.length > PAGE };
+    })(),
+    (async () => {
+      if (!(past && showMine && page === 1)) return null;
+      const period = await resolvePeriod();
+      const stats = await attendanceStats({ from: period.from, to: period.to, userId: user.id });
+      return { period, stats: stats.members[0] };
+    })(),
+    canManage && !past ? upcomingAbsences(todayStart) : null,
+  ]);
+  const { list, marks, expected, hasMore } = rows;
+  const period = myStats?.period ?? null;
+  const mine = myStats?.stats ?? null;
   const aheadTotal = ahead?.reduce((s, x) => s + x.absences.length, 0) ?? 0;
   const missing = new Map(ahead?.map((x) => [x.rehearsal.id, x.absences.length]));
 
@@ -185,7 +201,9 @@ export default async function RehearsalsPage({ searchParams }: PageProps<"/calis
           page={page}
           hasMore={hasMore}
           label="Geçmiş çalışmalar sayfaları"
-          href={(n) => (n === 1 ? "/calismalar?sekme=gecmis" : `/calismalar?sekme=gecmis&sayfa=${n}`)}
+          href={(n) =>
+            n === 1 ? "/calismalar?sekme=gecmis" : `/calismalar?sekme=gecmis&sayfa=${n}`
+          }
         />
       )}
     </div>

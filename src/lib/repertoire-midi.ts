@@ -98,7 +98,9 @@ export async function midiForPiece(pieceId: string, part: VoicePart | "all" | nu
 
 /** The editor (managers): every file, drafts included. */
 export async function midiForEditor(pieceId: string) {
-  const rows = await db.all<Raw>(sql`select ${COLUMNS} ${FROM} where m.piece_id = ${pieceId} ${ORDER}`);
+  const rows = await db.all<Raw>(
+    sql`select ${COLUMNS} ${FROM} where m.piece_id = ${pieceId} ${ORDER}`,
+  );
   const all = rows.map(toRow);
   return {
     manual: all.filter((m) => !m.auto),
@@ -133,9 +135,9 @@ export type ChosenMidi = { row: MidiRow; emphasize: boolean };
  * automatic file when it has a track for my part (with `önde`), else no hero.
  */
 export async function heroMidi(pieceId: string, part: VoicePart): Promise<ChosenMidi | null> {
-  const exact = await manualFor(pieceId, part);
+  // Both lookups at once: one round trip instead of two when there's no manual file.
+  const [exact, auto] = await Promise.all([manualFor(pieceId, part), publishedAuto(pieceId)]);
   if (exact) return { row: exact, emphasize: false };
-  const auto = await publishedAuto(pieceId);
   return auto && hasPart(auto, part) ? { row: auto, emphasize: true } : null;
 }
 
@@ -143,19 +145,25 @@ export async function heroMidi(pieceId: string, part: VoicePart): Promise<Chosen
  * The homework's `MIDI'yi çal` (D117): manual exact part → automatic with my track (`önde`) →
  * manual Tutti → automatic without emphasis.
  */
-export async function homeworkMidi(pieceId: string, part: VoicePart | null): Promise<ChosenMidi | null> {
-  const exact = part ? await manualFor(pieceId, part) : null;
+export async function homeworkMidi(
+  pieceId: string,
+  part: VoicePart | null,
+): Promise<ChosenMidi | null> {
+  const [exact, auto, tutti] = await Promise.all([
+    part ? manualFor(pieceId, part) : null,
+    publishedAuto(pieceId),
+    manualFor(pieceId, null),
+  ]);
   if (exact) return { row: exact, emphasize: false };
-  const auto = await publishedAuto(pieceId);
   if (auto && part && hasPart(auto, part)) return { row: auto, emphasize: true };
-  const tutti = await manualFor(pieceId, null);
   if (tutti) return { row: tutti, emphasize: false };
   return auto ? { row: auto, emphasize: false } : null;
 }
 
 /** Every part at once, for playing along: a manual Tutti file, else the published automatic one. */
 export async function tuttiMidi(pieceId: string) {
-  return (await manualFor(pieceId, null)) ?? (await publishedAuto(pieceId));
+  const [tutti, auto] = await Promise.all([manualFor(pieceId, null), publishedAuto(pieceId)]);
+  return tutti ?? auto;
 }
 
 /** Published files of both kinds: "does this piece have MIDI". */
@@ -181,5 +189,7 @@ export async function scoreForPiece(pieceId: string): Promise<ScoreRow | null> {
   const [r] = await db.all<{ id: string; size: number; at: number }>(
     sql`select id, size_bytes as size, uploaded_at as at from piece_scores where piece_id = ${pieceId}`,
   );
-  return r ? { id: r.id, sizeBytes: Number(r.size), uploadedAt: new Date(Number(r.at) * 1000) } : null;
+  return r
+    ? { id: r.id, sizeBytes: Number(r.size), uploadedAt: new Date(Number(r.at) * 1000) }
+    : null;
 }

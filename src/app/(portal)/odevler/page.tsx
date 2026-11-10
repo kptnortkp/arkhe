@@ -31,16 +31,20 @@ const eyebrow = "font-sans text-xs font-medium tracking-[0.2em] text-muted-foreg
 
 export default async function HomeworkPage({ searchParams }: PageProps<"/odevler">) {
   const user = await requireUser();
-  const viewer = (await loadViewer(user.id))!;
+  const [viewerRow, params, assigned] = await Promise.all([
+    loadViewer(user.id),
+    searchParams,
+    loadScope(user.id),
+  ]);
+  const viewer = viewerRow!;
   const manager = isManager(user.role);
-  const params = await searchParams;
   const view = HOMEWORK_VIEWS.includes(params.liste as HomeworkView)
     ? (params.liste as HomeworkView)
     : "guncel";
   const at = now();
   const href = (v: HomeworkView) => (v === "guncel" ? "/odevler" : `/odevler?liste=${v}`);
 
-  const scope = effectiveScope(viewer, await loadScope(user.id));
+  const scope = effectiveScope(viewer, assigned);
   const listen =
     user.role === "conductor"
       ? (await conductorCounts()).waiting

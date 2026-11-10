@@ -61,29 +61,55 @@ export default async function HomePage() {
   await autoCloseStale();
   const manager = isManager(user.role);
   const todayStart = istanbulToUtc(istanbulDateOf(now()));
-  // Starts a day back so a rehearsal still open past midnight stays on the hero.
-  const upcoming = (
-    await listRehearsals({ from: new Date(todayStart.getTime() - 86_400_000), limit: 30 })
-  ).filter((r) => !r.cancelledAt && !r.closedAt && (r.openedAt || r.startsAt >= todayStart));
-  const expected = await expectedFor(user.id, upcoming);
-  const mineOnly =
-    user.role === "conductor" ? upcoming : upcoming.filter((r) => expected.get(r.id));
-  // An open rehearsal wins; otherwise the next one that hasn't ended.
-  const next =
-    mineOnly.find((r) => phaseOf(r) === "open") ?? mineOnly.find((r) => r.endsAt > now());
-  const mark = next ? (await myMarks(user.id, [next.id])).get(next.id) : undefined;
+
+  // Independent reads run side by side: each awaited query is a round trip to the database.
+  const periodP = resolvePeriod();
+  const [hero, period, mine, last, viewerRow, pushKey, learned] = await Promise.all([
+    (async () => {
+      // Starts a day back so a rehearsal still open past midnight stays on the hero.
+      const upcoming = (
+        await listRehearsals({ from: new Date(todayStart.getTime() - 86_400_000), limit: 30 })
+      ).filter((r) => !r.cancelledAt && !r.closedAt && (r.openedAt || r.startsAt >= todayStart));
+      const expected = await expectedFor(user.id, upcoming);
+      const mineOnly =
+        user.role === "conductor" ? upcoming : upcoming.filter((r) => expected.get(r.id));
+      // An open rehearsal wins; otherwise the next one that hasn't ended.
+      const next =
+        mineOnly.find((r) => phaseOf(r) === "open") ?? mineOnly.find((r) => r.endsAt > now());
+      const mark = next ? (await myMarks(user.id, [next.id])).get(next.id) : undefined;
+      return { next, mark };
+    })(),
+    periodP,
+    (async () => {
+      if (user.role === "conductor") return undefined;
+      const p = await periodP;
+      return (await attendanceStats({ from: p.from, to: p.to, userId: user.id })).members[0];
+    })(),
+    (async () => {
+      if (!manager) return { lastClosed: undefined, lastRoster: null };
+      const [lastClosed] = (await listRehearsals({ to: now(), order: "desc", limit: 10 })).filter(
+        (r) => r.closedAt,
+      );
+      const lastRoster = lastClosed ? await rosterOf(lastClosed.id, { includeNotes: false }) : null;
+      return { lastClosed, lastRoster };
+    })(),
+    loadViewer(user.id),
+    getVapidPublicKey(),
+    (async () => {
+      const learning = await learningPieces();
+      const pieces = await withMyPart(learning.slice(0, 5), user.voicePart);
+      const withMidi = user.voicePart
+        ? await Promise.all(
+            pieces.map(async (p) => ((await heroMidi(p.id, user.voicePart!)) ? p.id : null)),
+          )
+        : [];
+      return { pieces, morePieces: learning.length - pieces.length, midi: withMidi };
+    })(),
+  ]);
+  const { next, mark } = hero;
+  const viewer = viewerRow!;
   const nextPhase = next ? phaseOf(next) : null;
-
-  const period = await resolvePeriod();
-  const mine =
-    user.role !== "conductor"
-      ? (await attendanceStats({ from: period.from, to: period.to, userId: user.id })).members[0]
-      : undefined;
-
-  const [lastClosed] = manager
-    ? (await listRehearsals({ to: now(), order: "desc", limit: 10 })).filter((r) => r.closedAt)
-    : [];
-  const lastRoster = lastClosed ? await rosterOf(lastClosed.id, { includeNotes: false }) : null;
+  const { lastClosed, lastRoster } = last;
   const turnout = VOICE_PARTS.map((part) => {
     const rows = lastRoster?.rows.filter((r) => r.onRoster && r.voicePart === part) ?? [];
     return {
@@ -93,21 +119,9 @@ export default async function HomePage() {
     };
   }).filter((t) => t.total > 0);
 
-  const viewer = (await loadViewer(user.id))!;
-  const pushKey = await getVapidPublicKey();
   const at = now();
-  const learning = await learningPieces();
-  const pieces = await withMyPart(learning.slice(0, 5), user.voicePart);
-  const morePieces = learning.length - pieces.length;
-  const midiPieces = new Set(
-    user.voicePart
-      ? (
-          await Promise.all(
-            pieces.map(async (p) => ((await heroMidi(p.id, user.voicePart!)) ? p.id : null)),
-          )
-        ).filter(Boolean)
-      : [],
-  );
+  const { pieces, morePieces } = learned;
+  const midiPieces = new Set(learned.midi.filter(Boolean));
 
   return (
     <div className="space-y-8">
