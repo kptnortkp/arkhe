@@ -12,11 +12,14 @@ export function RehearsalRow({
   myStatus,
   expected,
   showMine,
+  missing,
 }: {
   rehearsal: Rehearsal;
   myStatus?: AttendanceStatus | null;
   expected?: boolean;
   showMine: boolean;
+  /** Managers only: advance excuses for a rehearsal that hasn't closed yet. */
+  missing?: number;
 }) {
   const phase = phaseOf(r);
   return (
@@ -54,6 +57,14 @@ export function RehearsalRow({
             <span className="inline-flex items-center gap-1.5 rounded-full bg-gold/20 px-2.5 py-0.5 text-xs font-medium text-accent-foreground">
               <span className="size-1.5 animate-pulse rounded-full bg-gold" />
               Yoklama açık
+            </span>
+          )}
+          {missing !== undefined && missing > 0 && phase !== "cancelled" && (
+            <span
+              className="rounded-full bg-absent/12 px-2.5 py-0.5 text-xs font-medium text-absent-ink"
+              data-testid="missing-chip"
+            >
+              {missing} kişi yok
             </span>
           )}
           {phase === "untaken" && (

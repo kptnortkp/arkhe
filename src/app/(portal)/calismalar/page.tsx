@@ -56,6 +56,7 @@ export default async function RehearsalsPage({ searchParams }: PageProps<"/calis
 
   const ahead = canManage && !past ? await upcomingAbsences(todayStart) : null;
   const aheadTotal = ahead?.reduce((s, x) => s + x.absences.length, 0) ?? 0;
+  const missing = new Map(ahead?.map((x) => [x.rehearsal.id, x.absences.length]));
 
   return (
     <div className="space-y-6">
@@ -170,6 +171,7 @@ export default async function RehearsalsPage({ searchParams }: PageProps<"/calis
                     showMine={showMine}
                     expected={expected.get(r.id)}
                     myStatus={marks.get(r.id)?.status ?? null}
+                    missing={missing.get(r.id)}
                   />
                 </li>
               ))}

@@ -57,6 +57,10 @@ export default async function run(browser) {
 
   await sef.goto(`${BASE}/calismalar`);
   check((await sef.getByTestId("upcoming-link").textContent()).includes("mazeret bildirildi"), "Çalışmalar links managers to the report");
+  const chip = (page, id) => page.locator(`a[href="/calismalar/${id}"] [data-testid=missing-chip]`);
+  check((await chip(sef, tutti).textContent()) === "2 kişi yok", "the list marks how many can't come");
+  check((await chip(sef, tenors).textContent()) === "1 kişi yok", "sectional rows get the chip too");
+  check((await chip(sef, quiet).count()) === 0, "no chip when nobody is missing");
   await sef.goto(`${BASE}/raporlar`);
   check((await sef.getByRole("link", { name: "Gelecek çalışmalar" }).count()) === 1, "Raporlar links to the report");
   check(!(await sef.getByTestId("report-table").textContent()).includes("Mazeretli"), "report table has no separate Mazeretli column");
@@ -70,6 +74,7 @@ export default async function run(browser) {
   check(!korist.url().includes("/raporlar/gelecek"), "a member can't open the report");
   await korist.goto(`${BASE}/calismalar`);
   check((await korist.getByTestId("upcoming-link").count()) === 0, "members don't get the report link");
+  check((await korist.getByTestId("missing-chip").count()) === 0, "members don't see the missing chips");
   check(
     (await korist.locator(`a[href="/calismalar/${tutti}"]`).textContent()).includes("Gelemeyeceğim"),
     "an upcoming excuse reads as Gelemeyeceğim",
