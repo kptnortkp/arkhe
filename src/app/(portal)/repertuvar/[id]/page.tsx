@@ -228,7 +228,7 @@ export default async function PiecePage({ params, searchParams }: PageProps<"/re
         </nav>
       )}
 
-      <ScoreSection score={score} />
+      <ScoreSection score={score} pieceId={piece.id} />
       <MidiList rows={midiRows} myPart={mine} />
       <AudioList rows={audioRows} />
 

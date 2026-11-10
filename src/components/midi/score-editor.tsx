@@ -274,7 +274,7 @@ export function ScoreEditor({
       </h2>
       {score ? (
         <div className="space-y-3 rounded-2xl border bg-card px-4 py-3">
-          <ScoreLine score={score} />
+          <ScoreLine score={score} pieceId={pieceId} />
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
