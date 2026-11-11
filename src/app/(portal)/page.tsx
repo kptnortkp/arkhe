@@ -4,6 +4,7 @@ import Link from "next/link";
 import stageChoir from "../../../public/brand/stage-choir.webp";
 import { AnnouncementsHomeCard } from "@/components/announcements/home-card";
 import { CheckInPanel } from "@/components/attendance/check-in-panel";
+import { NoteCard } from "@/components/attendance/practice-notes";
 import { BackupBanner } from "@/components/backup/backup-banner";
 import { BoardHomeCard } from "@/components/board/home-card";
 import { AttendanceStrip, TypeChip } from "@/components/attendance/status-chip";
@@ -18,6 +19,8 @@ import { PushNudge } from "@/components/notifications/push-nudge";
 import { SectionPrompt } from "@/components/section-picker";
 import { VOICE_PARTS } from "@/db/schema";
 import { autoCloseStale } from "@/lib/attendance/close";
+import { mySignup, unansweredConcerts } from "@/lib/attendance/concert";
+import { recentNotesFor } from "@/lib/attendance/practice-notes";
 import { resolvePeriod } from "@/lib/attendance/period";
 import {
   expectedFor,
@@ -37,6 +40,7 @@ import { loadViewer } from "@/lib/homework/queries";
 import { getVapidPublicKey } from "@/lib/push/settings";
 import { learningPieces, withMyPart } from "@/lib/repertoire";
 import { heroMidi } from "@/lib/repertoire-midi";
+import { canMarkReadiness, myReadiness } from "@/lib/repertoire-readiness";
 import { formatLongDate, formatTime, istanbulDateOf, istanbulToUtc, now } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
@@ -64,49 +68,76 @@ export default async function HomePage() {
 
   // Independent reads run side by side: each awaited query is a round trip to the database.
   const periodP = resolvePeriod();
-  const [hero, period, mine, last, viewerRow, pushKey, learned] = await Promise.all([
-    (async () => {
-      // Starts a day back so a rehearsal still open past midnight stays on the hero.
-      const upcoming = (
-        await listRehearsals({ from: new Date(todayStart.getTime() - 86_400_000), limit: 30 })
-      ).filter((r) => !r.cancelledAt && !r.closedAt && (r.openedAt || r.startsAt >= todayStart));
-      const expected = await expectedFor(user.id, upcoming);
-      const mineOnly =
-        user.role === "conductor" ? upcoming : upcoming.filter((r) => expected.get(r.id));
-      // An open rehearsal wins; otherwise the next one that hasn't ended.
-      const next =
-        mineOnly.find((r) => phaseOf(r) === "open") ?? mineOnly.find((r) => r.endsAt > now());
-      const mark = next ? (await myMarks(user.id, [next.id])).get(next.id) : undefined;
-      return { next, mark };
-    })(),
-    periodP,
-    (async () => {
-      if (user.role === "conductor") return undefined;
-      const p = await periodP;
-      return (await attendanceStats({ from: p.from, to: p.to, userId: user.id })).members[0];
-    })(),
-    (async () => {
-      if (!manager) return { lastClosed: undefined, lastRoster: null };
-      const [lastClosed] = (await listRehearsals({ to: now(), order: "desc", limit: 10 })).filter(
-        (r) => r.closedAt,
-      );
-      const lastRoster = lastClosed ? await rosterOf(lastClosed.id, { includeNotes: false }) : null;
-      return { lastClosed, lastRoster };
-    })(),
-    loadViewer(user.id),
-    getVapidPublicKey(),
-    (async () => {
-      const learning = await learningPieces();
-      const pieces = await withMyPart(learning.slice(0, 5), user.voicePart);
-      const withMidi = user.voicePart
-        ? await Promise.all(
-            pieces.map(async (p) => ((await heroMidi(p.id, user.voicePart!)) ? p.id : null)),
-          )
-        : [];
-      return { pieces, morePieces: learning.length - pieces.length, midi: withMidi };
-    })(),
-  ]);
-  const { next, mark } = hero;
+  const [hero, period, mine, last, viewerRow, pushKey, learned, notes, concerts] =
+    await Promise.all([
+      (async () => {
+        // Starts a day back so a rehearsal still open past midnight stays on the hero.
+        const upcoming = (
+          await listRehearsals({ from: new Date(todayStart.getTime() - 86_400_000), limit: 30 })
+        ).filter((r) => !r.cancelledAt && !r.closedAt && (r.openedAt || r.startsAt >= todayStart));
+        const expected = await expectedFor(user.id, upcoming);
+        const mineOnly =
+          user.role === "conductor" ? upcoming : upcoming.filter((r) => expected.get(r.id));
+        // An open rehearsal wins; otherwise the next one that hasn't ended.
+        const next =
+          mineOnly.find((r) => phaseOf(r) === "open") ?? mineOnly.find((r) => r.endsAt > now());
+        const [marks, signedUp] = next
+          ? await Promise.all([
+              myMarks(user.id, [next.id]),
+              next.type === "concert" ? mySignup(user.id, next.id) : false,
+            ])
+          : [undefined, false];
+        return { next, mark: next ? marks?.get(next.id) : undefined, signedUp };
+      })(),
+      periodP,
+      (async () => {
+        if (user.role === "conductor") return undefined;
+        const p = await periodP;
+        return (await attendanceStats({ from: p.from, to: p.to, userId: user.id })).members[0];
+      })(),
+      (async () => {
+        if (!manager) return { lastClosed: undefined, lastRoster: null };
+        const [lastClosed] = (await listRehearsals({ to: now(), order: "desc", limit: 10 })).filter(
+          (r) => r.closedAt,
+        );
+        const lastRoster = lastClosed
+          ? await rosterOf(lastClosed.id, { includeNotes: false })
+          : null;
+        return { lastClosed, lastRoster };
+      })(),
+      loadViewer(user.id),
+      getVapidPublicKey(),
+      (async () => {
+        const learning = await learningPieces();
+        const [pieces, ready] = await Promise.all([
+          withMyPart(learning.slice(0, 5), user.voicePart),
+          canMarkReadiness(user)
+            ? myReadiness(
+                user.id,
+                learning.map((p) => p.id),
+              )
+            : null,
+        ]);
+        const withMidi = user.voicePart
+          ? await Promise.all(
+              pieces.map(async (p) => ((await heroMidi(p.id, user.voicePart!)) ? p.id : null)),
+            )
+          : [];
+        const unmarked = ready ? learning.filter((p) => !ready.has(p.id)) : [];
+        return {
+          pieces,
+          morePieces: learning.length - pieces.length,
+          midi: withMidi,
+          unmarked: unmarked.length,
+          firstUnmarked: unmarked[0]?.id ?? null,
+        };
+      })(),
+      recentNotesFor(user, new Date(todayStart.getTime() - 14 * 86_400_000)),
+      user.role === "conductor" ? [] : unansweredConcerts(user.id, now()),
+    ]);
+  const { next, mark, signedUp } = hero;
+  // The hero already asks about the next concert.
+  const askConcerts = concerts.filter((c) => c.id !== next?.id);
   const viewer = viewerRow!;
   const nextPhase = next ? phaseOf(next) : null;
   const { lastClosed, lastRoster } = last;
@@ -196,6 +227,8 @@ export default async function HomePage() {
                   method={mark?.method ?? null}
                   note={mark?.note ?? null}
                   recordedAt={mark?.recordedAt.toISOString() ?? null}
+                  concert={next.type === "concert"}
+                  signedUp={signedUp}
                 />
               ) : null}
             </div>
@@ -219,6 +252,50 @@ export default async function HomePage() {
         <SectionPrompt part={user.voicePart} />
       )}
       {pushKey && <PushNudge publicKey={pushKey} userId={user.id} />}
+      {askConcerts.length > 0 && (
+        <section aria-labelledby="konser-sorusu" className="space-y-2" data-testid="concert-prompt">
+          <h2
+            id="konser-sorusu"
+            className="font-sans text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase"
+          >
+            Konserde söyleyecek misin?
+          </h2>
+          <ul className="divide-y overflow-hidden rounded-2xl border bg-card">
+            {askConcerts.map((c) => (
+              <li key={c.id}>
+                <Link
+                  href={`/calismalar/${c.id}`}
+                  className="flex min-h-14 items-center gap-3 px-4 py-2 hover:bg-muted/60"
+                >
+                  <span className="flex-1">
+                    <span className="block font-medium">{rehearsalTitle(c)}</span>
+                    <span className="block text-sm text-muted-foreground capitalize">
+                      {formatLongDate.format(c.startsAt)}, {formatTime.format(c.startsAt)}
+                    </span>
+                  </span>
+                  <span className="text-sm font-medium text-primary">Cevapla</span>
+                  <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {notes.length > 0 && (
+        <section aria-labelledby="calisma-notlari" className="space-y-2" data-testid="home-notes">
+          <h2
+            id="calisma-notlari"
+            className="font-sans text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase"
+          >
+            Çalışma notları
+          </h2>
+          <ul className="divide-y rounded-2xl border bg-card">
+            {notes.map((n) => (
+              <NoteCard key={n.id} note={n} withRehearsal />
+            ))}
+          </ul>
+        </section>
+      )}
       {manager && <BoardHomeCard />}
       <ReviewHomeCard user={user} />
       <MyHomeworkCard viewer={viewer} at={at} />
@@ -308,6 +385,17 @@ export default async function HomePage() {
               <ChevronRight className="size-4" />
             </Link>
           </div>
+          {learned.unmarked > 0 && learned.firstUnmarked && (
+            <p className="text-sm text-muted-foreground" data-testid="readiness-nudge">
+              {learned.unmarked} eserde ne durumda olduğunu henüz işaretlemedin.{" "}
+              <Link
+                href={`/repertuvar/${learned.firstUnmarked}`}
+                className="font-medium text-primary hover:underline"
+              >
+                İşaretle
+              </Link>
+            </p>
+          )}
           {pieces.length > 0 ? (
             <ul
               className="divide-y overflow-hidden rounded-2xl border bg-card"

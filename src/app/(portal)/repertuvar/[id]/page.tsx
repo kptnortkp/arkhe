@@ -13,6 +13,10 @@ import { LinkRow, PreviewGroup, type LinkRowData } from "@/components/repertoire
 import { PartButton } from "@/components/repertoire/part-button";
 import { MetaChips, PieceStatusChip } from "@/components/repertoire/piece-meta";
 import { PieceMenu } from "@/components/repertoire/piece-menu";
+import { ReadinessPicker } from "@/components/repertoire/readiness-picker";
+import { NoteCard } from "@/components/attendance/practice-notes";
+import { notesForPiece } from "@/lib/attendance/practice-notes";
+import { ReadinessSummary } from "@/components/repertoire/readiness-summary";
 import { buttonVariants } from "@/components/ui/button";
 import { LINK_KINDS, type VoicePart } from "@/db/schema";
 import { requireUser } from "@/lib/auth/dal";
@@ -24,6 +28,7 @@ import { managerBadge } from "@/lib/homework/deadline";
 import { barsLabel } from "@/lib/homework/mail";
 import { openHomeworkForPiece } from "@/lib/homework/queries";
 import { getPiece, programRank } from "@/lib/repertoire";
+import { canMarkReadiness, myReadiness, readinessByPart } from "@/lib/repertoire-readiness";
 import { audioForPiece, pickMyAudio } from "@/lib/repertoire-audio";
 import { heroMidi, midiForPiece, scoreForPiece } from "@/lib/repertoire-midi";
 import { now } from "@/lib/time";
@@ -94,12 +99,17 @@ export default async function PiecePage({ params, searchParams }: PageProps<"/re
   const hiddenParts =
     links.some((l) => l.kind === "part") && !visible.some((l) => l.kind === "part");
 
-  const [rank, hero, midiRows, score, audioRows] = await Promise.all([
+  const active = piece.status !== "archive";
+  const marks = active && canMarkReadiness(user);
+  const [rank, hero, midiRows, score, audioRows, mineReady, partsReady, notes] = await Promise.all([
     piece.programPosition !== null ? programRank(piece.id) : null,
     mine ? heroMidi(piece.id, mine) : null,
     midiForPiece(piece.id, filter ?? "all"),
     scoreForPiece(piece.id),
     audioForPiece(piece.id, filter ?? "all", user.voiceSection),
+    marks ? myReadiness(user.id, [piece.id]) : null,
+    manager && active ? readinessByPart([piece.id]) : null,
+    notesForPiece(piece.id, user, 5),
   ]);
 
   // Without MIDI or Drive part links, my uploaded part file (my sub-part first, else Tutti) is the hero.
@@ -175,6 +185,8 @@ export default async function PiecePage({ params, searchParams }: PageProps<"/re
         <PartButton myPart={myPart} voicePart={mine} pieceId={piece.id} title={piece.title} hero />
       )}
 
+      {marks && <ReadinessPicker pieceId={piece.id} level={mineReady?.get(piece.id) ?? null} />}
+
       {homework.length > 0 && (
         <section aria-labelledby="odevler" className="space-y-2" data-testid="piece-homework">
           <h2
@@ -200,6 +212,22 @@ export default async function PiecePage({ params, searchParams }: PageProps<"/re
         </section>
       )}
 
+      {notes.length > 0 && (
+        <section aria-labelledby="calisma-notlari" className="space-y-2">
+          <h2
+            id="calisma-notlari"
+            className="font-sans text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase"
+          >
+            Çalışma notları
+          </h2>
+          <ul className="divide-y rounded-2xl border bg-card" data-testid="piece-practice-notes">
+            {notes.map((n) => (
+              <NoteCard key={n.id} note={n} withRehearsal />
+            ))}
+          </ul>
+        </section>
+      )}
+
       {piece.notes && (
         <section className="rounded-2xl bg-accent/60 p-4">
           <h2 className="font-sans text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase">
@@ -208,6 +236,8 @@ export default async function PiecePage({ params, searchParams }: PageProps<"/re
           <p className="mt-1 text-sm whitespace-pre-line">{piece.notes}</p>
         </section>
       )}
+
+      {partsReady && <ReadinessSummary rows={partsReady.get(piece.id) ?? []} />}
 
       {(mine || filter) && links.length > 0 && (
         <nav

@@ -14,6 +14,7 @@ export const KINDS = [
   "rehearsal_cancelled",
   "rehearsal_restored",
   "series_ended",
+  "practice_note",
   "absent",
   "homework_new",
   "homework_due2",

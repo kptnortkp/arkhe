@@ -14,7 +14,9 @@ import { toast } from "sonner";
 import {
   checkIn,
   checkInForm,
+  signUpForConcert,
   submitExcuse,
+  withdrawConcertSignup,
   withdrawExcuse,
 } from "@/app/(portal)/calismalar/actions";
 import { Button } from "@/components/ui/button";
@@ -41,6 +43,9 @@ export type CheckInPanelProps = {
   note: string | null;
   recordedAt: string | null;
   onStage?: boolean;
+  /** A concert asks "Söyleyecek misin?" instead of only offering an excuse. */
+  concert?: boolean;
+  signedUp?: boolean;
 };
 
 const noop = () => () => {};
@@ -53,10 +58,28 @@ const timeFormat = new Intl.DateTimeFormat("tr-TR", {
 
 /** What a member sees and can do for one rehearsal: check in, excuse, withdraw. */
 export function CheckInPanel(props: CheckInPanelProps) {
-  const { rehearsalId, phase, started, expected, status, method, note, recordedAt, onStage } =
-    props;
+  const {
+    rehearsalId,
+    phase,
+    started,
+    expected,
+    status,
+    method,
+    note,
+    recordedAt,
+    onStage,
+    concert,
+    signedUp,
+  } = props;
   const [codeOpen, setCodeOpen] = useState(false);
   const [excuseOpen, setExcuseOpen] = useState(false);
+  // The excuse action's refresh can unmount the dialog before it closes itself; a changed mark
+  // closes it here so withdrawing later doesn't bring it back open.
+  const [seenStatus, setSeenStatus] = useState(status);
+  if (seenStatus !== status) {
+    setSeenStatus(status);
+    setExcuseOpen(false);
+  }
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const muted = onStage ? "text-stage-foreground/70" : "text-muted-foreground";
@@ -154,7 +177,9 @@ export function CheckInPanel(props: CheckInPanelProps) {
             className={cn("size-6 shrink-0", onStage ? "text-gold" : "text-excused")}
           />
           <div>
-            <p className="text-xs font-medium tracking-[0.2em] uppercase">Mazeretin iletildi</p>
+            <p className="text-xs font-medium tracking-[0.2em] uppercase">
+              {concert ? "Söyleyemeyeceğini bildirdin" : "Mazeretin iletildi"}
+            </p>
             {note && <p className={cn("line-clamp-1 text-sm", muted)}>“{note}”</p>}
           </div>
         </div>
@@ -174,8 +199,28 @@ export function CheckInPanel(props: CheckInPanelProps) {
             onStage && "text-stage-foreground hover:bg-white/10 hover:text-stage-foreground",
           )}
         >
-          Mazereti geri al
+          {concert ? "Geri al" : "Mazereti geri al"}
         </Button>
+        {concert && (
+          <Button
+            disabled={pending}
+            onClick={() =>
+              startTransition(async () => {
+                const result = await signUpForConcert(rehearsalId);
+                if (result.error) toast.error(result.error);
+                else toast.success(result.success);
+                router.refresh();
+              })
+            }
+            className={cn(
+              "ml-2 h-11 rounded-full px-5",
+              onStage && "bg-gold text-gold-foreground hover:bg-gold/90",
+            )}
+          >
+            <Check />
+            Söyleyeceğim
+          </Button>
+        )}
       </div>
     );
   }
@@ -186,17 +231,88 @@ export function CheckInPanel(props: CheckInPanelProps) {
       </p>
     );
   }
+  const run = (fn: () => Promise<{ error?: string; success?: string }>) =>
+    startTransition(async () => {
+      const result = await fn();
+      if (result.error) toast.error(result.error);
+      else toast.success(result.success);
+      router.refresh();
+    });
+  const outlineOnStage =
+    onStage &&
+    "border-stage-foreground/40 bg-transparent text-stage-foreground hover:bg-stage-foreground/10 hover:text-stage-foreground dark:border-stage-foreground/40 dark:bg-transparent";
+  if (concert) {
+    return (
+      <div className="space-y-3" data-testid="concert-answer">
+        {signedUp ? (
+          <div className="flex items-start gap-3">
+            <CircleCheck
+              className={cn("size-6 shrink-0", onStage ? "text-gold" : "text-present")}
+            />
+            <div>
+              <p className="text-xs font-medium tracking-[0.2em] uppercase">
+                Bu konserde söyleyeceksin
+              </p>
+              <p className={cn("text-sm", muted)}>Şef kadroyu buna göre planlıyor.</p>
+            </div>
+          </div>
+        ) : (
+          <p className={cn("text-sm font-medium", onStage && "text-stage-foreground")}>
+            Bu konserde söyleyecek misin?
+          </p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          {signedUp ? (
+            <Button
+              variant="ghost"
+              disabled={pending}
+              onClick={() => run(() => withdrawConcertSignup(rehearsalId))}
+              className={cn(
+                "h-11 rounded-full px-4",
+                onStage && "text-stage-foreground hover:bg-white/10 hover:text-stage-foreground",
+              )}
+            >
+              Vazgeçtim
+            </Button>
+          ) : (
+            <Button
+              disabled={pending}
+              onClick={() => run(() => signUpForConcert(rehearsalId))}
+              className={cn(
+                "h-11 rounded-full px-5",
+                onStage && "bg-gold text-gold-foreground hover:bg-gold/90",
+              )}
+            >
+              <Check />
+              Söyleyeceğim
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            disabled={pending}
+            onClick={() => setExcuseOpen(true)}
+            className={cn("h-11 rounded-full px-5", outlineOnStage)}
+          >
+            Söyleyemeyeceğim
+          </Button>
+        </div>
+        <ExcuseDialog
+          rehearsalId={rehearsalId}
+          concert
+          open={excuseOpen}
+          onOpenChange={setExcuseOpen}
+          onDone={() => router.refresh()}
+        />
+      </div>
+    );
+  }
   return (
     <div className="space-y-3">
       <p className={cn("text-sm", muted)}>Yoklama çalışmadan önce açılacak.</p>
       <Button
         variant="outline"
         onClick={() => setExcuseOpen(true)}
-        className={cn(
-          "h-11 rounded-full px-5",
-          onStage &&
-            "border-stage-foreground/40 bg-transparent text-stage-foreground hover:bg-stage-foreground/10 hover:text-stage-foreground",
-        )}
+        className={cn("h-11 rounded-full px-5", outlineOnStage)}
       >
         Gelemeyeceğim
       </Button>
@@ -336,11 +452,13 @@ export function CodeEntry({
 
 function ExcuseDialog({
   rehearsalId,
+  concert = false,
   open,
   onOpenChange,
   onDone,
 }: {
   rehearsalId: string;
+  concert?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDone: () => void;
@@ -357,7 +475,7 @@ function ExcuseDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Gelemeyeceğim</DialogTitle>
+          <DialogTitle>{concert ? "Söyleyemeyeceğim" : "Gelemeyeceğim"}</DialogTitle>
           <DialogDescription>
             Sebep yazmak zorunlu değil. Sadece şef ve yönetim görür.
           </DialogDescription>
@@ -380,7 +498,7 @@ function ExcuseDialog({
             </p>
           )}
           <Button type="submit" disabled={pending} className="h-11 w-full rounded-xl">
-            {pending ? "Gönderiliyor…" : "Mazeret bildir"}
+            {pending ? "Gönderiliyor…" : concert ? "Bildir" : "Mazeret bildir"}
           </Button>
         </form>
       </DialogContent>

@@ -1,16 +1,20 @@
-import { and, count, eq, gt } from "drizzle-orm";
+import { and, asc, count, eq, gt, ne } from "drizzle-orm";
 import { ArrowLeft, CalendarClock, FileUp, MapPin } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { CheckInPanel } from "@/components/attendance/check-in-panel";
+import { ConcertLineup } from "@/components/attendance/concert-lineup";
 import { DetailRoster } from "@/components/attendance/detail-roster";
 import { ManagerControls } from "@/components/attendance/manager-controls";
+import { NoteCard, NoteForm } from "@/components/attendance/practice-notes";
 import { TypeChip } from "@/components/attendance/status-chip";
 import { db } from "@/db";
-import { rehearsals } from "@/db/schema";
+import { pieces, rehearsals } from "@/db/schema";
 import { autoCloseStale } from "@/lib/attendance/close";
+import { concertLineup, mySignup } from "@/lib/attendance/concert";
 import { liveSnapshot } from "@/lib/attendance/live";
+import { notesForRehearsal, noteTargets } from "@/lib/attendance/practice-notes";
 import {
   expectedFor,
   getRehearsal,
@@ -36,23 +40,36 @@ export default async function RehearsalPage({ params }: PageProps<"/calismalar/[
   const manager = isManager(user.role);
   const started = r.startsAt <= new Date();
   // Independent reads run side by side: each awaited query is a round trip to the database.
-  const [marks, expected, imported, snapshot, [{ later }]] = await Promise.all([
-    myMarks(user.id, [id]),
-    expectedFor(user.id, [r]),
-    manager ? rehearsalImported(id) : false,
-    manager && phase !== "cancelled" ? liveSnapshot(id, false) : null,
-    r.seriesId
-      ? db
-          .select({ later: count() })
-          .from(rehearsals)
-          .where(
-            and(
-              eq(rehearsals.seriesId, r.seriesId),
-              gt(rehearsals.startsAt, new Date(Math.max(now().getTime(), r.startsAt.getTime()))),
-            ),
-          )
-      : [{ later: 0 }],
-  ]);
+  const concert = r.type === "concert" && phase !== "cancelled";
+  const [marks, expected, imported, snapshot, [{ later }], notes, targets, signedUp, lineup] =
+    await Promise.all([
+      myMarks(user.id, [id]),
+      expectedFor(user.id, [r]),
+      manager ? rehearsalImported(id) : false,
+      manager && phase !== "cancelled" ? liveSnapshot(id, false) : null,
+      r.seriesId
+        ? db
+            .select({ later: count() })
+            .from(rehearsals)
+            .where(
+              and(
+                eq(rehearsals.seriesId, r.seriesId),
+                gt(rehearsals.startsAt, new Date(Math.max(now().getTime(), r.startsAt.getTime()))),
+              ),
+            )
+        : [{ later: 0 }],
+      notesForRehearsal(id, user),
+      phase === "cancelled" ? [] : noteTargets(user),
+      concert ? mySignup(user.id, id) : false,
+      concert && manager && !started ? concertLineup(r) : null,
+    ]);
+  const notePieces = targets.length
+    ? await db
+        .select({ id: pieces.id, title: pieces.title })
+        .from(pieces)
+        .where(ne(pieces.status, "archive"))
+        .orderBy(asc(pieces.title))
+    : [];
   const mine = marks.get(id);
   const unmarked = snapshot?.rows.filter((x) => x.onRoster && x.status === null).length ?? 0;
   const showRoster =
@@ -124,7 +141,37 @@ export default async function RehearsalPage({ params }: PageProps<"/calismalar/[
             method={mine?.method ?? null}
             note={mine?.note ?? null}
             recordedAt={mine?.recordedAt.toISOString() ?? null}
+            concert={concert}
+            signedUp={signedUp}
           />
+        </section>
+      )}
+
+      {lineup && <ConcertLineup parts={lineup} />}
+
+      {(notes.length > 0 || targets.length > 0) && (
+        <section id="notlar" aria-labelledby="notlar-baslik" className="scroll-mt-20 space-y-3">
+          <h2
+            id="notlar-baslik"
+            className="font-sans text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase"
+          >
+            Çalışma notları
+          </h2>
+          {notes.length > 0 ? (
+            <ul className="divide-y rounded-2xl border bg-card">
+              {notes.map((n) => (
+                <NoteCard key={n.id} note={n} />
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Bu çalışmaya henüz not yazılmadı. Neye çalışılacağını yaz, koristler ana sayfada
+              görsün.
+            </p>
+          )}
+          {targets.length > 0 && (
+            <NoteForm rehearsalId={id} targets={targets} pieces={notePieces} />
+          )}
         </section>
       )}
 
@@ -147,7 +194,8 @@ export default async function RehearsalPage({ params }: PageProps<"/calismalar/[
           {showRoster && snapshot ? (
             <DetailRoster rehearsalId={id} initial={snapshot} imported={imported} />
           ) : (
-            excusesAhead.length > 0 && (
+            excusesAhead.length > 0 &&
+            !lineup && (
               <div className="space-y-2">
                 <h2 className="font-sans text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase">
                   Mazeret bildirenler · {excusesAhead.length}

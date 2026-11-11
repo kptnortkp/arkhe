@@ -17,6 +17,8 @@ import { ItBadge } from "@/components/it-badge";
 import { SectionPicker } from "@/components/section-picker";
 import { VoicePartBadge } from "@/components/voice-part-badge";
 import { requireUser } from "@/lib/auth/dal";
+import { feedTokenOf, feedUrl } from "@/lib/calendar-feed/tokens";
+import { CalendarFeedSection } from "@/components/calendar-feed-section";
 import { MyDuesSection } from "@/components/finance/my-dues";
 import { InstallCard } from "@/components/install-card";
 import { NotificationsSection } from "@/components/notifications/notifications-section";
@@ -29,7 +31,10 @@ export const metadata = { title: "Profilim" };
 
 export default async function ProfilePage() {
   const user = await requireUser();
-  const openReports = await reportNavCount(user.id);
+  const [openReports, feedToken] = await Promise.all([
+    reportNavCount(user.id),
+    feedTokenOf(user.id),
+  ]);
   return (
     <div className="max-w-xl space-y-10">
       <div className="flex items-center gap-4">
@@ -39,9 +44,7 @@ export default async function ProfilePage() {
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             {ROLE_LABELS[user.role]}
             {openReports !== null && <ItBadge />}
-            {user.voicePart && (
-              <VoicePartBadge part={user.voicePart} section={user.voiceSection} />
-            )}
+            {user.voicePart && <VoicePartBadge part={user.voicePart} section={user.voiceSection} />}
           </div>
         </div>
       </div>
@@ -51,6 +54,8 @@ export default async function ProfilePage() {
       <NotificationsSection userId={user.id} />
 
       <MyDuesSection />
+
+      <CalendarFeedSection url={feedToken ? feedUrl(feedToken) : null} />
 
       <nav aria-label="Duyurular" data-testid="profile-announcements">
         <ProfileRow

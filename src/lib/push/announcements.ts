@@ -19,13 +19,20 @@ type A = {
 
 /**
  * New announcement, or an edit sent again (`update` = a per-edit suffix for the dedupe key).
- * The audience minus the actor; important ones skip the switches and quiet hours.
+ * The audience minus the actor unless `includeActor`; important ones skip the switches and quiet hours.
  * Logged, never thrown (D68).
  */
-export async function announcementSent(a: A, actorId: string, update?: string) {
+export async function announcementSent(
+  a: A,
+  actorId: string,
+  update?: string,
+  { includeActor = false }: { includeActor?: boolean } = {},
+) {
   try {
     const ctx = await pushContext();
-    const ids = (await audienceIds(a.audience, a.parts)).filter((id) => id !== actorId);
+    const ids = (await audienceIds(a.audience, a.parts)).filter(
+      (id) => includeActor || id !== actorId,
+    );
     // Until its last day on the home card ends, but never less than a day: a late-evening send
     // held by quiet hours must survive until the morning.
     const expiresAt = new Date(

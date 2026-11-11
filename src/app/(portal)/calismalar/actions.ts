@@ -5,7 +5,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db";
-import { attendance, rehearsalParts, rehearsalSecrets, rehearsals, terms } from "@/db/schema";
+import {
+  attendance,
+  concertSignups,
+  rehearsalParts,
+  rehearsalSecrets,
+  rehearsals,
+  terms,
+} from "@/db/schema";
 import { closeRehearsal } from "@/lib/attendance/close";
 import { newSecretRow, verifyCode } from "@/lib/attendance/code";
 import { checkInErrorKey } from "@/lib/attendance/check-in-errors";
@@ -466,7 +473,7 @@ export async function submitExcuse(
   if (existing && existing.method !== "self")
     return { error: "Yoklamayı alan kişi seni zaten işaretledi." };
 
-  await db
+  const written = await db
     .insert(attendance)
     .values({
       rehearsalId,
@@ -480,9 +487,17 @@ export async function submitExcuse(
       target: [attendance.rehearsalId, attendance.userId],
       set: { note: parsed.data.reason, recordedAt: new Date() },
       setWhere: eq(attendance.method, "self"),
-    });
+    })
+    .returning({ userId: attendance.userId });
+  if (written.length === 0) return { error: "Yoklamayı alan kişi seni zaten işaretledi." };
+  // "Söyleyemeyeceğim" replaces an earlier "Söyleyeceğim" on a concert.
+  if (r.type === "concert") {
+    await db
+      .delete(concertSignups)
+      .where(and(eq(concertSignups.rehearsalId, rehearsalId), eq(concertSignups.userId, user.id)));
+  }
   revalidateRehearsal(rehearsalId);
-  return { success: "Mazeretin iletildi." };
+  return { success: r.type === "concert" ? "Söyleyemeyeceğin iletildi." : "Mazeretin iletildi." };
 }
 
 export async function withdrawExcuse(rehearsalId: string): Promise<FormState> {
@@ -504,6 +519,53 @@ export async function withdrawExcuse(rehearsalId: string): Promise<FormState> {
   return deleted.length
     ? { success: "Mazeretin geri alındı." }
     : { error: "Mazeret geri alınamadı; yoklamayı alan kişiye yaz." };
+}
+
+/** "Bu konserde söyleyeceğim": replaces the singer's own advance excuse, if any. */
+export async function signUpForConcert(rehearsalId: string): Promise<FormState> {
+  const user = await assertUser();
+  if (!user) return { error: FORBIDDEN };
+  const r = idSchema.safeParse(rehearsalId).success ? await getRehearsal(rehearsalId) : null;
+  if (!r || r.cancelledAt || r.type !== "concert") return { error: NOT_FOUND };
+  if (r.startsAt <= new Date()) return { error: "Konser başladı." };
+  const me = (await loadRosterUsers()).find((u) => u.id === user.id);
+  if (!me || !isExpected(me, r)) return { error: "Bu konser senin için değil." };
+  const existing = await currentMark(rehearsalId, user.id);
+  if (existing && existing.method !== "self")
+    return { error: "Yoklamayı alan kişi seni zaten işaretledi." };
+
+  await db.batch([
+    db
+      .delete(attendance)
+      .where(
+        and(
+          eq(attendance.rehearsalId, rehearsalId),
+          eq(attendance.userId, user.id),
+          eq(attendance.method, "self"),
+        ),
+      ),
+    db.insert(concertSignups).values({ rehearsalId, userId: user.id }).onConflictDoNothing(),
+  ]);
+  revalidateRehearsal(rehearsalId);
+  return { success: "Konser kadrosuna yazıldın." };
+}
+
+export async function withdrawConcertSignup(rehearsalId: string): Promise<FormState> {
+  const user = await assertUser();
+  if (!user) return { error: FORBIDDEN };
+  if (!idSchema.safeParse(rehearsalId).success) return { error: NOT_FOUND };
+  const gone = await db
+    .delete(concertSignups)
+    .where(
+      and(
+        eq(concertSignups.rehearsalId, rehearsalId),
+        eq(concertSignups.userId, user.id),
+        sql`exists (select 1 from rehearsals r where r.id = ${rehearsalId} and r.starts_at > unixepoch())`,
+      ),
+    )
+    .returning({ userId: concertSignups.userId });
+  revalidateRehearsal(rehearsalId);
+  return gone.length ? { success: "Cevabın geri alındı." } : { error: "Cevap geri alınamadı." };
 }
 
 export async function createTerm(_prev: FormState, formData: FormData): Promise<FormState> {

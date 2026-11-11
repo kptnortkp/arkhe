@@ -1,4 +1,4 @@
-import { CalendarClock, FileSpreadsheet, FileText, TriangleAlert } from "lucide-react";
+import { CalendarClock, FileSpreadsheet, FileText, ListChecks, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { AttendanceStrip } from "@/components/attendance/status-chip";
 import { DownloadLink } from "@/components/download-link";
@@ -58,6 +58,13 @@ export default async function ReportsPage({ searchParams }: PageProps<"/raporlar
           >
             <CalendarClock />
             Gelecek çalışmalar
+          </Link>
+          <Link
+            href="/raporlar/hazirlik"
+            className={cn(buttonVariants({ variant: "outline" }), "h-10 rounded-full px-4")}
+          >
+            <ListChecks />
+            Eser hazırlığı
           </Link>
           <TermsDialog terms={period.terms} />
           <ExportMenu base="/raporlar" query={query({})} className="h-10" />

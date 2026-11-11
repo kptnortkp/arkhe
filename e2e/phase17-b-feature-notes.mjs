@@ -1,5 +1,5 @@
 // Phase 17b: feature notes ("yenilik bildirimi"): a new build publishes each note once as an
-// announcement from the IT user and pushes it to the note's audience minus the sender.
+// announcement from the IT user and pushes it to the note's whole audience, the sender included.
 import { createHash } from "node:crypto";
 import { BASE, check, db, loginAs, userId } from "./lib.mjs";
 import { addDevice, resetPush, rowsOf, until } from "./push.mjs";
@@ -49,7 +49,7 @@ export default async function run(browser) {
     return r.length ? r : null;
   });
   const to = new Set((pushes ?? []).map((p) => p.user_id));
-  check(to.has(sef) && !to.has(yk) && !to.has(korist), `the push reaches the board audience minus the sender (${to.size})`);
+  check(to.has(sef) && to.has(yk) && !to.has(korist), `the push reaches the board audience, the sender included (${to.size})`);
 
   await health("arkhe_e2e_commit=ccccccc3333333; arkhe_e2e_feature_notes=1");
   await new Promise((r) => setTimeout(r, 1200));

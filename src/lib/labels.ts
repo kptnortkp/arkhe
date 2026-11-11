@@ -3,6 +3,7 @@ import type {
   CheckInMethod,
   LinkKind,
   PieceStatus,
+  ReadinessLevel,
   RehearsalType,
   Role,
   VoicePart,
@@ -175,4 +176,17 @@ export const HOMEWORK_STATE_LABELS: Record<"done" | "late" | "missing" | "pendin
   late: "Geç",
   missing: "Gecikti",
   pending: "Bekleniyor",
+};
+
+export const READINESS_LABELS: Record<ReadinessLevel, string> = {
+  not_ready: "Hazır değilim",
+  partial: "Kısmen",
+  ready: "Hazırım",
+};
+
+// Static class names so Tailwind can see them.
+export const READINESS_STYLES: Record<ReadinessLevel, { bar: string; chip: string }> = {
+  ready: { bar: "bg-present", chip: "bg-present/15 text-present-ink" },
+  partial: { bar: "bg-late", chip: "bg-late/20 text-late-ink" },
+  not_ready: { bar: "bg-absent", chip: "bg-absent/15 text-absent-ink" },
 };

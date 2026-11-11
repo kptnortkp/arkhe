@@ -17,7 +17,19 @@ import { isExpected, loadRosterUsers, type RosterUser } from "@/lib/attendance/r
 import { isEligible } from "@/lib/homework/eligibility";
 import { TICKET_STATUS_LABELS } from "@/lib/board/labels";
 import { pushContext, type PushContext } from "./context";
-import { DAY_MS, gun, haftaninGunu, kisaGun, saat, ticketTitle, yerDot, type Item } from "./copy";
+import {
+  BODY_MAX,
+  cut,
+  DAY_MS,
+  gun,
+  haftaninGunu,
+  kisaGun,
+  LINE_MAX,
+  saat,
+  ticketTitle,
+  yerDot,
+  type Item,
+} from "./copy";
 import { notify } from "./dispatch";
 
 type R = {
@@ -444,6 +456,33 @@ export function budgetEvent(
         tag: `butce-${budget.id}`,
         expiresAt: new Date(ctx.now.getTime() + 3 * DAY_MS),
       }));
+  });
+}
+
+/** A practice note: the singers it is for (everyone, or one part), never its author. */
+export function practiceNoteAdded(
+  note: { id: string; voicePart: VoicePart | null; body: string },
+  rehearsal: R,
+  pieceTitle: string | null,
+  actorId: string,
+) {
+  return guard("practice_note", async (ctx) => {
+    const people = expectedAt(await activeRoster(), rehearsal).filter(
+      (u) => u.id !== actorId && (note.voicePart === null || u.voicePart === note.voicePart),
+    );
+    const lead = pieceTitle ? `${pieceTitle}: ` : "";
+    return people.map((u) => ({
+      userId: u.id,
+      kind: "practice_note" as const,
+      group: "calisma" as const,
+      dedupeKey: `practice_note-${note.id}`,
+      title: "Çalışma notu",
+      body: cut(`${lead}${note.body}`, BODY_MAX),
+      line: cut(`Çalışma notu: ${lead}${note.body}`, LINE_MAX),
+      url: `/calismalar/${rehearsal.id}#notlar`,
+      tag: `not-${note.id}`,
+      expiresAt: new Date(ctx.now.getTime() + 3 * DAY_MS),
+    }));
   });
 }
 

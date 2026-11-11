@@ -1984,10 +1984,7 @@ export const announcements = sqliteTable(
       .where(sql`deleted_at is null`),
     index("announcements_created_by_idx").on(t.createdBy),
     check("announcements_id_check", uuidPart("id")),
-    check(
-      "announcements_title_check",
-      sql`title = trim(title) and length(title) between 3 and 80`,
-    ),
+    check("announcements_title_check", sql`title = trim(title) and length(title) between 3 and 80`),
     check(
       "announcements_body_check",
       sql`length(trim(body)) between 1 and 1000 and length(body) <= 1000`,
@@ -2031,5 +2028,107 @@ export const announcementReads = sqliteTable(
   (t) => [
     primaryKey({ columns: [t.announcementId, t.userId] }),
     index("announcement_reads_user_idx").on(t.userId, t.announcementId),
+  ],
+);
+
+// ---------------------------------------------------------------- phase 19
+
+/**
+ * The secret in a member's calendar feed URL. Kept readable (not hashed) so the profile can show the
+ * same link again on a new phone; it only exposes the rehearsal schedule. "Yenile" replaces it.
+ */
+export const calendarFeeds = sqliteTable(
+  "calendar_feeds",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    token: text("token").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("calendar_feeds_token_idx").on(t.token),
+    check(
+      "calendar_feeds_token_check",
+      sql`length(token) = 43 and token not glob '*[^A-Za-z0-9_-]*'`,
+    ),
+  ],
+);
+
+export const READINESS_LEVELS = ["not_ready", "partial", "ready"] as const;
+export type ReadinessLevel = (typeof READINESS_LEVELS)[number];
+
+/** A singer's own "how well do I know this piece"; no row = not answered yet. */
+export const pieceReadiness = sqliteTable(
+  "piece_readiness",
+  {
+    pieceId: text("piece_id")
+      .notNull()
+      .references(() => pieces.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    level: text("level", { enum: READINESS_LEVELS }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(now),
+  },
+  (t) => [
+    primaryKey({ columns: [t.pieceId, t.userId] }),
+    index("piece_readiness_user_idx").on(t.userId),
+    check("piece_readiness_level_check", sql`level in (${inList(READINESS_LEVELS)})`),
+  ],
+);
+
+/** "What to practise": written on a rehearsal by a manager or a listening assistant. */
+export const practiceNotes = sqliteTable(
+  "practice_notes",
+  {
+    id: id(),
+    rehearsalId: text("rehearsal_id")
+      .notNull()
+      .references(() => rehearsals.id, { onDelete: "cascade" }),
+    pieceId: text("piece_id").references(() => pieces.id, { onDelete: "set null" }),
+    // Null = everyone.
+    voicePart: text("voice_part", { enum: VOICE_PARTS }),
+    body: text("body").notNull(),
+    authorId: text("author_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(now),
+  },
+  (t) => [
+    index("practice_notes_rehearsal_idx").on(t.rehearsalId, t.createdAt),
+    index("practice_notes_piece_idx")
+      .on(t.pieceId, t.createdAt)
+      .where(sql`piece_id is not null`),
+    index("practice_notes_created_idx").on(t.createdAt),
+    index("practice_notes_author_idx").on(t.authorId),
+    check("practice_notes_id_check", uuidPart("id")),
+    check(
+      "practice_notes_voice_check",
+      sql`voice_part is null or voice_part in (${inList(VOICE_PARTS)})`,
+    ),
+    check(
+      "practice_notes_body_check",
+      sql`length(trim(body)) between 1 and 1000 and length(body) <= 1000`,
+    ),
+  ],
+);
+
+/** "Bu konserde söyleyeceğim": yes only. "No" is the existing advance excuse on the concert. */
+export const concertSignups = sqliteTable(
+  "concert_signups",
+  {
+    rehearsalId: text("rehearsal_id")
+      .notNull()
+      .references(() => rehearsals.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.rehearsalId, t.userId] }),
+    index("concert_signups_user_idx").on(t.userId),
   ],
 );

@@ -35,4 +35,32 @@ Geçmiş çalışmalarda mazeretli olanlar artık "Gelmedi · mazeretli" olarak 
 
 Bu ekranları yalnızca şef ve YK görür.`,
   },
+  {
+    key: "takvim-hazirlik-konser",
+    date: "2026-11-11",
+    audience: "all",
+    title: "Yeni: Takvim, eser hazırlığı ve konser",
+    body: `Portala üç yenilik geldi:
+
+Takvim aboneliği: Profil → Takvim aboneliği → "iPhone / Mac takvimine ekle" ya da "Google Takvim'e ekle". Çalışmalar telefonunun takvimine düşer; saat, yer ya da iptal değişince orada da güncellenir.
+
+Eser hazırlığı: Her eserin sayfasında "Bu eserde ne durumdasın?" sorusu var. Hazır değilim · Kısmen · Hazırım seç; şef partisyonların durumunu görüp çalışmaları buna göre planlar. İstediğin zaman değiştirebilirsin.
+
+Konser: Konserlerde "Söyleyeceğim" ya da "Söyleyemeyeceğim" diye cevap ver; şef kadroyu buna göre kurar. Cevap bekleyen konser ana sayfanda görünür.
+
+Ayrıca şef ve asistanların yazdığı çalışma notları ("bu hafta neye çalışalım") artık ana sayfanda ve eser sayfasında.`,
+  },
+  {
+    key: "hazirlik-notlar-kadro-yk",
+    date: "2026-11-11",
+    audience: "board",
+    title: "Yeni: Hazırlık raporu, notlar, konser kadrosu",
+    body: `Şef ve YK için:
+
+Raporlar → Eser hazırlığı: koristlerin her eserde kendi işaretlediği durum, partisyon bazında (hazır / kısmen / hazır değil / cevap yok). Eser sayfasında da aynı özet var; isimler partisyona dokununca açılır.
+
+Çalışma notları: Bir çalışmanın sayfasında "Not ekle" ile neye çalışılacağını yazın; eser ve partisyon seçilebilir, istenirse ilgili koristlere bildirim gider. Dinleme asistanları da kendi partisyonlarına not yazabilir.
+
+Konser kadrosu: Konser türündeki çalışmanın sayfasında kimin söyleyeceği, kimin söyleyemeyeceği (açıklamasıyla) ve kimin cevap vermediği partisyon bazında görünür.`,
+  },
 ];

@@ -4,10 +4,7 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { announcementParts, announcementReads, announcements, users } from "@/db/schema";
 import { writeTx } from "@/db/write-tx";
-import {
-  FEATURE_NOTE_MAX_AGE_DAYS,
-  FEATURE_NOTES,
-} from "@/lib/announcements/feature-notes";
+import { FEATURE_NOTE_MAX_AGE_DAYS, FEATURE_NOTES } from "@/lib/announcements/feature-notes";
 import { SHOW_DAYS_DEFAULT } from "@/lib/announcements/labels";
 import { addDays, istanbulDateOf } from "@/lib/time";
 import { announcementSent } from "./announcements";
@@ -20,7 +17,7 @@ export function featureNoteId(key: string) {
 
 /**
  * Publishes the notes not yet sent as announcements from the IT user, each pushed to its
- * audience minus the sender. Never throws: it runs after the health probe of a new build.
+ * whole audience, the sender included. Never throws: it runs after the health probe of a new build.
  */
 export async function publishFeatureNotes({ anyAge = false }: { anyAge?: boolean } = {}) {
   try {
@@ -65,8 +62,18 @@ export async function publishFeatureNotes({ anyAge = false }: { anyAge?: boolean
       });
       if (!created) continue;
       await announcementSent(
-        { id, title: note.title, body: note.body, audience: note.audience, parts, important: false, showUntil },
+        {
+          id,
+          title: note.title,
+          body: note.body,
+          audience: note.audience,
+          parts,
+          important: false,
+          showUntil,
+        },
         sender.id,
+        undefined,
+        { includeActor: true },
       );
       console.log("feature note published", { key: note.key, audience: note.audience });
     }
