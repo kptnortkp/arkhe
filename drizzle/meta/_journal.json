@@ -162,13 +162,6 @@
       "when": 1794406076859,
       "tag": "0022_phase20_festivals",
       "breakpoints": true
-    },
-    {
-      "idx": 23,
-      "version": "6",
-      "when": 1794408687057,
-      "tag": "0023_feature_notes_unread",
-      "breakpoints": true
     }
   ]
 }
