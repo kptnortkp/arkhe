@@ -298,8 +298,11 @@ export default async function HomePage() {
         </section>
       )}
       <ReviewHomeCard user={user} />
-      <MyHomeworkCard viewer={viewer} at={at} />
-      {manager && <ManagerHomeworkCard at={at} />}
+      {manager ? (
+        <ManagerHomeworkCard viewer={viewer} at={at} />
+      ) : (
+        <MyHomeworkCard viewer={viewer} at={at} />
+      )}
       <MyDuesCard />
       {manager && <KasaCard />}
 

@@ -5,10 +5,10 @@ import { rehearsals, users } from "@/db/schema";
 import { rehearsalTitle } from "@/lib/attendance/rehearsals";
 import { isExpected, loadRosterUsers, partsByRehearsal } from "@/lib/attendance/roster";
 import { loadDuesMatrix } from "@/lib/finance/queries-internal";
-import { isEligible, parseTargets } from "@/lib/homework/eligibility";
+import { isEligible, isExpected as expectedFor, parseTargets } from "@/lib/homework/eligibility";
 import { assistantQueueCount, conductorCounts } from "@/lib/review/queries";
 import { loadScope } from "@/lib/review/scope";
-import { addDays, istanbulDayRange, istanbulToUtc } from "@/lib/time";
+import { addDays, istanbulDateOf, istanbulDayRange, istanbulToUtc } from "@/lib/time";
 import type { PushContext } from "./context";
 import { BODY_MAX, cut, gun, saat, type Item } from "./copy";
 import { duesPushEnabled, getState, REPERTOIRE_SINCE, setState } from "./state";
@@ -132,6 +132,88 @@ async function homeworkLines(day: string, now: Date): Promise<Item[]> {
         url: `/odevler/${a.id}#kayit`,
         tag: `odev-son-${a.id}`,
         expiresAt: dueAt,
+        morning: true,
+      });
+    }
+  }
+  return items;
+}
+
+const LATE_DAYS = [1, 3, 7];
+
+/**
+ * A homework past its deadline: the singers expected to send it and have not get a nudge 1, 3 and
+ * 7 days after the last day (late takes are still accepted); the conductor gets a count the day after.
+ */
+async function lateLines(day: string, endOfDay: Date): Promise<Item[]> {
+  const [from] = istanbulDayRange(addDays(day, -Math.max(...LATE_DAYS)));
+  const [to] = istanbulDayRange(day);
+  const list = await db.all<{ id: string; due: number; created: number; piece: string; parts: string }>(sql`
+    select a.id as id, a.due_at as due, a.created_at as created, p.title as piece,
+      (select group_concat(ap.voice_part || ':' || coalesce(ap.section, '')) from assignment_parts ap where ap.assignment_id = a.id) as parts
+    from assignments a join pieces p on p.id = a.piece_id
+    where a.cancelled_at is null and a.due_at >= ${secs(from)} and a.due_at < ${secs(to)}`);
+  const due = list
+    .map((a) => {
+      const dueAt = new Date(Number(a.due) * 1000);
+      const late = Math.round(
+        (Date.parse(`${day}T12:00:00Z`) - Date.parse(`${istanbulDateOf(dueAt)}T12:00:00Z`)) / 86_400_000,
+      );
+      return { ...a, dueAt, late };
+    })
+    .filter((a) => LATE_DAYS.includes(a.late));
+  if (due.length === 0) return [];
+  const people = await db
+    .select({
+      id: users.id,
+      role: users.role,
+      voicePart: users.voicePart,
+      voiceSection: users.voiceSection,
+      joinedAt: users.joinedAt,
+      leftAt: users.leftAt,
+    })
+    .from(users)
+    .where(and(isNull(users.leftAt), sql`${users.isActive} = 1`));
+  const submitted = await db.all<{ a: string; u: string }>(sql`
+    select assignment_id as a, user_id as u from submissions
+    where submitted_at is not null and assignment_id in (${sql.join(
+      due.map((a) => sql`${a.id}`),
+      sql`, `,
+    )})`);
+  const done = new Set(submitted.map((s) => `${s.a}:${s.u}`));
+  const conductors = people.filter((p) => p.role === "conductor");
+  const items: Item[] = [];
+  for (const a of due) {
+    const target = { parts: parseTargets(a.parts), createdAt: new Date(Number(a.created) * 1000) };
+    const missing = people.filter((u) => expectedFor(u, target) && !done.has(`${a.id}:${u.id}`));
+    for (const u of missing) {
+      items.push({
+        userId: u.id,
+        kind: "homework_late",
+        group: "odev",
+        dedupeKey: `odev-gecikti-${a.late}-${a.id}`,
+        title: "Ödevin gecikti",
+        body: cut(`${a.piece} · son gün ${gun(a.dueAt)} geçti. Geç de olsa kaydını gönderebilirsin.`, BODY_MAX),
+        line: `Gecikti: ${a.piece}`,
+        url: `/odevler/${a.id}#kayit`,
+        tag: `odev-son-${a.id}`,
+        expiresAt: endOfDay,
+        morning: true,
+      });
+    }
+    if (a.late !== 1 || missing.length === 0) continue;
+    for (const c of conductors) {
+      items.push({
+        userId: c.id,
+        kind: "homework_missing",
+        group: "dinleme",
+        dedupeKey: `odev-eksik-${a.id}`,
+        title: "Teslim edilmeyen ödev",
+        body: cut(`${a.piece}: ${missing.length} korist süresinde kayıt göndermedi.`, BODY_MAX),
+        line: `Teslim etmeyen: ${a.piece} (${missing.length} kişi)`,
+        url: `/odevler/${a.id}`,
+        tag: `odev-eksik-${a.id}`,
+        expiresAt: endOfDay,
         morning: true,
       });
     }
@@ -375,7 +457,7 @@ async function duesLines(day: string, now: Date): Promise<Item[]> {
 }
 
 type Commit = () => Promise<void>;
-const SECTIONS = ["rehearsals", "homework", "review", "repertoire", "tickets", "dues", "festivals"] as const;
+const SECTIONS = ["rehearsals", "homework", "review", "repertoire", "tickets", "dues", "festivals", "late"] as const;
 
 /**
  * The morning lines of one Istanbul day (D69): 2, 3, 8, 10, 11, 12, 17, 19. A failing section is
@@ -392,6 +474,7 @@ export async function morningItems(ctx: PushContext, day: string) {
     ticketLines(day, endOfDay),
     duesLines(day, ctx.now),
     festivalLines(day, endOfDay),
+    lateLines(day, endOfDay),
   ]);
   const items = results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
   const failed = SECTIONS.filter((_, i) => results[i].status === "rejected");

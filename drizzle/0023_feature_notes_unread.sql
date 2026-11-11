@@ -1,0 +1,2 @@
+-- Feature notes were marked read for their automatic sender, so they never reached the sender's home page.
+DELETE FROM `announcement_reads` WHERE `announcement_id` IN ('d903c1a6-4d29-73d1-b52e-397a1648d691', '802d3cb0-0c0e-1be1-e61a-e69e8c9f0f7d', '966e7fd5-7c95-d3c4-509a-3d0492653600', '4128ce1c-9830-3221-12fb-79641417c235', '84ed4115-169a-fc12-2818-07be59566c29') AND `user_id` = (SELECT `created_by` FROM `announcements` WHERE `announcements`.`id` = `announcement_reads`.`announcement_id`);

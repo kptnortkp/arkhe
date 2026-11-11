@@ -31,37 +31,62 @@ function CardHeader({
   );
 }
 
-/** The singer's most urgent unsubmitted homework (overdue first); hidden when none. */
-export async function MyHomeworkCard({ viewer, at }: { viewer: Viewer; at: Date }) {
-  const open = (await listForSinger(viewer, "guncel", at)).filter(
+async function openForSinger(viewer: Viewer, at: Date) {
+  return (await listForSinger(viewer, "guncel", at)).filter(
     (r) => r.eligible && !r.submittedAt && r.expected && !r.cancelledAt,
   );
+}
+
+function MyOpenList({ open, at }: { open: Awaited<ReturnType<typeof openForSinger>>; at: Date }) {
+  return (
+    <ul className="divide-y overflow-hidden rounded-2xl border bg-card">
+      <SingerRow row={open[0]} at={at} />
+      {open.length > 1 && (
+        <li>
+          <Link
+            href="/odevler"
+            className="flex min-h-11 items-center px-4 text-sm font-medium text-primary hover:underline"
+          >
+            +{open.length - 1} ödev daha
+          </Link>
+        </li>
+      )}
+    </ul>
+  );
+}
+
+/** The singer's most urgent unsubmitted homework (overdue first); hidden when none. */
+export async function MyHomeworkCard({ viewer, at }: { viewer: Viewer; at: Date }) {
+  const open = await openForSinger(viewer, at);
   if (open.length === 0) return null;
   return (
     <section className="space-y-4" data-testid="home-homework">
       <CardHeader title="Ödevlerim" href="/odevler" linkLabel="Tümü" />
-      <ul className="divide-y overflow-hidden rounded-2xl border bg-card">
-        <SingerRow row={open[0]} at={at} />
-        {open.length > 1 && (
-          <li>
-            <Link
-              href="/odevler"
-              className="flex min-h-11 items-center px-4 text-sm font-medium text-primary hover:underline"
-            >
-              +{open.length - 1} ödev daha
-            </Link>
-          </li>
-        )}
-      </ul>
+      <MyOpenList open={open} at={at} />
     </section>
   );
 }
 
-export async function ManagerHomeworkCard({ at }: { at: Date }) {
-  const next = (await listForManager("guncel", at)).find((r) => r.dueAt > at && !r.cancelledAt);
+/** Managers: the next homework's progress; a board member who sings also sees their own, in one card. */
+export async function ManagerHomeworkCard({ viewer, at }: { viewer: Viewer; at: Date }) {
+  const [list, open] = await Promise.all([listForManager("guncel", at), openForSinger(viewer, at)]);
+  const next = list.find((r) => r.dueAt > at && !r.cancelledAt);
   return (
     <section className="space-y-4" data-testid="home-manager-homework">
       <CardHeader title="Ödevler" href="/odevler" linkLabel="Tümü" />
+      {open.length > 0 && (
+        <div className="space-y-2" data-testid="home-homework">
+          <h3 className="font-sans text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase">
+            Senin kaydın
+          </h3>
+          <MyOpenList open={open} at={at} />
+          {next && (
+            <h3 className="pt-2 font-sans text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase">
+              Koronun durumu
+            </h3>
+          )}
+        </div>
+      )}
       {next ? (
         <Link
           href={`/odevler/${next.id}#teslimler`}

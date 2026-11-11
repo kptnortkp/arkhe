@@ -117,9 +117,10 @@ export default async function phase4(browser, shots) {
   check((await badge(sef)) === null, "AC1 the conductor has no badge");
   await goto(yk, "/");
   check(
-    (await yk.locator("[data-testid=home-homework]").count()) === 1 &&
-      (await yk.locator("[data-testid=home-manager-homework]").count()) === 1,
-    "AC22 a board singer sees both cards",
+    (await yk.locator("[data-testid=home-manager-homework] [data-testid=home-homework]").count()) === 1 &&
+      (await yk.locator("[data-testid=home-manager-homework]").count()) === 1 &&
+      (await yk.getByRole("heading", { name: "Ödevlerim" }).count()) === 0,
+    "AC22 a board singer sees one Ödevler card holding their own homework too",
   );
   check((await badge(yk)) === "2", "AC1 yk's badge is 2");
   await goto(korist, "/");

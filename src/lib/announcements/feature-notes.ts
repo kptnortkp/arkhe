@@ -87,4 +87,13 @@ Bildirimler: Henüz başvurmadığımız bir festivalin son başvurusundan 14, 7
 
 "Excel" düğmesi tablonun güncel halini eski düzende indirir: Festivaller ve Özel Günler sekmeleri, aynı renklerle.`,
   },
+  {
+    key: "geciken-odev",
+    date: "2026-11-11",
+    audience: "all",
+    title: "Yeni: Geciken ödev hatırlatması",
+    body: `Bir ödevin son günü geçtiyse ve kaydını henüz göndermediysen, son günden 1, 3 ve 7 gün sonra sabah hatırlatma bildirimi gelir.
+
+Süre dolsa da kaydını Ödevler sayfasından göndermeye devam edebilirsin; kaydı gönderince hatırlatmalar durur.`,
+  },
 ];

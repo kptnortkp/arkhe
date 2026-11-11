@@ -57,6 +57,15 @@ export default async function run(browser) {
   const pushesAgain = await rowsOf("kind = 'announcement' and dedupe_key = ?", [`duyuru-${id}`]);
   check(Number(again.rows[0].n) === 1 && pushesAgain.length === (pushes ?? []).length, "a later build never sends the same note again");
 
+  const ykPage = await loginAs(browser, "yk@arkhe.local", { mobile: true });
+  const homeTitles = await ykPage
+    .locator("[data-testid=home-announcements] h3")
+    .allTextContents();
+  check(
+    homeTitles.some((t) => FEATURE_NOTES.some((n) => n.title === t)),
+    `the sender finds the notes on their own home page too (${homeTitles.join(" | ")})`,
+  );
+  await ykPage.context().close();
   const sefPage = await loginAs(browser, "sef@arkhe.local", { mobile: true });
   await sefPage.goto(`${BASE}/duyurular`);
   check(await sefPage.getByText(note.title).first().isVisible(), "the conductor finds the note under Duyurular");
