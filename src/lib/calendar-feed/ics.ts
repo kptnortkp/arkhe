@@ -1,13 +1,23 @@
 // Pure iCalendar (RFC 5545) writer for the rehearsal feed.
 
-export type FeedEvent = {
+type Base = {
   id: string;
   title: string;
   location: string | null;
   description: string | null;
-  startsAt: Date;
-  endsAt: Date;
   cancelled: boolean;
+  // Portal path the event links to; rehearsals default to /calismalar/<id>.
+  path?: string;
+};
+export type FeedEvent =
+  | (Base & { startsAt: Date; endsAt: Date })
+  // Plain YYYY-MM-DD days, both inclusive.
+  | (Base & { allDay: { first: string; last: string } });
+
+const dateValue = (day: string) => day.replace(/-/g, "");
+const nextDay = (day: string) => {
+  const [y, m, d] = day.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
 };
 
 const stamp = (d: Date) =>
@@ -60,18 +70,24 @@ export function buildCalendar(
     "X-PUBLISHED-TTL:PT4H",
   ];
   for (const e of events) {
+    const link = `${url}${e.path ?? `/calismalar/${e.id}`}`;
+    lines.push("BEGIN:VEVENT", `UID:${e.id}@koroarkhe`, `DTSTAMP:${stamp(at)}`);
+    if ("allDay" in e) {
+      lines.push(
+        `DTSTART;VALUE=DATE:${dateValue(e.allDay.first)}`,
+        `DTEND;VALUE=DATE:${dateValue(nextDay(e.allDay.last))}`,
+        "TRANSP:TRANSPARENT",
+      );
+    } else {
+      lines.push(`DTSTART:${stamp(e.startsAt)}`, `DTEND:${stamp(e.endsAt)}`);
+    }
     lines.push(
-      "BEGIN:VEVENT",
-      `UID:${e.id}@koroarkhe`,
-      `DTSTAMP:${stamp(at)}`,
-      `DTSTART:${stamp(e.startsAt)}`,
-      `DTEND:${stamp(e.endsAt)}`,
       `SUMMARY:${escapeText(e.cancelled ? `İPTAL: ${e.title}` : e.title)}`,
       `STATUS:${e.cancelled ? "CANCELLED" : "CONFIRMED"}`,
-      `URL:${url}/calismalar/${e.id}`,
+      `URL:${link}`,
     );
     if (e.location) lines.push(`LOCATION:${escapeText(e.location)}`);
-    const description = [e.description, `${url}/calismalar/${e.id}`].filter(Boolean).join("\n\n");
+    const description = [e.description, link].filter(Boolean).join("\n\n");
     lines.push(`DESCRIPTION:${escapeText(description)}`, "END:VEVENT");
   }
   lines.push("END:VCALENDAR");

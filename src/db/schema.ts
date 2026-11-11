@@ -2132,3 +2132,86 @@ export const concertSignups = sqliteTable(
     index("concert_signups_user_idx").on(t.userId),
   ],
 );
+
+// --- phase 20: festivals (board) and special days (everyone) ---
+
+export const FESTIVAL_REGIONS = ["tr", "abroad"] as const;
+export type FestivalRegion = (typeof FESTIVAL_REGIONS)[number];
+export const FESTIVAL_STATUSES = ["watching", "applied", "attending", "declined"] as const;
+export type FestivalStatus = (typeof FESTIVAL_STATUSES)[number];
+
+/** A festival or competition the board tracks; dates may be vague, so each has a free-text twin. */
+export const festivals = sqliteTable(
+  "festivals",
+  {
+    id: id(),
+    name: text("name").notNull(),
+    region: text("region", { enum: FESTIVAL_REGIONS }).notNull(),
+    status: text("status", { enum: FESTIVAL_STATUSES }).notNull().default("watching"),
+    startsOn: text("starts_on"),
+    endsOn: text("ends_on"),
+    // Shown instead of the dates when set, e.g. "Kasım 2027".
+    dateNote: text("date_note"),
+    deadlineOn: text("deadline_on"),
+    // Shown next to (or instead of) the deadline, e.g. "Erken kayıt 31 Aralık; son 15 Nisan".
+    deadlineNote: text("deadline_note"),
+    fee: text("fee"),
+    place: text("place"),
+    url: text("url"),
+    linkLabel: text("link_label"),
+    note: text("note"),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(now),
+  },
+  (t) => [
+    index("festivals_starts_idx").on(t.startsOn),
+    index("festivals_deadline_idx")
+      .on(t.deadlineOn)
+      .where(sql`deadline_on is not null`),
+    check("festivals_id_check", uuidPart("id")),
+    check("festivals_name_length", sql`length(trim(name)) between 1 and 160`),
+    check("festivals_region_check", sql`region in (${inList(FESTIVAL_REGIONS)})`),
+    check("festivals_status_check", sql`status in (${inList(FESTIVAL_STATUSES)})`),
+    check(
+      "festivals_dates",
+      sql`(starts_on is null or (${day("starts_on")} and date(starts_on) is starts_on))
+        and (ends_on is null or (starts_on is not null and ${day("ends_on")} and date(ends_on) is ends_on and ends_on >= starts_on))
+        and (deadline_on is null or (${day("deadline_on")} and date(deadline_on) is deadline_on))`,
+    ),
+    check("festivals_date_note_length", optText("date_note", 80)),
+    check("festivals_deadline_note_length", optText("deadline_note", 160)),
+    check("festivals_fee_length", optText("fee", 160)),
+    check("festivals_place_length", optText("place", 120)),
+    check(
+      "festivals_url_check",
+      sql`url is null or ((substr(url, 1, 8) = 'https://' or substr(url, 1, 7) = 'http://') and length(url) <= 2000)`,
+    ),
+    check("festivals_link_label_length", optText("link_label", 160)),
+    check("festivals_note_length", optText("note", 1000)),
+  ],
+);
+
+export const SPECIAL_DAY_KINDS = ["holiday", "eve", "observance", "other"] as const;
+export type SpecialDayKind = (typeof SPECIAL_DAY_KINDS)[number];
+
+/** Public holidays, half-day eves and other notable days; everyone sees them. */
+export const specialDays = sqliteTable(
+  "special_days",
+  {
+    id: id(),
+    day: text("day").notNull(),
+    title: text("title").notNull(),
+    kind: text("kind", { enum: SPECIAL_DAY_KINDS }).notNull(),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(now),
+  },
+  (t) => [
+    index("special_days_day_idx").on(t.day),
+    check("special_days_id_check", uuidPart("id")),
+    check("special_days_day_format", sql`${day("day")} and date(day) is day`),
+    check("special_days_title_length", sql`length(trim(title)) between 1 and 80`),
+    check("special_days_kind_check", sql`kind in (${inList(SPECIAL_DAY_KINDS)})`),
+  ],
+);

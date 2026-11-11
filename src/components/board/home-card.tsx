@@ -1,6 +1,10 @@
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { boardSummary } from "@/lib/board/queries";
+import { daysLeftText, deadlineState } from "@/lib/festivals/labels";
+import { deadlinesWithin } from "@/lib/festivals/queries";
+import { addDays, istanbulDateOf, now } from "@/lib/time";
+import { cn } from "@/lib/utils";
 import { UrgencyChip } from "./urgency-chip";
 
 const more =
@@ -8,7 +12,11 @@ const more =
 
 /** Managers only: my open board tickets, right under the hero (D22). */
 export async function BoardHomeCard() {
-  const s = await boardSummary();
+  const today = istanbulDateOf(now());
+  const [s, deadlines] = await Promise.all([
+    boardSummary(),
+    deadlinesWithin(today, addDays(today, 14)),
+  ]);
   if (!s) return null;
   return (
     <section
@@ -70,6 +78,35 @@ export async function BoardHomeCard() {
               <ChevronRight className="size-4" />
             </Link>
           </>
+        )}
+        {deadlines.length > 0 && (
+          <div className="border-t pt-2" data-testid="home-festival-deadlines">
+            <p className="text-sm font-medium">Başvurusu yaklaşan festivaller</p>
+            <ul>
+              {deadlines.map((f) => {
+                const d = deadlineState(f, today);
+                const days = d.kind === "open" ? d.days : 0;
+                return (
+                  <li key={f.id}>
+                    <Link
+                      href="/yonetim/festivaller"
+                      className="flex min-h-11 items-center gap-2 text-sm hover:underline"
+                    >
+                      <span className="min-w-0 flex-1 truncate">{f.name}</span>
+                      <span
+                        className={cn(
+                          "shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold",
+                          days <= 7 ? "bg-absent text-absent-foreground" : "bg-muted",
+                        )}
+                      >
+                        {daysLeftText(days)}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         )}
         <div className="border-t pt-1 md:hidden">
           <Link href="/uyeler" className={more}>

@@ -13,6 +13,7 @@ import {
   type CalendarFilter,
 } from "@/lib/board/calendar";
 import { getCalendar } from "@/lib/board/queries";
+import { SPECIAL_DAY_FILL } from "@/lib/festivals/labels";
 import { dayInstant, formatMonthYear, istanbulDateOf, now } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
@@ -57,7 +58,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/yonetim
   const month = parseMonth(sp.ay, istanbulDateOf(now()));
   const filter = parseFilter(sp.tur);
   const list = sp.gorunum === "liste";
-  const { weeks, byDay, today } = await getCalendar(month, filter);
+  const { weeks, byDay, special, today } = await getCalendar(month, filter);
   const inMonth = (day: string) => day.startsWith(month);
   const selected =
     typeof sp.gun === "string" && DAY.test(sp.gun) && inMonth(sp.gun)
@@ -85,7 +86,15 @@ export default async function CalendarPage({ searchParams }: PageProps<"/yonetim
           {list && <AddButtons day={selected} />}
         </div>
         <p className="text-sm text-muted-foreground">
-          Koronun çalışmaları, konserleri, toplantıları ve takvime eklenen işler.
+          Koronun çalışmaları, konserleri, toplantıları, takvime eklenen işler,{" "}
+          <Link href="/yonetim/festivaller" className="font-medium text-primary hover:underline">
+            festivaller
+          </Link>{" "}
+          ve{" "}
+          <Link href="/ozel-gunler" className="font-medium text-primary hover:underline">
+            özel günler
+          </Link>
+          .
         </p>
       </div>
 
@@ -211,6 +220,8 @@ export default async function CalendarPage({ searchParams }: PageProps<"/yonetim
                 <tr key={week[0]}>
                   {week.map((day) => {
                     const items = byDay.get(day) ?? [];
+                    const shown = items.filter((item) => item.tone !== "special");
+                    const kind = special.get(day);
                     const label = `${formatLongDay(day)}${items.length ? `, ${items.length} kayıt` : ""}`;
                     return (
                       <td key={day} className="p-0.5 align-top">
@@ -224,7 +235,9 @@ export default async function CalendarPage({ searchParams }: PageProps<"/yonetim
                           className={cn(
                             "flex min-h-13 flex-col items-center gap-1 rounded-xl px-0.5 py-1.5 outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-24 md:items-stretch md:px-1.5",
                             !inMonth(day) && "text-muted-foreground/60",
-                            day === selected && "bg-muted ring-2 ring-primary",
+                            kind && SPECIAL_DAY_FILL[kind],
+                            day === selected &&
+                              (kind ? "ring-2 ring-primary" : "bg-muted ring-2 ring-primary"),
                           )}
                         >
                           <span
@@ -235,10 +248,10 @@ export default async function CalendarPage({ searchParams }: PageProps<"/yonetim
                           >
                             {Number(day.slice(8))}
                           </span>
-                          {items.length > 0 && (
+                          {shown.length > 0 && (
                             <>
                               <span aria-hidden className="flex gap-0.5 md:hidden">
-                                {items.slice(0, 3).map((item) => (
+                                {shown.slice(0, 3).map((item) => (
                                   <span
                                     key={item.key}
                                     className={cn(
@@ -249,7 +262,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/yonetim
                                 ))}
                               </span>
                               <span aria-hidden className="hidden space-y-0.5 md:block">
-                                {items.slice(0, 2).map((item) => (
+                                {shown.slice(0, 2).map((item) => (
                                   <span
                                     key={item.key}
                                     className={cn(
@@ -265,9 +278,9 @@ export default async function CalendarPage({ searchParams }: PageProps<"/yonetim
                                     {item.title}
                                   </span>
                                 ))}
-                                {items.length > 2 && (
+                                {shown.length > 2 && (
                                   <span className="block px-1.5 text-xs text-muted-foreground">
-                                    +{items.length - 2}
+                                    +{shown.length - 2}
                                   </span>
                                 )}
                               </span>

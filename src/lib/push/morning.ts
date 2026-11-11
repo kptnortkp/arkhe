@@ -10,7 +10,7 @@ import { assistantQueueCount, conductorCounts } from "@/lib/review/queries";
 import { loadScope } from "@/lib/review/scope";
 import { addDays, istanbulDayRange, istanbulToUtc } from "@/lib/time";
 import type { PushContext } from "./context";
-import { cut, gun, saat, type Item } from "./copy";
+import { BODY_MAX, cut, gun, saat, type Item } from "./copy";
 import { duesPushEnabled, getState, REPERTOIRE_SINCE, setState } from "./state";
 
 const secs = (d: Date) => Math.floor(d.getTime() / 1000);
@@ -254,6 +254,77 @@ async function ticketLines(day: string, endOfDay: Date): Promise<Item[]> {
   });
 }
 
+const DEADLINE_DAYS = [14, 7, 3, 1, 0];
+const START_DAYS = [30, 7, 1];
+const inDays = (day: string, list: number[]) =>
+  sql.join(
+    list.map((n) => sql`${addDays(day, n)}`),
+    sql`, `,
+  );
+
+/**
+ * To the conductor and the board: a deadline 14, 7, 3, 1 days ahead and on the day while we have
+ * not applied yet, and a festival we applied to or attend 30, 7 and 1 days before it starts.
+ */
+async function festivalLines(day: string, endOfDay: Date): Promise<Item[]> {
+  const rows = await db.all<{
+    id: string;
+    name: string;
+    status: string;
+    deadline: string | null;
+    starts: string | null;
+  }>(sql`
+    select id, name, status, deadline_on as deadline, starts_on as starts from festivals
+    where (status = 'watching' and deadline_on in (${inDays(day, DEADLINE_DAYS)}))
+       or (status in ('applied', 'attending') and starts_on in (${inDays(day, START_DAYS)}))
+    order by name`);
+  if (rows.length === 0) return [];
+  const managers = await db.all<{ id: string }>(sql`
+    select id from users
+    where role in ('conductor', 'board') and is_active = 1 and left_at is null`);
+  const away = (target: string) =>
+    Math.round((Date.parse(`${target}T12:00:00Z`) - Date.parse(`${day}T12:00:00Z`)) / 86_400_000);
+  const when = (n: number) => (n === 0 ? "bugün" : n === 1 ? "yarın" : `${n} gün sonra`);
+  const messages = rows.flatMap((f) => {
+    const out: { key: string; title: string; body: string; line: string }[] = [];
+    if (f.status === "watching" && f.deadline && DEADLINE_DAYS.includes(away(f.deadline))) {
+      const n = away(f.deadline);
+      out.push({
+        key: `festival-${f.id}-son-${f.deadline}-${n}`,
+        title: "Festival başvurusu",
+        body: cut(`${f.name}: son başvuru ${when(n)}. Henüz başvurmadık.`, BODY_MAX),
+        line: `Festival: ${f.name}, son başvuru ${when(n)}`,
+      });
+    }
+    if (f.status !== "watching" && f.starts && START_DAYS.includes(away(f.starts))) {
+      const n = away(f.starts);
+      const note = f.status === "applied" ? " Başvurumuzun sonucu girilmedi." : "";
+      out.push({
+        key: `festival-${f.id}-basliyor-${f.starts}-${n}`,
+        title: "Festival yaklaşıyor",
+        body: cut(`${f.name} ${when(n)} başlıyor.${note}`, BODY_MAX),
+        line: `Festival: ${f.name} ${when(n)} başlıyor`,
+      });
+    }
+    return out.map((m) => ({ ...m, id: f.id }));
+  });
+  return messages.flatMap((m) =>
+    managers.map((u) => ({
+      userId: u.id,
+      kind: "festival_deadline" as const,
+      group: "yonetim" as const,
+      dedupeKey: m.key,
+      title: m.title,
+      body: m.body,
+      line: m.line,
+      url: `/yonetim/festivaller/${m.id}`,
+      tag: `festival-${m.id}`,
+      expiresAt: endOfDay,
+      morning: true,
+    })),
+  );
+}
+
 async function duesLines(day: string, now: Date): Promise<Item[]> {
   if (!(await duesPushEnabled())) return [];
   const { periods, members } = await loadDuesMatrix(day);
@@ -304,7 +375,7 @@ async function duesLines(day: string, now: Date): Promise<Item[]> {
 }
 
 type Commit = () => Promise<void>;
-const SECTIONS = ["rehearsals", "homework", "review", "repertoire", "tickets", "dues"] as const;
+const SECTIONS = ["rehearsals", "homework", "review", "repertoire", "tickets", "dues", "festivals"] as const;
 
 /**
  * The morning lines of one Istanbul day (D69): 2, 3, 8, 10, 11, 12, 17, 19. A failing section is
@@ -320,6 +391,7 @@ export async function morningItems(ctx: PushContext, day: string) {
     repertoireLines(day, ctx.now, endOfDay, commits),
     ticketLines(day, endOfDay),
     duesLines(day, ctx.now),
+    festivalLines(day, endOfDay),
   ]);
   const items = results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
   const failed = SECTIONS.filter((_, i) => results[i].status === "rejected");

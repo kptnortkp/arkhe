@@ -32,6 +32,7 @@ export const KINDS = [
   "ticket_comment",
   "ticket_moved",
   "tickets_due",
+  "festival_deadline",
   "dues_open",
   "dues_late",
   "budget_new",

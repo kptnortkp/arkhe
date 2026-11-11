@@ -63,4 +63,28 @@ Raporlar → Eser hazırlığı: koristlerin her eserde kendi işaretlediği dur
 
 Konser kadrosu: Konser türündeki çalışmanın sayfasında kimin söyleyeceği, kimin söyleyemeyeceği (açıklamasıyla) ve kimin cevap vermediği partisyon bazında görünür.`,
   },
+  {
+    key: "ozel-gunler",
+    date: "2026-11-11",
+    audience: "all",
+    title: "Yeni: Özel günler",
+    body: `Çalışmalar sayfasında artık "Özel günler" var: resmi tatiller, arifeler ve koro için önemli günler, yıllık takvim olarak.
+
+Renkler: kırmızımsı resmi tatil, sarı arife (13.00'ten sonra), mavi hafta sonu, gri anma günü. Çalışmalar sayfasında sıradaki özel gün de yazar.`,
+  },
+  {
+    key: "festivaller-yk",
+    date: "2026-11-11",
+    audience: "board",
+    title: "Yeni: Festivaller",
+    body: `Şef ve YK için: Yönetim Kurulu → Festivaller.
+
+Google tablosundaki festivaller portala aktarıldı; renkler aynı (sarı Türkiye, mavi yurt dışı, yeşil katılıyoruz, parlak yeşil yeni eklendi). Her festivalde tarih, son başvuru günü ve kaç gün kaldığı, ücret, yer ve bağlantı var; buradan ekleyip düzenleyebilirsiniz.
+
+Festival günleri ve son başvuru günleri Yönetim takviminde ve kendi takvim aboneliğinizde görünür.
+
+Bildirimler: Henüz başvurmadığımız bir festivalin son başvurusundan 14, 7, 3 ve 1 gün önce ve son gün bildirim gelir. Başvurunca durumu "Başvurduk" ya da "Katılıyoruz" yapın; hatırlatmalar durur, bunun yerine festivalden 30, 7 ve 1 gün önce "Festival yaklaşıyor" bildirimi gelir.
+
+"Excel" düğmesi tablonun güncel halini eski düzende indirir: Festivaller ve Özel Günler sekmeleri, aynı renklerle.`,
+  },
 ];

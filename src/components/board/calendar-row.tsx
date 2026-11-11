@@ -11,6 +11,9 @@ export const TONE: Record<CalendarTone, { dot: string; chip: string }> = {
   trip: { dot: "bg-present", chip: "bg-present/15 text-present-ink" },
   other: { dot: "bg-muted-foreground", chip: "bg-muted text-muted-foreground" },
   ticket: { dot: "bg-alto", chip: "bg-alto/15 text-alto-ink" },
+  festival: { dot: "bg-soprano", chip: "bg-soprano/15 text-soprano-ink" },
+  deadline: { dot: "bg-absent", chip: "bg-absent/15 text-absent-ink" },
+  special: { dot: "bg-day-holiday", chip: "bg-day-holiday text-foreground" },
 };
 
 export function CalendarRow({ item }: { item: CalendarItem }) {

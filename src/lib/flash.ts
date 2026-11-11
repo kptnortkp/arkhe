@@ -14,6 +14,10 @@ const FLASH_MESSAGES = {
   "butce-silindi": "Bütçe silindi.",
   "etkinlik-eklendi": "Etkinlik takvime eklendi.",
   "etkinlik-silindi": "Etkinlik silindi.",
+  "festival-eklendi": "Festival eklendi.",
+  "festival-silindi": "Festival silindi.",
+  "ozel-gun-eklendi": "Özel gün eklendi.",
+  "ozel-gun-silindi": "Özel gün silindi.",
 } as const;
 
 const NUMBERED_MESSAGES = {

@@ -15,6 +15,9 @@ import { collator } from "@/lib/format";
 import { canDeleteComment, canDeleteTicket } from "@/lib/permissions";
 import { listRehearsals, rehearsalTitle } from "@/lib/attendance/rehearsals";
 import { REHEARSAL_TYPE_LABELS } from "@/lib/labels";
+import { festivalsBetween, specialDaysBetween } from "@/lib/festivals/queries";
+import { REGION_LABELS, SPECIAL_DAY_LABELS } from "@/lib/festivals/labels";
+import type { SpecialDayKind } from "@/db/schema";
 import { addDays, istanbulDateOf, istanbulTimeOf, istanbulToUtc, now } from "@/lib/time";
 import { monthWeeks, type CalendarFilter, type CalendarTone } from "./calendar";
 import {
@@ -218,7 +221,7 @@ export async function getCalendar(month: string, filter: CalendarFilter) {
   const wantEvents = filter === "hepsi" || eventKind !== undefined;
   const wantRehearsals = want("calisma") || want("konser");
 
-  const [rehearsalRows, eventRows, ticketRows] = await Promise.all([
+  const [rehearsalRows, eventRows, ticketRows, festivalRows, specialRows] = await Promise.all([
     wantRehearsals
       ? listRehearsals({
           from: istanbulToUtc(first),
@@ -243,6 +246,8 @@ export async function getCalendar(month: string, filter: CalendarFilter) {
           and(eq(t.onCalendar, true), sql`${t.dueOn} between ${first} and ${last}`),
         )
       : [],
+    want("festival") ? festivalsBetween(first, last) : [],
+    specialDaysBetween(first, last),
   ]);
 
   const items: (CalendarItem & { day: string })[] = [];
@@ -291,6 +296,63 @@ export async function getCalendar(month: string, filter: CalendarFilter) {
       struck: r.status === "done",
     });
   }
+  for (const f of festivalRows) {
+    const href = `/yonetim/festivaller/${f.id}`;
+    if (f.startsOn) {
+      const end = f.endsOn ?? f.startsOn;
+      for (
+        let day = f.startsOn < first ? first : f.startsOn;
+        day <= end && day <= last;
+        day = addDays(day, 1)
+      ) {
+        items.push({
+          key: `f-${f.id}-${day}`,
+          day,
+          tone: "festival",
+          title: f.name,
+          href,
+          start: null,
+          end: null,
+          location: f.place,
+          label:
+            f.status === "attending"
+              ? "Festival · Katılıyoruz"
+              : `Festival · ${REGION_LABELS[f.region]}`,
+          struck: false,
+        });
+      }
+    }
+    if (f.deadlineOn && f.deadlineOn >= first && f.deadlineOn <= last) {
+      items.push({
+        key: `fd-${f.id}`,
+        day: f.deadlineOn,
+        tone: "deadline",
+        title: `Son başvuru: ${f.name}`,
+        href,
+        start: null,
+        end: null,
+        location: null,
+        label: "Başvuru",
+        struck: false,
+      });
+    }
+  }
+  const special = new Map<string, SpecialDayKind>();
+  for (const d of specialRows) {
+    if (!special.has(d.day) || d.kind !== "other") special.set(d.day, d.kind);
+    items.push({
+      key: `s-${d.id}`,
+      day: d.day,
+      tone: "special",
+      title: d.title,
+      href: `/ozel-gunler?yil=${d.day.slice(0, 4)}`,
+      start: null,
+      end: null,
+      location: null,
+      label: SPECIAL_DAY_LABELS[d.kind],
+      struck: false,
+    });
+  }
   // All-day entries first, then by start time, then by title.
   items.sort(
     (a, b) =>
@@ -304,7 +366,7 @@ export async function getCalendar(month: string, filter: CalendarFilter) {
     list.push(item);
     byDay.set(day, list);
   }
-  return { weeks, byDay, today: istanbulDateOf(now()) };
+  return { weeks, byDay, special, today: istanbulDateOf(now()) };
 }
 
 export type TicketDetail = TicketCardData & {

@@ -105,6 +105,7 @@ export const CALENDAR_FILTERS = {
   gezi: "Kamp / gezi",
   diger: "Diğer",
   is: "İşler",
+  festival: "Festivaller",
 } as const;
 export type CalendarFilter = keyof typeof CALENDAR_FILTERS;
 
@@ -115,4 +116,5 @@ export function parseFilter(raw: unknown): CalendarFilter {
 }
 
 /** What an entry looks like on the grid and in the lists; `tone` picks its colour. */
-export type CalendarTone = "rehearsal" | CalendarKind | "ticket";
+export type CalendarTone =
+  "rehearsal" | CalendarKind | "ticket" | "festival" | "deadline" | "special";

@@ -1,4 +1,4 @@
-import { CalendarClock, ChartColumn, ChevronRight, Plus } from "lucide-react";
+import { CalendarClock, CalendarHeart, ChartColumn, ChevronRight, Plus } from "lucide-react";
 import Link from "next/link";
 import { AttendanceStrip } from "@/components/attendance/status-chip";
 import { RehearsalRow } from "@/components/attendance/rehearsal-row";
@@ -10,6 +10,7 @@ import { expectedFor, listRehearsals, myMarks, type Rehearsal } from "@/lib/atte
 import { attendanceStats } from "@/lib/attendance/stats";
 import { upcomingAbsences } from "@/lib/attendance/upcoming";
 import { requireUser } from "@/lib/auth/dal";
+import { specialDaysBetween } from "@/lib/festivals/queries";
 import { isManager } from "@/lib/permissions";
 import { addDays, formatDayMonth, istanbulDateOf, istanbulToUtc } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -41,7 +42,8 @@ export default async function RehearsalsPage({ searchParams }: PageProps<"/calis
 
   const showMine = user.role !== "conductor";
   // Independent reads run side by side: each awaited query is a round trip to the database.
-  const [rows, myStats, ahead] = await Promise.all([
+  const today = istanbulDateOf(new Date());
+  const [rows, myStats, ahead, nextSpecial] = await Promise.all([
     (async () => {
       // One extra row only says whether an older page exists.
       const fetched = past
@@ -67,6 +69,7 @@ export default async function RehearsalsPage({ searchParams }: PageProps<"/calis
       return { period, stats: stats.members[0] };
     })(),
     canManage && !past ? upcomingAbsences(todayStart) : null,
+    past ? null : specialDaysBetween(today, addDays(today, 30)).then((d) => d[0] ?? null),
   ]);
   const { list, marks, expected, hasMore } = rows;
   const period = myStats?.period ?? null;
@@ -118,6 +121,25 @@ export default async function RehearsalsPage({ searchParams }: PageProps<"/calis
           </Link>
         ))}
       </nav>
+
+      {!past && (
+        <Link
+          href="/ozel-gunler"
+          className="flex min-h-14 items-center gap-3 rounded-2xl border bg-card px-4 py-3 text-sm hover:bg-muted/60"
+          data-testid="special-days-link"
+        >
+          <CalendarHeart className="size-5 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1">
+            <span className="font-medium">Özel günler</span>
+            <span className="block text-muted-foreground">
+              {nextSpecial
+                ? `Sıradaki: ${formatDayMonth.format(new Date(`${nextSpecial.day}T12:00:00Z`))} · ${nextSpecial.title}`
+                : "Resmi tatiller ve arifeler"}
+            </span>
+          </span>
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+        </Link>
+      )}
 
       {ahead && ahead.length > 0 && (
         <Link

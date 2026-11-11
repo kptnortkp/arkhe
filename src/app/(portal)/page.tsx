@@ -252,6 +252,7 @@ export default async function HomePage() {
         <SectionPrompt part={user.voicePart} />
       )}
       {pushKey && <PushNudge publicKey={pushKey} userId={user.id} />}
+      {manager && <BoardHomeCard />}
       {askConcerts.length > 0 && (
         <section aria-labelledby="konser-sorusu" className="space-y-2" data-testid="concert-prompt">
           <h2
@@ -296,7 +297,6 @@ export default async function HomePage() {
           </ul>
         </section>
       )}
-      {manager && <BoardHomeCard />}
       <ReviewHomeCard user={user} />
       <MyHomeworkCard viewer={viewer} at={at} />
       {manager && <ManagerHomeworkCard at={at} />}

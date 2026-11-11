@@ -1,8 +1,11 @@
 import { listRehearsals, rehearsalTitle } from "@/lib/attendance/rehearsals";
 import { isExpected } from "@/lib/attendance/roster";
-import { buildCalendar } from "@/lib/calendar-feed/ics";
+import { buildCalendar, type FeedEvent } from "@/lib/calendar-feed/ics";
 import { feedOwner } from "@/lib/calendar-feed/tokens";
-import { now } from "@/lib/time";
+import { festivalDates } from "@/lib/festivals/labels";
+import { festivalsBetween } from "@/lib/festivals/queries";
+import { isManager } from "@/lib/permissions";
+import { addDays, istanbulDateOf, now } from "@/lib/time";
 
 const DAY_MS = 86_400_000;
 
@@ -19,17 +22,52 @@ export async function GET(request: Request, { params }: RouteContext<"/api/takvi
     limit: 500,
   });
   const mine = owner.role === "conductor" ? list : list.filter((r) => isExpected(owner, r));
+  const today = istanbulDateOf(at);
+  // Festivals are board-only: they reach the feed of a conductor or board member alone.
+  const board = isManager(owner.role)
+    ? await festivalsBetween(addDays(today, -60), addDays(today, 400))
+    : [];
   const origin = process.env.APP_URL ?? new URL(request.url).origin;
+  const festivalEvents: FeedEvent[] = board.flatMap((f) => {
+    const path = `/yonetim/festivaller/${f.id}`;
+    const out: FeedEvent[] = [];
+    if (f.startsOn) {
+      out.push({
+        id: `festival-${f.id}`,
+        title: `Festival · ${f.name}`,
+        location: f.place,
+        description: [festivalDates(f), f.fee, f.url].filter(Boolean).join("\n"),
+        cancelled: false,
+        path,
+        allDay: { first: f.startsOn, last: f.endsOn ?? f.startsOn },
+      });
+    }
+    if (f.deadlineOn) {
+      out.push({
+        id: `festival-deadline-${f.id}`,
+        title: `Son başvuru · ${f.name}`,
+        location: null,
+        description: [f.deadlineNote, f.url].filter(Boolean).join("\n"),
+        cancelled: false,
+        path,
+        allDay: { first: f.deadlineOn, last: f.deadlineOn },
+      });
+    }
+    return out;
+  });
   const body = buildCalendar(
-    mine.map((r) => ({
-      id: r.id,
-      title: `Arkhe · ${rehearsalTitle(r)}`,
-      location: r.location,
-      description: r.note,
-      startsAt: r.startsAt,
-      endsAt: r.endsAt,
-      cancelled: r.cancelledAt !== null,
-    })),
+    [
+      ...mine.map((r): FeedEvent => ({
+        id: r.id,
+        title: `Arkhe · ${rehearsalTitle(r)}`,
+        location: r.location,
+        description: r.note,
+        startsAt: r.startsAt,
+        endsAt: r.endsAt,
+        cancelled: r.cancelledAt !== null,
+      })),
+      ...festivalEvents,
+    ],
     { name: "Koro Arkhe", url: origin.replace(/\/$/, ""), stamp: at },
   );
   return new Response(body, {

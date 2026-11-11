@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, CalendarDays, Check, ChevronDown, Plus, Users, X } from "lucide-react";
+import { Archive, CalendarDays, Check, ChevronDown, Music, Plus, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { FilterChip } from "@/components/filter-chip";
@@ -39,10 +39,17 @@ export function BoardHeader({ column }: { column: TicketStatus }) {
           Yeni iş
         </Link>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-x-3">
         <Link href="/yonetim/takvim" className={link}>
           <CalendarDays aria-hidden className="size-4" />
           Takvim
+        </Link>
+        <span aria-hidden className="text-muted-foreground">
+          ·
+        </span>
+        <Link href="/yonetim/festivaller" className={link}>
+          <Music aria-hidden className="size-4" />
+          Festivaller
         </Link>
         <span aria-hidden className="text-muted-foreground">
           ·
