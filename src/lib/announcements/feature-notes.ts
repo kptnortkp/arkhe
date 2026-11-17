@@ -115,4 +115,13 @@ Sitelerinde 2027 bilgisi henüz yok, kontrol edin: Summer in Tbilisi (12 Şubat)
 
 Festivallere "Açılış günü" alanı da eklendi: başvurular açılınca o sabah bildirim gelir.`,
   },
+  {
+    key: "odev-sefe-not",
+    date: "2026-11-17",
+    audience: "all",
+    title: "Yeni: Ödev kaydına şefe not",
+    body: `Ödev kaydını gönderdikten sonra kaydın altındaki "Şefe not ekle"ye dokunarak şefe kısa bir not bırakabilirsin (ör. "12. ölçüdeki girişten emin değilim"). Not isteğe bağlı.
+
+Notu kaydını dinleyen şef ve partisyon şefleri görür. Şef yorum yazana kadar notu değiştirebilir ya da silebilirsin.`,
+  },
 ];

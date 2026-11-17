@@ -450,6 +450,8 @@ export const submissions = sqliteTable(
     feedbackBy: text("feedback_by").references(() => users.id, { onDelete: "set null" }),
     feedbackAt: integer("feedback_at", { mode: "timestamp" }),
     feedbackSeenAt: integer("feedback_seen_at", { mode: "timestamp" }),
+    // The singer's optional note to the conductor; length is validated in the action (added later).
+    singerNote: text("singer_note"),
   },
   (t) => [
     primaryKey({ columns: [t.assignmentId, t.userId] }),

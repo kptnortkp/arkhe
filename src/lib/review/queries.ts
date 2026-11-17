@@ -390,6 +390,8 @@ type Head = {
   submittedAt: Date | null;
   method: SubmissionMethod | null;
   late: boolean;
+  /** The singer's own note to whoever listens. */
+  singerNote: string | null;
 };
 
 export type ReviewRecording = {
@@ -442,11 +444,12 @@ async function head(assignmentId: string, singerId: string) {
     sat: number | null;
     method: SubmissionMethod | null;
     has_sub: number;
+    note: string | null;
   }>(sql`
     select p.title, asg.bar_from as bf, asg.bar_to as bt, asg.due_at as due,
       (select group_concat(voice_part || ':' || coalesce(section, '')) from assignment_parts where assignment_id = asg.id) as parts,
       s.name, s.role, s.voice_part as part, s.voice_section as section, s.joined_at as joined, s.left_at,
-      sub.submitted_at as sat, sub.method, sub.user_id is not null as has_sub
+      sub.submitted_at as sat, sub.method, sub.user_id is not null as has_sub, sub.singer_note as note
     from assignments asg
     join pieces p on p.id = asg.piece_id
     join users s on s.id = ${singerId}
@@ -471,6 +474,7 @@ async function head(assignmentId: string, singerId: string) {
     submittedAt,
     method: r.method,
     late: submittedAt !== null && submittedAt > dueAt,
+    singerNote: r.note,
   };
   return { value, eligible, hasSubmission: Boolean(r.has_sub) };
 }

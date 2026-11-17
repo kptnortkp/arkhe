@@ -169,6 +169,13 @@
       "when": 1794480338995,
       "tag": "0023_festival_opens",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1794911400406,
+      "tag": "0024_singer_note",
+      "breakpoints": true
     }
   ]
 }

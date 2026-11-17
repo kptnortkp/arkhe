@@ -144,6 +144,13 @@ export default async function ReviewPage({
 
         {player}
 
+        {review.singerNote && (
+          <div className="space-y-1 rounded-2xl border bg-card p-4" data-testid="review-singer-note">
+            <p className={eyebrow}>Koristin notu</p>
+            <p className="text-sm whitespace-pre-line">{review.singerNote}</p>
+          </div>
+        )}
+
         {review.kind === "conductor" ? (
           <ConductorReviewForm
             assignmentId={review.assignment.id}

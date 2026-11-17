@@ -95,6 +95,14 @@ function platform() {
   return /Android/.test(ua) ? "android" : "other";
 }
 
+const AUDIO_ACCEPT = "audio/*,.m4a,.mp3,.aac,.wav,.ogg,.opus,.webm";
+const AUDIO_EXT = /\.(m4a|mp3|aac|wav|ogg|opus|webm|mp4)$/i;
+
+/** Client pre-check only; the server sniffs the bytes. */
+function looksLikeAudio(file: File) {
+  return !file.type || /^(audio|video)\//.test(file.type) || AUDIO_EXT.test(file.name);
+}
+
 /** Reads a picked file's duration; Infinity (WebM) is resolved by seeking to the end. */
 function fileDuration(file: Blob): Promise<number | null> {
   return new Promise((resolve) => {
@@ -400,12 +408,23 @@ export function Recorder({
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [rec.phase]);
 
+  function openPicker() {
+    const input = fileRef.current;
+    if (!input) return;
+    // Android Chrome opens the voice recorder app for an audio-only accept list, so it can't
+    // reach saved recordings; without a filter it shows the file browser instead.
+    if (platform() === "android") input.removeAttribute("accept");
+    else input.setAttribute("accept", AUDIO_ACCEPT);
+    input.click();
+  }
+
   async function pickFile(file: File | undefined) {
     if (fileRef.current) fileRef.current.value = "";
     if (!file) return;
     setInlineError(null);
     setRefused(false);
     if (file.size === 0) return setInlineError(MSG.emptyFile);
+    if (!looksLikeAudio(file)) return setInlineError(MSG.wrongType);
     if (file.size > RECORDING_MAX_BYTES) return setInlineError(MSG.tooBig);
     const durationMs = await fileDuration(file);
     const t: Take = { blob: file, durationMs, uploadId: crypto.randomUUID(), source: "file" };
@@ -517,7 +536,7 @@ export function Recorder({
     <input
       ref={fileRef}
       type="file"
-      accept="audio/*,.m4a,.mp3,.aac,.wav,.ogg,.opus,.webm"
+      accept={AUDIO_ACCEPT}
       className="sr-only"
       tabIndex={-1}
       aria-hidden
@@ -530,7 +549,7 @@ export function Recorder({
       type="button"
       variant="outline"
       className="h-12 w-full rounded-2xl text-base md:max-w-sm"
-      onClick={() => fileRef.current?.click()}
+      onClick={openPicker}
     >
       <Upload />
       {label}

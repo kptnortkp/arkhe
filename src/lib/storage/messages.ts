@@ -1,6 +1,8 @@
 // Isomorphic Turkish copy for Phase 9 (po-decisions D63). Server answers and client pre-checks
 // use the same strings, so a test can match either.
 
+export const SINGER_NOTE_MAX = 500;
+
 export const MSG = {
   forbidden: "Bu işlem için yetkin yok.",
   auth: "Giriş yapmalısın.",
@@ -27,6 +29,11 @@ export const MSG = {
   sent: "Kaydın gönderildi.",
   replaced: "Kaydın değiştirildi.",
   withdrawn: "Kaydın silindi.",
+
+  singerNoteTooLong: "Not en fazla 500 karakter olabilir.",
+  singerNoteRefused: "Not eklenemedi: önce kaydını gönder. Şef yorum yazdıysa not artık değişmez.",
+  singerNoteSaved: "Notun kaydedildi.",
+  singerNoteDeleted: "Notun silindi.",
 
   // Playback
   playbackFailed: "Kayıt şu an açılamıyor. Biraz sonra tekrar dene.",

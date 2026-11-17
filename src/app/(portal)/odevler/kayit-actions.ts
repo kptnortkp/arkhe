@@ -8,11 +8,32 @@ import { assertUser } from "@/lib/auth/dal";
 import { withdrawTake } from "@/lib/homework/withdraw";
 import { isConductor } from "@/lib/review/access";
 import { drainKeys } from "@/lib/storage/ledger";
-import { MSG } from "@/lib/storage/messages";
+import { MSG, SINGER_NOTE_MAX } from "@/lib/storage/messages";
 import { now } from "@/lib/time";
-import type { FormState } from "@/lib/validation";
+import { optionalText, type FormState } from "@/lib/validation";
 
 const idSchema = z.uuid();
+const singerNote = optionalText(SINGER_NOTE_MAX);
+
+/** The singer's optional note to the conductor, on their own submission until it is commented. */
+export async function saveMyHomeworkNote(_prev: FormState, formData: FormData): Promise<FormState> {
+  const actor = await assertUser();
+  if (!actor) return { error: MSG.forbidden };
+  const id = idSchema.safeParse(formData.get("assignmentId"));
+  if (!id.success) return { error: MSG.homeworkNotFound };
+  const note = singerNote.safeParse(formData.get("note") ?? undefined);
+  if (!note.success) return { error: MSG.singerNoteTooLong };
+  const rows = await writeTx((tx) =>
+    tx.all(sql`
+      update submissions set singer_note = ${note.data}
+      where assignment_id = ${id.data} and user_id = ${actor.id}
+        and submitted_at is not null and feedback is null
+      returning 1 as ok`),
+  );
+  if (rows.length === 0) return { error: MSG.singerNoteRefused };
+  revalidatePath(`/odevler/${id.data}`);
+  return { success: note.data ? MSG.singerNoteSaved : MSG.singerNoteDeleted };
+}
 
 /** The singer's `Sil` on their own current take; the singer always comes from the session. */
 export async function deleteMyRecording(assignmentId: string): Promise<FormState> {

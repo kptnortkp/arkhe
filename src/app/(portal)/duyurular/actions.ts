@@ -42,7 +42,8 @@ export type SimpleResult = { ok: boolean; error?: string; message?: string };
 const chars = (s: string) => [...s].length;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const isDay = (s: string) => DAY.test(s) && addDays(s, 0) === s;
-const uuid = z.uuid();
+// Feature-note ids are hash-shaped (no RFC version bits), so z.uuid() would refuse them.
+const uuid = z.guid();
 
 // Lengths are counted in characters, as the DB CHECKs do (zod counts UTF-16 units).
 const title = z

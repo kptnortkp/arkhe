@@ -12,6 +12,7 @@ import { MidiButton } from "@/components/midi/midi-button";
 import { FallbackDetails, ListenersNote } from "@/components/recording/listeners-note";
 import type { Backings } from "@/components/recording/backing";
 import { Recorder } from "@/components/recording/recorder";
+import { SingerNote } from "@/components/recording/singer-note";
 import { SubmitToggle } from "@/components/homework/submit-button";
 import { PartButton } from "@/components/repertoire/part-button";
 import { VOICE_PARTS, type VoicePart } from "@/db/schema";
@@ -197,6 +198,9 @@ export default async function AssignmentPage({ params, searchParams }: PageProps
           backings={backings}
           voicePart={viewer.voicePart}
         />
+        {mine?.submittedAt && mine.method === "self" && !cancelled && (
+          <SingerNote assignmentId={a.id} note={recorder.singerNote} locked={recorder.locked} />
+        )}
         {showTransparency && <ListenersNote names={listeners} />}
         {!recorder.locked && !cancelled && (
           <FallbackDetails open={blocked}>

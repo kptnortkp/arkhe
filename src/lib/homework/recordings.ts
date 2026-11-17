@@ -135,9 +135,10 @@ export async function myRecorder(assignmentId: string, userId: string) {
       select id, content_type, duration_ms, size_bytes, uploaded_at, replaces_id, audio_deleted_at,
         deleted_reason, delete_on
       from recordings where assignment_id = ${assignmentId} and user_id = ${userId} and replaced_at is null`),
-    db.all<{ n: number; locked: number }>(sql`
+    db.all<{ n: number; locked: number; note: string | null }>(sql`
       select (select count(*) from recordings where assignment_id = ${assignmentId} and user_id = ${userId}) as n,
-        coalesce((select feedback is not null from submissions where assignment_id = ${assignmentId} and user_id = ${userId}), 0) as locked`),
+        coalesce((select feedback is not null from submissions where assignment_id = ${assignmentId} and user_id = ${userId}), 0) as locked,
+        (select singer_note from submissions where assignment_id = ${assignmentId} and user_id = ${userId}) as note`),
   ]);
   const r = rows[0];
   const take: MyTake | null = r
@@ -161,6 +162,7 @@ export async function myRecorder(assignmentId: string, userId: string) {
     uploadsLeft: Math.max(0, MAX_UPLOADS_PER_SLOT - uploadsUsed),
     /** The comment lock (D8, D46): no upload, replace or delete. */
     locked,
+    singerNote: count?.note ?? null,
     canUpload: !locked && uploadsUsed < MAX_UPLOADS_PER_SLOT,
     canDelete: !locked && take !== null && take.audioDeletedAt === null,
   };
