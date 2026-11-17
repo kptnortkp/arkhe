@@ -3,8 +3,7 @@ import Link from "next/link";
 import { LinkifiedText } from "@/components/announcements/linkified-text";
 import {
   ATTENDING_FILL,
-  daysLeftText,
-  deadlineState,
+  applicationState,
   FESTIVAL_STATUS_LABELS,
   festivalDates,
   isNew,
@@ -21,8 +20,7 @@ export function FestivalCard({ festival: f, today }: { festival: Festival; today
   const past = isPast(f, today);
   const attending = f.status === "attending";
   const fresh = isNew(f.createdAt, today);
-  const deadline = deadlineState(f, today);
-  const soon = deadline.kind === "open" && deadline.days <= 7;
+  const application = applicationState(f, today);
   return (
     <li
       data-testid="festival"
@@ -83,21 +81,18 @@ export function FestivalCard({ festival: f, today }: { festival: Festival; today
           <dt className="sr-only">Başvuru</dt>
           <Ticket aria-hidden className="mt-0.5 size-4 shrink-0 opacity-70" />
           <dd className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span>Başvuru: {deadline.text}</span>
-            {deadline.kind === "open" && !past && (
+            <span>Başvuru: {application.text}</span>
+            {application.chip && !past && (
               <span
                 data-testid="deadline-chip"
                 className={cn(
                   "rounded-full px-2 py-0.5 text-xs font-semibold",
-                  soon ? "bg-absent text-absent-foreground" : "bg-background/70",
+                  application.chip.tone === "urgent" && "bg-absent text-absent-foreground",
+                  application.chip.tone === "open" && "bg-present text-present-foreground",
+                  application.chip.tone === "plain" && "bg-background/70",
                 )}
               >
-                {daysLeftText(deadline.days)}
-              </span>
-            )}
-            {deadline.kind === "closed" && !past && (
-              <span className="rounded-full bg-background/70 px-2 py-0.5 text-xs">
-                Başvuru kapandı
+                {application.chip.label}
               </span>
             )}
           </dd>

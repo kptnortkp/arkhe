@@ -96,4 +96,23 @@ Bildirimler: Henüz başvurmadığımız bir festivalin son başvurusundan 14, 7
 
 Süre dolsa da kaydını Ödevler sayfasından göndermeye devam edebilirsin; kaydı gönderince hatırlatmalar durur.`,
   },
+  {
+    key: "festival-tarih-duzeltme",
+    date: "2026-11-12",
+    audience: "board",
+    title: "Düzeltme: Festival başvuru tarihleri",
+    body: `Festival listesi, festivallerin kendi siteleriyle tek tek karşılaştırıldı. Düzeltilenler:
+
+Trabzon 3. Koro Festivali: "15 Kasım 2026" son başvuru günü değil, başvuruların açılış günü. 12 Kasım'da gelen "son başvuru 3 gün sonra" bildirimini dikkate almayın. Kapanış tarihi belli olunca girin.
+
+Cork: Tablodaki "15 Ocak – 5 Şubat" İrlandalı korolar içindi. Yurt dışından yarışmasız katılım için son gün 30 Kasım 2026 (yarışmalı kategori 31 Ekim'de kapandı). Ücret: kişi başı 50 €, koro başı en az 350 €.
+
+Bratislava: Ücret satırındaki "1 Nisan %50" indirim değil; konaklamanın yarısının son ödeme günü. Kayıt ücreti ilk kategori 250 €, her ek kategori 200 €.
+
+Doğrulandı: Cracov (30 Kasım), Bratislava (1 Mart), Prag erken kayıt (15 Aralık), Dünya Koro Oyunları (Linz, son 20 Ocak).
+
+Sitelerinde 2027 bilgisi henüz yok, kontrol edin: Summer in Tbilisi (12 Şubat), Europa Cantat (15 Ocak; kayıt sonbaharda açılacak), Singapur (31 Aralık erken kayıt).
+
+Festivallere "Açılış günü" alanı da eklendi: başvurular açılınca o sabah bildirim gelir.`,
+  },
 ];

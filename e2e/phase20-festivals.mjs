@@ -9,6 +9,7 @@ const require = createRequire(import.meta.url);
 const ExcelJS = require("exceljs");
 
 const NAME = "E2E Festival Deneme";
+const OPENS = "E2E Festival Açılış";
 const one = async (sql, args = []) => (await db.execute({ sql, args })).rows[0] ?? null;
 
 async function cleanup() {
@@ -84,6 +85,27 @@ async function festivals(browser) {
   await yk.goto(`${BASE}/`);
   check((await yk.getByTestId("home-festival-deadlines").getByText(NAME).count()) === 0, "once we applied the deadline leaves the home card");
 
+  // Only the opening day known.
+  await yk.goto(`${BASE}/yonetim/festivaller/yeni`);
+  await yk.getByLabel("Ad", { exact: true }).fill(OPENS);
+  await yk.getByText("Türkiye", { exact: true }).click();
+  await yk.getByLabel(/^Açılış günü/).fill(istanbulDate(3));
+  await yk.getByLabel(/^Son başvuru günü/).fill(istanbulDate(2));
+  await yk.getByRole("button", { name: "Kaydet" }).click();
+  await yk.getByText("Açılış günü, son başvuru gününden sonra olamaz.").waitFor();
+  check(true, "applications cannot open after the deadline");
+  await yk.getByLabel(/^Son başvuru günü/).fill("");
+  await yk.getByRole("button", { name: "Kaydet" }).click();
+  await yk.waitForURL(`${BASE}/yonetim/festivaller`);
+  const opens = await one("select * from festivals where name = ?", [OPENS]);
+  check(opens?.opens_on === istanbulDate(3) && opens?.deadline_on === null, "a festival can have only its opening day");
+  const openCard = yk.locator(`[data-testid=festival][data-id="${opens?.id}"]`);
+  check((await openCard.getByTestId("deadline-chip").innerText()) === "3 gün sonra açılıyor" && (await openCard.innerText()).includes("Açılış"), "the card says when applications open");
+  await yk.goto(`${BASE}/yonetim/takvim?ay=${istanbulDate(3).slice(0, 7)}&gun=${istanbulDate(3)}`);
+  check((await yk.locator(`[data-testid=calendar-day] [data-key="fo-${opens?.id}"]`).count()) === 1, "the opening day is on the board calendar");
+  await yk.goto(`${BASE}/`);
+  check((await yk.getByTestId("home-festival-openings").innerText()).includes("3 gün sonra açılıyor"), "the board home card lists applications about to open");
+
   const korist = await loginAs(browser, "korist@arkhe.local", { mobile: true });
   const res = await korist.goto(`${BASE}/yonetim/festivaller`);
   check(!korist.url().endsWith("/yonetim/festivaller") || res.status() >= 400, "a member cannot open the festivals");
@@ -156,6 +178,7 @@ async function exportBook(browser) {
   check(argb(find("Cork")) === "FFC9DAF8", "an abroad row is blue");
   check(argb(find("Korolar Maratonu")) === "FFB6D7A8" || !find("Korolar Maratonu"), "Katılıyoruz is green");
   check(argb(find(NAME)) === "FF00FF00" && find(NAME)?.getCell(1).value === "Yeni eklendi", "a new festival is bright green, flagged Yeni eklendi");
+  check(String(find(OPENS)?.getCell(5).value ?? "").startsWith("Açılış "), `the BAŞVURU column names the opening day (${find(OPENS)?.getCell(5).value})`);
   check(find(NAME)?.getCell(8).value?.hyperlink === "https://ornek-festival.org/basvuru", "links stay clickable");
   check(find("Béla Bartók") && rows.some((r) => r.getCell(2).value === "2028"), "later years get their own heading, as 2028 did");
   check(ws.getCell("A1").value === "Türkiye" && ws.getCell("A2").value === "Yurtdışı", "the colour legend sits in column A");
@@ -189,6 +212,8 @@ async function feed() {
   const ev = board.split("BEGIN:VEVENT").find((e) => e.includes(`UID:festival-${row?.id}@`)) ?? "";
   check(ev.includes(`DTSTART;VALUE=DATE:${istanbulDate(40).replace(/-/g, "")}`) && ev.includes(`DTEND;VALUE=DATE:${istanbulDate(43).replace(/-/g, "")}`), "a board member's feed has the festival as all-day days");
   check(board.includes(`UID:festival-deadline-${row?.id}@`), "and its deadline");
+  const opening = await one("select id from festivals where name = ?", [OPENS]);
+  check(board.includes(`UID:festival-opens-${opening?.id}@`) && board.includes("SUMMARY:Başvuru açılıyor · E2E Festival Açılış"), "and the day applications open");
   const member = await (await anon.get(`${BASE}/api/takvim/${token("korist")}.ics`)).text();
   check(member.includes("BEGIN:VCALENDAR") && !member.includes("festival-"), "a member's feed has no festivals");
   await anon.dispose();
@@ -207,6 +232,12 @@ async function reminders() {
   await ins("E2E Festival Bugün", "watching", run, null);
   await ins("E2E Festival Gidiyoruz", "attending", null, istanbulDate(31));
   await ins("E2E Festival Uzak", "watching", istanbulDate(6), null);
+  for (const [name, status] of [["E2E Festival Açıldı", "watching"], ["E2E Festival Açıldı Başvurduk", "applied"]]) {
+    await db.execute({
+      sql: "insert into festivals (id, name, region, status, opens_on) values (?, ?, 'abroad', ?, ?)",
+      args: [crypto.randomUUID(), name, status, run],
+    });
+  }
   const [sef, yk, korist] = await Promise.all(
     ["sef@arkhe.local", "yk@arkhe.local", "korist@arkhe.local"].map(userId),
   );
@@ -230,5 +261,7 @@ async function reminders() {
   check(!said(yk, "E2E Festival Başvurduk"), "once we applied the deadline reminders stop");
   check(!said(yk, "E2E Festival Uzak"), "5 days before is not a reminder day");
   check(said(yk, "E2E Festival Gidiyoruz 30 gün sonra başlıyor"), "30 days before a festival we attend: Festival yaklaşıyor");
+  check(said(yk, "E2E Festival Açıldı, başvurular açıldı"), "the morning applications open the board hears it");
+  check(!said(yk, "E2E Festival Açıldı Başvurduk"), "not when we already applied");
   check(!all.some((r) => r.user_id === korist && String(r.line ?? "").includes("E2E Festival")), "members get no festival reminders");
 }

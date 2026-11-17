@@ -345,19 +345,22 @@ const inDays = (day: string, list: number[]) =>
   );
 
 /**
- * To the conductor and the board: a deadline 14, 7, 3, 1 days ahead and on the day while we have
- * not applied yet, and a festival we applied to or attend 30, 7 and 1 days before it starts.
+ * To the conductor and the board, while we have not applied yet: the day applications open, and a
+ * deadline 14, 7, 3, 1 days ahead and on the day; a festival we applied to or attend 30, 7 and 1
+ * days before it starts.
  */
 async function festivalLines(day: string, endOfDay: Date): Promise<Item[]> {
   const rows = await db.all<{
     id: string;
     name: string;
     status: string;
+    opens: string | null;
     deadline: string | null;
     starts: string | null;
   }>(sql`
-    select id, name, status, deadline_on as deadline, starts_on as starts from festivals
-    where (status = 'watching' and deadline_on in (${inDays(day, DEADLINE_DAYS)}))
+    select id, name, status, opens_on as opens, deadline_on as deadline, starts_on as starts from festivals
+    where (status = 'watching' and opens_on = ${day})
+       or (status = 'watching' and deadline_on in (${inDays(day, DEADLINE_DAYS)}))
        or (status in ('applied', 'attending') and starts_on in (${inDays(day, START_DAYS)}))
     order by name`);
   if (rows.length === 0) return [];
@@ -369,6 +372,15 @@ async function festivalLines(day: string, endOfDay: Date): Promise<Item[]> {
   const when = (n: number) => (n === 0 ? "bugün" : n === 1 ? "yarın" : `${n} gün sonra`);
   const messages = rows.flatMap((f) => {
     const out: { key: string; title: string; body: string; line: string }[] = [];
+    if (f.status === "watching" && f.opens === day) {
+      const until = f.deadline ? ` Son gün ${gun(new Date(`${f.deadline}T12:00:00Z`))}.` : "";
+      out.push({
+        key: `festival-${f.id}-acilis-${f.opens}`,
+        title: "Festival başvurusu açıldı",
+        body: cut(`${f.name}: başvurular bugün açıldı.${until}`, BODY_MAX),
+        line: `Festival: ${f.name}, başvurular açıldı`,
+      });
+    }
     if (f.status === "watching" && f.deadline && DEADLINE_DAYS.includes(away(f.deadline))) {
       const n = away(f.deadline);
       out.push({

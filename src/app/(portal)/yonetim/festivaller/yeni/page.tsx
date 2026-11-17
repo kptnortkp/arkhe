@@ -27,6 +27,7 @@ export default async function NewFestivalPage() {
           startsOn: "",
           endsOn: "",
           dateNote: "",
+          opensOn: "",
           deadlineOn: "",
           deadlineNote: "",
           fee: "",

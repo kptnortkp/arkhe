@@ -32,7 +32,7 @@ export async function getFestival(id: string) {
   return row ?? null;
 }
 
-/** Festivals running on, or with a deadline on, any day in [first, last]. Callers check the role. */
+/** Festivals running on, or opening or closing applications on, a day in [first, last]. Callers check the role. */
 export async function festivalsBetween(first: string, last: string) {
   return db
     .select()
@@ -46,6 +46,7 @@ export async function festivalsBetween(first: string, last: string) {
             gte(sql`coalesce(${festivals.endsOn}, ${festivals.startsOn})`, first),
           ),
           and(gte(festivals.deadlineOn, first), lte(festivals.deadlineOn, last)),
+          and(gte(festivals.opensOn, first), lte(festivals.opensOn, last)),
         ),
       ),
     );
@@ -64,6 +65,21 @@ export async function deadlinesWithin(today: string, until: string) {
       ),
     )
     .orderBy(asc(festivals.deadlineOn), asc(festivals.name));
+}
+
+/** Applications opening in [today, until] for festivals we still watch. Callers check the role. */
+export async function openingsWithin(today: string, until: string) {
+  return db
+    .select()
+    .from(festivals)
+    .where(
+      and(
+        eq(festivals.status, "watching"),
+        gte(festivals.opensOn, today),
+        lte(festivals.opensOn, until),
+      ),
+    )
+    .orderBy(asc(festivals.opensOn), asc(festivals.name));
 }
 
 /** Special days in [from, to]; every signed-in member may see them. */

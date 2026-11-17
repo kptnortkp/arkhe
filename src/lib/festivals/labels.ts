@@ -94,6 +94,36 @@ export function deadlineState(
   return { kind: "open", days, text };
 }
 
+export type ApplicationChip = { label: string; tone: "urgent" | "soon" | "open" | "plain" };
+
+/** The application line of a card: opening day and deadline, plus the one chip that matters now. */
+export function applicationState(
+  f: { opensOn: string | null; deadlineOn: string | null; deadlineNote: string | null },
+  today: string,
+): { text: string; chip: ApplicationChip | null } {
+  const parts: string[] = [];
+  if (f.opensOn) parts.push(`Açılış ${formatDayLong(f.opensOn)}`);
+  const deadline =
+    f.deadlineNote ?? (f.deadlineOn ? `Son gün ${formatDayLong(f.deadlineOn)}` : null);
+  if (deadline) parts.push(deadline);
+  const text = parts.join(" · ") || "Belirtilmemiş";
+  const days = (to: string) => Math.round((at(to).getTime() - at(today).getTime()) / 86_400_000);
+  if (f.opensOn && f.opensOn > today) {
+    const n = days(f.opensOn);
+    return {
+      text,
+      chip: { label: n === 1 ? "Yarın açılıyor" : `${n} gün sonra açılıyor`, tone: "plain" },
+    };
+  }
+  if (f.deadlineOn && f.deadlineOn >= today) {
+    const n = days(f.deadlineOn);
+    return { text, chip: { label: daysLeftText(n), tone: n <= 7 ? "urgent" : "plain" } };
+  }
+  if (f.deadlineOn) return { text, chip: { label: "Başvuru kapandı", tone: "plain" } };
+  if (f.opensOn) return { text, chip: { label: "Başvurular açık", tone: "open" } };
+  return { text, chip: null };
+}
+
 export function daysLeftText(days: number) {
   return days === 0 ? "Son gün bugün" : days === 1 ? "Yarın son gün" : `${days} gün kaldı`;
 }

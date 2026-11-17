@@ -46,8 +46,10 @@ const LEGEND: [string, string][] = [
 ];
 
 function deadlineText(f: Festival) {
-  if (f.deadlineNote) return f.deadlineNote;
-  return f.deadlineOn ? formatDayLong(f.deadlineOn) : "";
+  const deadline = f.deadlineNote ?? (f.deadlineOn ? `${formatDayLong(f.deadlineOn)} son` : "");
+  return [f.opensOn ? `Açılış ${formatDayLong(f.opensOn)}` : "", deadline]
+    .filter(Boolean)
+    .join("; ");
 }
 
 /** Sheet 1 in the board spreadsheet's layout: legend in A, number in B, coloured C–F. */

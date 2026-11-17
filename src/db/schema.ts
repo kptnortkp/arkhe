@@ -2155,6 +2155,8 @@ export const festivals = sqliteTable(
     deadlineOn: text("deadline_on"),
     // Shown next to (or instead of) the deadline, e.g. "Erken kayıt 31 Aralık; son 15 Nisan".
     deadlineNote: text("deadline_note"),
+    // The day applications open; validated in the form (added later, so no table CHECK).
+    opensOn: text("opens_on"),
     fee: text("fee"),
     place: text("place"),
     url: text("url"),

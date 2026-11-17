@@ -1,8 +1,8 @@
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { boardSummary } from "@/lib/board/queries";
-import { daysLeftText, deadlineState } from "@/lib/festivals/labels";
-import { deadlinesWithin } from "@/lib/festivals/queries";
+import { applicationState, daysLeftText, deadlineState } from "@/lib/festivals/labels";
+import { deadlinesWithin, openingsWithin } from "@/lib/festivals/queries";
 import { addDays, istanbulDateOf, now } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { UrgencyChip } from "./urgency-chip";
@@ -13,9 +13,10 @@ const more =
 /** Managers only: my open board tickets, right under the hero (D22). */
 export async function BoardHomeCard() {
   const today = istanbulDateOf(now());
-  const [s, deadlines] = await Promise.all([
+  const [s, deadlines, openings] = await Promise.all([
     boardSummary(),
     deadlinesWithin(today, addDays(today, 14)),
+    openingsWithin(today, addDays(today, 7)),
   ]);
   if (!s) return null;
   return (
@@ -100,6 +101,32 @@ export async function BoardHomeCard() {
                         )}
                       >
                         {daysLeftText(days)}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+        {openings.length > 0 && (
+          <div className="border-t pt-2" data-testid="home-festival-openings">
+            <p className="text-sm font-medium">Başvurusu açılacak festivaller</p>
+            <ul>
+              {openings.map((f) => {
+                const label =
+                  f.opensOn === today
+                    ? "Bugün açılıyor"
+                    : applicationState({ ...f, deadlineOn: null }, today).chip?.label;
+                return (
+                  <li key={f.id}>
+                    <Link
+                      href="/yonetim/festivaller"
+                      className="flex min-h-11 items-center gap-2 text-sm hover:underline"
+                    >
+                      <span className="min-w-0 flex-1 truncate">{f.name}</span>
+                      <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">
+                        {label}
                       </span>
                     </Link>
                   </li>

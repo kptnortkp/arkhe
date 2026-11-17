@@ -51,6 +51,7 @@ export const festivalSchema = z
     startsOn: optionalDay,
     endsOn: optionalDay,
     dateNote: optionalLine(80),
+    opensOn: optionalDay,
     deadlineOn: optionalDay,
     deadlineNote: optionalLine(160),
     fee: optionalLine(160),
@@ -67,6 +68,13 @@ export const festivalSchema = z
         code: "custom",
         path: ["endsOn"],
         message: "Bitiş, başlangıçtan önce olamaz.",
+      });
+    }
+    if (d.opensOn && d.deadlineOn && d.opensOn > d.deadlineOn) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["opensOn"],
+        message: "Açılış günü, son başvuru gününden sonra olamaz.",
       });
     }
   })

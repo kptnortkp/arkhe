@@ -322,6 +322,20 @@ export async function getCalendar(month: string, filter: CalendarFilter) {
         });
       }
     }
+    if (f.opensOn && f.opensOn >= first && f.opensOn <= last) {
+      items.push({
+        key: `fo-${f.id}`,
+        day: f.opensOn,
+        tone: "opening",
+        title: `Başvuru açılıyor: ${f.name}`,
+        href,
+        start: null,
+        end: null,
+        location: null,
+        label: "Başvuru",
+        struck: false,
+      });
+    }
     if (f.deadlineOn && f.deadlineOn >= first && f.deadlineOn <= last) {
       items.push({
         key: `fd-${f.id}`,

@@ -117,4 +117,4 @@ export function parseFilter(raw: unknown): CalendarFilter {
 
 /** What an entry looks like on the grid and in the lists; `tone` picks its colour. */
 export type CalendarTone =
-  "rehearsal" | CalendarKind | "ticket" | "festival" | "deadline" | "special";
+  "rehearsal" | CalendarKind | "ticket" | "festival" | "opening" | "deadline" | "special";

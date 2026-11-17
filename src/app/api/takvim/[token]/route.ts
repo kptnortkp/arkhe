@@ -42,6 +42,17 @@ export async function GET(request: Request, { params }: RouteContext<"/api/takvi
         allDay: { first: f.startsOn, last: f.endsOn ?? f.startsOn },
       });
     }
+    if (f.opensOn) {
+      out.push({
+        id: `festival-opens-${f.id}`,
+        title: `Başvuru açılıyor · ${f.name}`,
+        location: null,
+        description: [f.deadlineNote, f.url].filter(Boolean).join("\n"),
+        cancelled: false,
+        path,
+        allDay: { first: f.opensOn, last: f.opensOn },
+      });
+    }
     if (f.deadlineOn) {
       out.push({
         id: `festival-deadline-${f.id}`,

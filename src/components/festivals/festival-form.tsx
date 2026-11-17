@@ -31,6 +31,7 @@ export type FestivalDefaults = {
   startsOn: string;
   endsOn: string;
   dateNote: string;
+  opensOn: string;
   deadlineOn: string;
   deadlineNote: string;
   fee: string;
@@ -151,16 +152,20 @@ export function FestivalForm({
 
       <fieldset className="space-y-3">
         <legend className="text-sm font-medium">Başvuru</legend>
-        <div className="sm:max-w-56">{date("deadlineOn", "Son başvuru günü")}</div>
+        <div className="grid grid-cols-2 gap-3 sm:max-w-md">
+          {date("opensOn", "Açılış günü")}
+          {date("deadlineOn", "Son başvuru günü")}
+        </div>
         {text(
           "deadlineNote",
           "Başvuru notu",
           "Örneğin “Erken kayıt 31 Aralık; son 15 Nisan” ya da “Henüz açıklanmadı”.",
         )}
         <p className="text-xs text-muted-foreground">
-          Durum “Takipte” iken (henüz başvurmadıysak) şef ve YK&apos;ya son günden 14, 7, 3 ve 1 gün
-          önce ve son gün bildirim gider. Başvurduk ya da Katılıyoruz seçilince bunlar durur; bunun
-          yerine festivalden 30, 7 ve 1 gün önce “Festival yaklaşıyor” bildirimi gelir.
+          Durum “Takipte” iken (henüz başvurmadıysak) şef ve YK&apos;ya açılış günü ve son günden
+          14, 7, 3 ve 1 gün önce ve son gün bildirim gider. Yalnızca açılış belliyse son günü boş
+          bırak. Başvurduk ya da Katılıyoruz seçilince bunlar durur; bunun yerine festivalden 30, 7
+          ve 1 gün önce “Festival yaklaşıyor” bildirimi gelir.
         </p>
       </fieldset>
 

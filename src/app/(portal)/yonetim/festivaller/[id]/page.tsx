@@ -27,6 +27,7 @@ export default async function FestivalPage({ params }: PageProps<"/yonetim/festi
           startsOn: f.startsOn ?? "",
           endsOn: f.endsOn ?? "",
           dateNote: f.dateNote ?? "",
+          opensOn: f.opensOn ?? "",
           deadlineOn: f.deadlineOn ?? "",
           deadlineNote: f.deadlineNote ?? "",
           fee: f.fee ?? "",
