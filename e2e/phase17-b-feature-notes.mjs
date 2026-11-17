@@ -26,6 +26,11 @@ const health = (cookie) =>
   fetch(`${BASE}/api/saglik`, { headers: cookie ? { Cookie: cookie } : {} }).then((r) => r.status);
 
 export default async function run(browser) {
+  // The announcements CHECKs count characters; a note past them is silently never published.
+  const tooLong = FEATURE_NOTES.filter(
+    (n) => [...n.title].length < 3 || [...n.title].length > 80 || [...n.body.trim()].length > 1000,
+  ).map((n) => n.key);
+  check(tooLong.length === 0, `every note fits the announcement limits (${tooLong.join(", ")})`);
   await resetPush();
   await forget();
   const note = FEATURE_NOTES.find((n) => n.audience === "board");

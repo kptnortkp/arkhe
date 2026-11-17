@@ -4,7 +4,11 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { announcementParts, announcements, users } from "@/db/schema";
 import { writeTx } from "@/db/write-tx";
-import { FEATURE_NOTE_MAX_AGE_DAYS, FEATURE_NOTES } from "@/lib/announcements/feature-notes";
+import {
+  FEATURE_NOTE_MAX_AGE_DAYS,
+  FEATURE_NOTES,
+  type FeatureNote,
+} from "@/lib/announcements/feature-notes";
 import { SHOW_DAYS_DEFAULT } from "@/lib/announcements/labels";
 import { addDays, istanbulDateOf } from "@/lib/time";
 import { announcementSent } from "./announcements";
@@ -36,48 +40,57 @@ export async function publishFeatureNotes({ anyAge = false }: { anyAge?: boolean
     if (!sender) return;
     const showUntil = addDays(today, SHOW_DAYS_DEFAULT);
     for (const note of due) {
-      const id = featureNoteId(note.key);
-      const parts = note.audience === "parts" ? (note.parts ?? []) : [];
-      const created = await writeTx(async (tx) => {
-        const rows = await tx
-          .insert(announcements)
-          .values({
-            id,
-            title: note.title,
-            body: note.body,
-            audience: note.audience,
-            important: false,
-            createdBy: sender.id,
-            showUntil,
-          })
-          .onConflictDoNothing()
-          .returning({ id: announcements.id });
-        if (rows.length === 0) return false;
-        if (parts.length) {
-          await tx
-            .insert(announcementParts)
-            .values(parts.map((voicePart) => ({ announcementId: id, voicePart })));
-        }
-        return true;
-      });
-      if (!created) continue;
-      await announcementSent(
-        {
-          id,
-          title: note.title,
-          body: note.body,
-          audience: note.audience,
-          parts,
-          important: false,
-          showUntil,
-        },
-        sender.id,
-        undefined,
-        { includeActor: true },
-      );
-      console.log("feature note published", { key: note.key, audience: note.audience });
+      // One bad note must not hold back the ones after it.
+      try {
+        await publishOne(note, sender.id, showUntil);
+      } catch (e) {
+        console.error("feature note failed", { key: note.key, name: (e as Error)?.name });
+      }
     }
   } catch (e) {
     console.error("feature notes failed", { name: (e as Error)?.name });
   }
+}
+
+async function publishOne(note: FeatureNote, senderId: string, showUntil: string) {
+  const id = featureNoteId(note.key);
+  const parts = note.audience === "parts" ? (note.parts ?? []) : [];
+  const created = await writeTx(async (tx) => {
+    const rows = await tx
+      .insert(announcements)
+      .values({
+        id,
+        title: note.title,
+        body: note.body,
+        audience: note.audience,
+        important: false,
+        createdBy: senderId,
+        showUntil,
+      })
+      .onConflictDoNothing()
+      .returning({ id: announcements.id });
+    if (rows.length === 0) return false;
+    if (parts.length) {
+      await tx
+        .insert(announcementParts)
+        .values(parts.map((voicePart) => ({ announcementId: id, voicePart })));
+    }
+    return true;
+  });
+  if (!created) return;
+  await announcementSent(
+    {
+      id,
+      title: note.title,
+      body: note.body,
+      audience: note.audience,
+      parts,
+      important: false,
+      showUntil,
+    },
+    senderId,
+    undefined,
+    { includeActor: true },
+  );
+  console.log("feature note published", { key: note.key, audience: note.audience });
 }
